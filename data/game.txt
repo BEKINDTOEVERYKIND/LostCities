@@ -1,0 +1,75 @@
+Lost Cities -- self-play, both seats rollout:data/best.bin:128:4, deal seed 20260727
+
+Player 1 hand:  Yx  Yx  Bx  G10 Rx  Rx  R3  R8  
+Player 2 hand:  Y4  B2  B4  B10 Wx  W2  W4  Gx  
+
+  #  who  action            draw
+  ---------------------------------------
+   1  P1   play    Rx    deck (R2)
+   2  P2   play    Wx    deck (R4)
+   3  P1   play    Rx    deck (G3)
+   4  P2   discard Gx    deck (B3)
+   5  P1   play    R2    deck (Wx)
+   6  P2   play    R4    deck (Rx)
+   7  P1   play    R3    deck (G4)
+   8  P2   discard Rx    deck (B7)
+   9  P1   discard Wx    deck (Gx)
+  10  P2   play    B2    deck (Y8)
+  11  P1   play    Gx    deck (Y9)
+  12  P2   play    B3    deck (B5)
+  13  P1   discard Bx    deck (B6)
+  14  P2   play    B4    deck (Y2)
+  15  P1   play    B6    deck (W5)
+  16  P2   play    B5    deck (R9)
+  17  P1   discard Yx    deck (W10)
+  18  P2   play    B7    deck (W6)
+  19  P1   discard Yx    deck (Wx)
+  20  P2   play    B10   deck (Yx)
+  21  P1   play    Wx    deck (R7)
+  22  P2   play    Yx    deck (G5)
+  23  P1   play    R7    deck (W8)
+  24  P2   play    W2    deck (W9)
+  25  P1   play    R8    deck (Bx)
+  26  P2   play    W4    Yellow (Yx)
+  27  P1   play    G3    deck (G9)
+  28  P2   play    Yx    Yellow (Yx)
+  29  P1   play    G4    deck (Y5)
+  30  P2   play    Yx    deck (Bx)
+  31  P1   play    W5    deck (Y10)
+  32  P2   play    Y2    deck (R6)
+  33  P1   play    W8    deck (Y6)
+  34  P2   play    W6    deck (G8)
+  35  P1   play    Y6    deck (R10)
+  36  P2   play    Y4    deck (Y3)
+  37  P1   play    Y9    deck (W3)
+  38  P2   play    R6    deck (Y7)
+  39  P1   play    Y10   deck (Gx)
+  40  P2   play    Y7    deck (B9)
+  41  P1   play    R10   deck (G7)
+  42  P2   play    Y8    deck (G6)
+  43  P1   play    G7    White (Wx)
+  44  P2   play    W9    deck (R5)
+  45  P1   play    G9    Blue (Bx)
+  46  P2   play    R9    deck (G2)
+  47  P1   play    W10   Red (Rx)
+  48  P2   discard G2    deck (W7)
+  49  P1   play    G10   deck (B8)
+
+final expeditions
+  Player 1
+    Yellow  Y6 Y9 Y10                    (25-20) x 1 = +5
+    Blue    B6                           (6-20) x 1 = -14
+    White   Wx W5 W8 W10                 (23-20) x 2 = +6
+    Green   Gx G3 G4 G7 G9 G10           (33-20) x 2 = +26
+    Red     Rx Rx R2 R3 R7 R8 R10        (30-20) x 3 = +30
+    total +53
+  Player 2
+    Yellow  Yx Yx Yx Y2 Y4 Y7 Y8         (21-20) x 4 = +4
+    Blue    B2 B3 B4 B5 B7 B10           (31-20) x 1 = +11
+    White   Wx W2 W4 W6 W9               (21-20) x 2 = +2
+    Green   -
+    Red     R4 R6 R9                     (19-20) x 1 = -1
+    total +16
+
+final score: Player 1 +53, Player 2 +16 -- Player 1 wins by 37
+(49 plies; transcript re-scored from the cards above and matches the engine)

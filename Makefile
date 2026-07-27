@@ -8,7 +8,7 @@ SRC     := src
 CORE    := $(SRC)/lc.c $(SRC)/features.c $(SRC)/net.c $(SRC)/heuristic.c \
            $(SRC)/search.c $(SRC)/rollout.c $(SRC)/agent.c $(SRC)/match.c $(SRC)/spec.c
 
-all: $(BIN)/test_engine $(BIN)/arena $(BIN)/train $(BIN)/bench $(BIN)/probe $(BIN)/rl $(BIN)/ladder $(BIN)/play
+all: $(BIN)/test_engine $(BIN)/arena $(BIN)/train $(BIN)/bench $(BIN)/probe $(BIN)/rl $(BIN)/ladder $(BIN)/play $(BIN)/showgame
 
 $(BIN):
 	mkdir -p $(BIN)
@@ -43,4 +43,7 @@ $(BIN)/ladder: tools/ladder.c $(CORE) | $(BIN)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 $(BIN)/play: tools/play.c $(CORE) | $(BIN)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+$(BIN)/showgame: tools/showgame.c $(CORE) | $(BIN)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
