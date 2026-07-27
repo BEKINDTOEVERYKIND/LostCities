@@ -1,0 +1,13 @@
+network 432-192-64-1, 95553 weights
+iter 1: 3000 games in 3.2s (938.6 g/s), 697286 samples, buffer 697286, first-player margin -1.17, |margin| 53.3, plies 116.2
+        trained 6000 steps in 6.3s, mse 0.5596 (37.4 pts rms)
+        vs heur: margin -149.40 +- 2.50, score 0.3%
+iter 2: 3000 games in 37.2s (80.7 g/s), 780000 samples, buffer 800000, first-player margin +3.91, |margin| 60.9, plies 143.4
+        trained 6000 steps in 6.1s, mse 0.5041 (35.5 pts rms)
+        vs heur: margin -117.70 +- 2.07, score 0.8%
+iter 3: 3000 games in 39.6s (75.7 g/s), 780000 samples, buffer 800000, first-player margin +0.34, |margin| 27.4, plies 210.8
+        trained 6000 steps in 6.5s, mse 0.0953 (15.4 pts rms)
+        vs heur: margin -107.28 +- 2.20, score 1.7%
+iter 4: 3000 games in 29.2s (102.9 g/s), 780000 samples, buffer 800000, first-player margin +1.60, |margin| 27.9, plies 146.2
+        trained 6000 steps in 6.4s, mse 0.1021 (16.0 pts rms)
+        vs heur: margin -106.94 +- 2.35, score 0.8%

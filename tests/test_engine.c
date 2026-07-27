@@ -1,0 +1,203 @@
+/* Engine invariant and rule tests. */
+#include "../src/lc.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+static int failures = 0;
+#define CHECK(cond, ...) do { if (!(cond)) { \
+    printf("FAIL %s:%d: ", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n"); failures++; } } while (0)
+
+static void test_cards(void)
+{
+    int nwager = 0, nnum = 0, sum = 0;
+    int seen[NCARD]; memset(seen, 0, sizeof seen);
+    for (int c = 0; c < NCARD; c++) {
+        CHECK(CARD_SUIT(c) >= 0 && CARD_SUIT(c) < NSUIT, "suit range");
+        if (CARD_IS_WAGER(c)) { nwager++; CHECK(CARD_VALUE(c) == 0, "wager value"); }
+        else { nnum++; sum += CARD_VALUE(c);
+               CHECK(CARD_VALUE(c) >= 2 && CARD_VALUE(c) <= 10, "card value %d", CARD_VALUE(c)); }
+        seen[c] = 1;
+    }
+    CHECK(nwager == 15, "15 wagers, got %d", nwager);
+    CHECK(nnum == 45, "45 number cards, got %d", nnum);
+    CHECK(sum == 5 * 54, "value sum %d", sum);
+    /* every (suit,value) appears exactly once */
+    for (int s = 0; s < NSUIT; s++)
+        for (int v = 2; v <= 10; v++) {
+            int cnt = 0;
+            for (int c = 0; c < NCARD; c++)
+                if (CARD_SUIT(c) == s && !CARD_IS_WAGER(c) && CARD_VALUE(c) == v) cnt++;
+            CHECK(cnt == 1, "suit %d value %d count %d", s, v, cnt);
+        }
+}
+
+static void test_scoring(void)
+{
+    State st; memset(&st, 0, sizeof st);
+    /* empty expedition scores 0 */
+    CHECK(lc_score(&st, 0) == 0, "empty score");
+
+    /* single 2 -> 2-20 = -18 */
+    st.exp_n[0][0] = 1; st.exp_sum[0][0] = 2;
+    CHECK(lc_exp_score(&st, 0, 0) == -18, "single 2 => %d", lc_exp_score(&st, 0, 0));
+
+    /* one wager and a 10 -> (10-20)*2 = -20 */
+    memset(&st, 0, sizeof st);
+    st.exp_n[0][1] = 2; st.exp_sum[0][1] = 10; st.exp_wager[0][1] = 1;
+    CHECK(lc_exp_score(&st, 0, 1) == -20, "wager+10 => %d", lc_exp_score(&st, 0, 1));
+
+    /* full suit: 3 wagers + 2..10 = 12 cards, sum 54 -> (54-20)*4 + 20 = 156 */
+    memset(&st, 0, sizeof st);
+    st.exp_n[0][2] = 12; st.exp_sum[0][2] = 54; st.exp_wager[0][2] = 3;
+    CHECK(lc_exp_score(&st, 0, 2) == 156, "max expedition => %d", lc_exp_score(&st, 0, 2));
+
+    /* 8 card bonus boundary */
+    memset(&st, 0, sizeof st);
+    st.exp_n[0][3] = 8; st.exp_sum[0][3] = 20;
+    CHECK(lc_exp_score(&st, 0, 3) == 20, "8 cards sum 20 => %d", lc_exp_score(&st, 0, 3));
+    st.exp_n[0][3] = 7;
+    CHECK(lc_exp_score(&st, 0, 3) == 0, "7 cards sum 20 => %d", lc_exp_score(&st, 0, 3));
+}
+
+static void check_state(const State *st, int line)
+{
+    uint64_t all = 0;
+    int overlap = 0;
+    uint64_t parts[5] = { st->hand[0], st->hand[1], st->played[0], st->played[1], st->discarded };
+    for (int i = 0; i < 5; i++) {
+        if (all & parts[i]) overlap = 1;
+        all |= parts[i];
+    }
+    for (int i = st->deck_pos; i < NCARD; i++) {
+        uint64_t b = 1ULL << st->deck[i];
+        if (all & b) overlap = 1;
+        all |= b;
+    }
+    if (overlap) { printf("FAIL line %d: card in two places\n", line); failures++; }
+    if (all != ((1ULL << NCARD) - 1)) { printf("FAIL line %d: cards lost (mask %llx)\n", line, (unsigned long long)all); failures++; }
+    if (__builtin_popcountll(st->hand[0]) != st->hand_n[0] ||
+        __builtin_popcountll(st->hand[1]) != st->hand_n[1]) { printf("FAIL line %d: hand count\n", line); failures++; }
+    if (st->deck_left != NCARD - st->deck_pos) { printf("FAIL line %d: deck_left\n", line); failures++; }
+
+    int pilecards = 0;
+    for (int s = 0; s < NSUIT; s++) pilecards += st->pile_n[s];
+    if (pilecards != __builtin_popcountll(st->discarded)) { printf("FAIL line %d: pile bookkeeping\n", line); failures++; }
+
+    for (int p = 0; p < 2; p++) {
+        for (int s = 0; s < NSUIT; s++) {
+            int n = 0, w = 0, sum = 0, top = 0;
+            for (int c = s * NRANK; c < (s + 1) * NRANK; c++) {
+                if ((st->played[p] >> c) & 1ULL) {
+                    n++;
+                    if (CARD_IS_WAGER(c)) w++;
+                    else { sum += CARD_VALUE(c); if (CARD_VALUE(c) > top) top = CARD_VALUE(c); }
+                }
+            }
+            if (n != st->exp_n[p][s] || w != st->exp_wager[p][s] ||
+                sum != st->exp_sum[p][s] || top != st->exp_top[p][s]) {
+                printf("FAIL line %d: expedition cache p%d suit%d\n", line, p, s); failures++;
+            }
+        }
+    }
+}
+
+static void test_playouts(void)
+{
+    Rng rng; rng_seed(&rng, 12345);
+    int total_plies = 0, games = 2000;
+    long long score_sum = 0;
+    int min_ply = 1000, max_ply = 0;
+    for (int g = 0; g < games; g++) {
+        State st;
+        lc_deal(&st, &rng);
+        check_state(&st, __LINE__);
+        CHECK(st.hand_n[0] == 8 && st.hand_n[1] == 8, "deal hand sizes");
+        CHECK(st.deck_left == 44, "deck left after deal %d", st.deck_left);
+        Move mv[MAX_MOVES];
+        while (!st.over) {
+            int n = lc_moves(&st, mv);
+            CHECK(n > 0, "no legal moves at ply %d", st.nply);
+            if (n == 0) break;
+            /* verify legality of a sample of moves */
+            for (int i = 0; i < n; i++) {
+                Move m = mv[i];
+                CHECK((st.hand[st.turn] >> m.card) & 1ULL, "move uses card not in hand");
+                if (!m.discard) {
+                    int suit = CARD_SUIT(m.card);
+                    if (CARD_IS_WAGER(m.card)) CHECK(st.exp_top[st.turn][suit] == 0, "late wager offered");
+                    else CHECK(CARD_VALUE(m.card) > st.exp_top[st.turn][suit], "descending play offered");
+                }
+                if (m.draw > 0) CHECK(st.pile_n[m.draw - 1] > 0, "draw from empty pile");
+                else CHECK(st.deck_left > 0, "draw from empty deck");
+                if (m.discard && m.draw == CARD_SUIT(m.card) + 1) CHECK(0, "take back just discarded card");
+            }
+            int prev_turn = st.turn;
+            lc_apply(&st, mv[rng_below(&rng, (uint32_t)n)]);
+            CHECK(st.turn != prev_turn, "turn must alternate");
+            CHECK(st.hand_n[prev_turn] == 8, "hand size restored");
+            check_state(&st, __LINE__);
+        }
+        CHECK(st.deck_left == 0, "game ended with cards left");
+        total_plies += st.nply;
+        if (st.nply < min_ply) min_ply = st.nply;
+        if (st.nply > max_ply) max_ply = st.nply;
+        score_sum += lc_score(&st, 0) + lc_score(&st, 1);
+    }
+    printf("playouts: %d games, avg plies %.1f (min %d max %d), avg total score %.1f\n",
+           games, (double)total_plies / games, min_ply, max_ply, (double)score_sum / games);
+}
+
+/* Scripted game verifying the discard/draw restriction and turn order. */
+static void test_rules_detail(void)
+{
+    uint8_t deck[NCARD];
+    for (int i = 0; i < NCARD; i++) deck[i] = (uint8_t)i;
+    State st;
+    lc_deal_from_deck(&st, deck);
+    /* player 0 holds cards 0..7 (suit 0: 3 wagers + 2,3,4,5,6) */
+    CHECK(st.hand[0] == 0xFFULL, "p0 hand");
+    CHECK(st.hand[1] == 0xFF00ULL, "p1 hand");
+
+    Move mv[MAX_MOVES];
+    int n = lc_moves(&st, mv);
+    /* all 8 cards playable (wagers with empty expedition, numbers ascending),
+     * only draw source is the deck since all piles are empty */
+    CHECK(n == 8 + 8, "expected 16 opening moves, got %d", n);
+
+    /* discard a suit-0 card, then the suit-0 pile must not be drawable */
+    Move d = { 3, 1, 0 }; /* discard card 3 = suit0 value2, draw deck */
+    lc_apply(&st, d);
+    CHECK(st.pile_n[0] == 1, "pile after discard");
+    st.turn = 0; /* hack the turn back to inspect p0's options with a live pile */
+    n = lc_moves(&st, mv);
+    int saw_pile0 = 0;
+    for (int i = 0; i < n; i++) if (mv[i].draw == 1) saw_pile0 = 1;
+    CHECK(saw_pile0, "pile 0 drawable on a later turn");
+
+    /* the just-discarded restriction: build a fresh state */
+    lc_deal_from_deck(&st, deck);
+    Move d2 = { 3, 1, 0 };
+    lc_apply(&st, d2);
+    /* p1 discards a suit-0 card too and must not take it back */
+    uint8_t c1 = 0; /* find a suit-0 card in p1's hand */
+    int found = 0;
+    for (int c = 0; c < NCARD; c++)
+        if (((st.hand[1] >> c) & 1ULL) && CARD_SUIT(c) == 0) { c1 = (uint8_t)c; found = 1; break; }
+    if (found) {
+        n = lc_moves(&st, mv);
+        for (int i = 0; i < n; i++)
+            CHECK(!(mv[i].card == c1 && mv[i].discard && mv[i].draw == 1),
+                  "p1 offered to take back its own discard");
+    }
+}
+
+int main(void)
+{
+    test_cards();
+    test_scoring();
+    test_rules_detail();
+    test_playouts();
+    if (failures == 0) { printf("all engine tests passed\n"); return 0; }
+    printf("%d failures\n", failures);
+    return 1;
+}
