@@ -50,6 +50,7 @@ typedef struct {
     float lambda;
     float temp;
     float winbonus;     /* terminal reward for winning the match, in points */
+    float mw;           /* weight of the margin term in the return          */
     int rounds;
 } GenJob;
 
@@ -120,10 +121,12 @@ static void *gen_worker(void *arg)
             }
 
         for (int p = 0; p < 2; p++) {
-            /* terminal return: the match margin, plus a bonus for actually
-             * winning the match -- this is what makes the policy risk-seeking
-             * when behind late and conservative when ahead */
-            float G = (float)(score[p] - score[p ^ 1]);
+            /* terminal return: mw * match margin + winbonus * result.
+             * Early training runs with mw = 1 so the dense margin signal
+             * teaches point play; the finishing phase drops mw to ~0.05 so
+             * winning is nearly all that matters -- a 5% chance to steal the
+             * match beats a certain narrow loss, exactly as it should. */
+            float G = (float)(score[p] - score[p ^ 1]) * j->mw;
             if (score[p] > score[p ^ 1]) G += j->winbonus;
             else if (score[p] < score[p ^ 1]) G -= j->winbonus;
             for (int t = T - 1; t >= 0; t--) {
@@ -288,7 +291,7 @@ int main(int argc, char **argv)
     int eval_pairs = 400, eval_every = 1;
     float lr = 3e-4f, wd = 1e-7f, lambda = 0.85f, clip = 0.2f;
     float vcoef = 1.0f, entcoef = 0.004f, temp = 1.0f;
-    float winbonus = 15.0f, bw = 1.0f;
+    float winbonus = 15.0f, bw = 1.0f, mw = 1.0f;
     int rounds = MATCH_ROUNDS;
     uint64_t seed = 7;
 
@@ -311,6 +314,7 @@ int main(int argc, char **argv)
         else if (ARG("--temp")) temp = (float)atof(argv[++i]);
         else if (ARG("--winbonus")) winbonus = (float)atof(argv[++i]);
         else if (ARG("--bw")) bw = (float)atof(argv[++i]);
+        else if (ARG("--mw")) mw = (float)atof(argv[++i]);
         else if (ARG("--rounds")) rounds = atoi(argv[++i]);
         else if (ARG("--wd")) wd = (float)atof(argv[++i]);
         else if (ARG("--eval")) eval_pairs = atoi(argv[++i]);
@@ -338,8 +342,8 @@ int main(int argc, char **argv)
     int *order = (int *)malloc(sizeof(int) * cap);
 
     printf("ppo: %d iters x %d matches of %d round(s), batch %d, %d epochs, lr %.1e, "
-           "lambda %.2f, ent %.4f, winbonus %.0f\n",
-           iters, games, rounds, batch, epochs, lr, lambda, entcoef, winbonus);
+           "lambda %.2f, ent %.4f, winbonus %.0f, margin weight %.2f\n",
+           iters, games, rounds, batch, epochs, lr, lambda, entcoef, winbonus, mw);
     fflush(stdout);
 
     for (int it = 1; it <= iters; it++) {
@@ -360,6 +364,7 @@ int main(int argc, char **argv)
             jobs[i].lambda = lambda;
             jobs[i].temp = temp;
             jobs[i].winbonus = winbonus;
+            jobs[i].mw = mw;
             jobs[i].rounds = rounds;
         }
         for (int i = 0; i < nthread; i++) pthread_create(&th[i], NULL, gen_worker, &jobs[i]);

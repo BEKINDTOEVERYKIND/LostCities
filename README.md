@@ -68,10 +68,12 @@ implicitly: the policy/value heads share the trunk with the belief head and
 see all the same signals.
 
 **Match play, not just round play.** The network's inputs include the round
-number and the cumulative score difference, and PPO's terminal reward is the
-match margin *plus a win bonus*, so being 40 up in round three genuinely
-changes what the policy should (and does) optimise: protect the win rather
-than maximise expectation, and gamble when behind.
+number and the cumulative score difference. Training is staged: early PPO
+rewards `margin + win bonus` (the dense margin signal teaches point play),
+and the finishing phase switches to `0.05 x margin + 50 x match result`
+(--mw / --winbonus in tools/rl.c) so that winning is nearly all that matters.
+Being 40 up in round three genuinely changes what the policy optimises:
+protect the win rather than maximise expectation, and gamble when behind.
 
 **Stalling.** Drawing a useless card from a pile to deny the opponent a turn
 of deck progress is in the action space, and nothing hand-crafted decides it:
@@ -107,10 +109,19 @@ wins with draws counting half.
 
 | comparison | margin/match | match wins |
 | --- | ---: | ---: |
-| final policy vs imitation start | **+204.8 ± 4.0** | **96.6%** (400 pairs) |
-| final policy vs heuristic | **+159.8 ± 4.1** | **95.5%** (300 pairs) |
-| rollout search vs raw policy | **+26.5 ± 4.8** | **63.3%** (60 pairs) |
+| win-trained policy vs margin-trained champion | +22.2 ± 2.7 | **63.6%** (500 pairs) |
+| win-trained policy vs heuristic | **+144.9 ± 3.9** | **94.3%** (300 pairs) |
+| margin-trained champion vs imitation start | +204.8 ± 4.0 | 96.6% (400 pairs) |
+| rollout search vs raw policy (margin-trained) | +26.5 ± 4.8 | 63.3% (60 pairs) |
 | belief-sampled vs uniform worlds | −3.7 ± 5.4 | 45.8% (60 pairs) |
+
+The shipped model is the *win-trained* one. Training ends with a phase whose
+return is `0.05 x margin + 50 x match result`, so winning dominates: a 5%
+chance to steal the match outranks a certain narrow loss even at a terrible
+expected margin, exactly as competitive play demands. That phase converted
+margin into wins -- against the heuristic it gives back ~15 points of margin
+relative to the margin-trained champion while winning matches it previously
+lost, and it beats that champion head-to-head 63.6% of the time.
 
 The training trajectory (evaluated vs the frozen imitation start every 3
 iterations): the PPO run climbs from parity to a peak of ~+205/match around
@@ -144,6 +155,12 @@ cards really are in the opponent's hand.
 # 2. PPO over full matches with belief learning (~2 h on 4 cores)
 ./bin/rl --init data/m0.bin --ref policy:data/m0.bin --rounds 3 --winbonus 15 \
          --iters 130 --games 900 --epochs 1 --lr 2.5e-4 --ent 0.003 --out data/m1.bin
+
+# 3. finishing phase: win-dominated reward (~40 min)
+./bin/rl --init <peak of step 2> --ref policy:<same> --rounds 3 \
+         --winbonus 50 --mw 0.05 --iters 80 --games 900 --epochs 1 \
+         --lr 1.5e-4 --ent 0.002 --lambda 0.9 --out data/w1.bin
+# then select the checkpoint by MATCH WIN RATE over a 500-pair validation
 ```
 
 ## Playing, analysing, measuring
@@ -182,3 +199,9 @@ played twice with the seats swapped, so deal luck cancels.
 * Training is pure self-play after the imitation start; margins over
   qualitatively different opponents argue against self-overfitting, but a
   genuinely alien style could still find something.
+* Measured blunder rates (tools/blunders.py, 40 self-play matches): the agent
+  rarely gifts the opponent a usable discard (2.5/match vs the heuristic's
+  17.9) but still opens an occasional expedition it cannot fund
+  (1.5/match, unchanged by search or by win-focused training -- these plays
+  cluster in already-decided endgames where they cost almost no win
+  probability, which is precisely why no training signal removes them).
