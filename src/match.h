@@ -12,6 +12,11 @@ typedef struct {
     double wins, losses, draws;
 } MatchResult;
 
+/* rounds = 1 gives single-deal games; rounds = MATCH_ROUNDS gives the full
+ * competitive format, cumulative totals, alternating first player, margins
+ * and winrate reported per match. */
+void match_run_r(const Agent *a, const Agent *b, int pairs, int nthread,
+                 uint64_t seed, int rounds, MatchResult *out);
 void match_run(const Agent *a, const Agent *b, int pairs, int nthread,
                uint64_t seed, MatchResult *out);
 

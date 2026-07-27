@@ -16,7 +16,7 @@
 int main(int argc, char **argv)
 {
     const char *spec0 = "heur", *spec1 = "random";
-    int pairs = 500, nthread = 4;
+    int pairs = 500, nthread = 4, rounds = 1;
     uint64_t seed = 20260727;
     int quiet = 0;
 
@@ -26,9 +26,10 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "-n") && i + 1 < argc) pairs = atoi(argv[++i]);
         else if (!strcmp(argv[i], "-t") && i + 1 < argc) nthread = atoi(argv[++i]);
         else if (!strcmp(argv[i], "-s") && i + 1 < argc) seed = strtoull(argv[++i], NULL, 10);
+        else if (!strcmp(argv[i], "-r") && i + 1 < argc) rounds = atoi(argv[++i]);
         else if (!strcmp(argv[i], "-q")) quiet = 1;
         else {
-            fprintf(stderr, "usage: %s -a SPEC -b SPEC [-n pairs] [-t threads] [-s seed] [-q]\n"
+            fprintf(stderr, "usage: %s -a SPEC -b SPEC [-n pairs] [-t threads] [-s seed] [-r rounds] [-q]\n"
                             "  SPEC = random | heur | net:PATH[:samples] | mcts:PATH[:dets[:sims[:rw[:nw]]]]\n",
                     argv[0]);
             return 1;
@@ -41,14 +42,15 @@ int main(int argc, char **argv)
     MatchResult r;
     struct timespec t0, t1;
     clock_gettime(CLOCK_MONOTONIC, &t0);
-    match_run(&a, &b, pairs, nthread, seed, &r);
+    match_run_r(&a, &b, pairs, nthread, seed, rounds, &r);
     clock_gettime(CLOCK_MONOTONIC, &t1);
     double secs = (t1.tv_sec - t0.tv_sec) + 1e-9 * (t1.tv_nsec - t0.tv_nsec);
 
     if (quiet) {
         printf("%.3f %.3f %.4f %.4f\n", r.margin, r.margin_se, r.winrate, r.winrate_se);
     } else {
-        printf("%s  vs  %s\n", a.name ? a.name : spec0, b.name ? b.name : spec1);
+        printf("%s  vs  %s%s\n", a.name ? a.name : spec0, b.name ? b.name : spec1,
+               rounds > 1 ? "  (3-round matches)" : "");
         printf("  %d games (%d paired deals) in %.1fs (%.1f games/s)\n",
                r.games, r.pairs, secs, r.games / secs);
         printf("  margin/game %+.2f +- %.2f\n", r.margin, r.margin_se);

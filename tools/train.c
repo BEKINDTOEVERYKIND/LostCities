@@ -58,7 +58,7 @@ static void replay_push(Replay *r, const Sample *s)
 
 typedef struct {
     Agent agent;
-    int games;
+    int games;           /* matches per thread quota */
     uint64_t seed;
     int thread, nthread;
     Sample *out;
@@ -67,7 +67,9 @@ typedef struct {
     int done;
     float lambda;
     float tau;           /* softmax temperature for value-based experts */
+    float winbonus;      /* terminal bonus for winning the match, points */
     int sample_plies;    /* sample from the target policy below this ply */
+    int rounds;
     const Net *net;
 } GenJob;
 
@@ -93,12 +95,13 @@ static void topk(const Move *mv, const float *pr, int n, uint16_t *omv, float *o
     *on = (uint8_t)k;
 }
 
-static _Thread_local State chain[LC_MAX_PLIES + 2];
-static _Thread_local uint16_t chain_pmv[LC_MAX_PLIES + 2][PI_K];
-static _Thread_local float chain_ppr[LC_MAX_PLIES + 2][PI_K];
-static _Thread_local uint8_t chain_npi[LC_MAX_PLIES + 2];
-static _Thread_local float chain_sval[LC_MAX_PLIES + 2];
-static _Thread_local uint8_t chain_hasv[LC_MAX_PLIES + 2];
+#define CHAIN_MAX (MATCH_ROUNDS * LC_MAX_PLIES + 4)
+static _Thread_local State chain[CHAIN_MAX];
+static _Thread_local uint16_t chain_pmv[CHAIN_MAX][PI_K];
+static _Thread_local float chain_ppr[CHAIN_MAX][PI_K];
+static _Thread_local uint8_t chain_npi[CHAIN_MAX];
+static _Thread_local float chain_sval[CHAIN_MAX];
+static _Thread_local uint8_t chain_hasv[CHAIN_MAX];
 
 static void *gen_worker(void *arg)
 {
@@ -107,10 +110,17 @@ static void *gen_worker(void *arg)
     Features f;
 
     for (int g = j->thread; g < j->games; g += j->nthread) {
+        int T = 0;
+        int cum[2] = { 0, 0 };
+        for (int rd = 0; rd < j->rounds; rd++) {
         State st;
         lc_deal(&st, &rng);
-        int T = 0;
-        while (!st.over && T < LC_MAX_PLIES) {
+        st.round = (uint8_t)rd;
+        st.cum[0] = (int16_t)(cum[0] > 320 ? 320 : (cum[0] < -320 ? -320 : cum[0]));
+        st.cum[1] = (int16_t)(cum[1] > 320 ? 320 : (cum[1] < -320 ? -320 : cum[1]));
+        st.turn = (uint8_t)(rd & 1);
+        int Tstop = T + LC_MAX_PLIES;
+        while (!st.over && T < Tstop) {
             chain[T] = st;
             Move mv[MAX_MOVES];
             float pr[MAX_MOVES];
@@ -168,10 +178,16 @@ static void *gen_worker(void *arg)
             T++;
             lc_apply(&st, mv[chosen]);
         }
-        int score[2] = { lc_score(&st, 0), lc_score(&st, 1) };
+        cum[0] += lc_score(&st, 0);
+        cum[1] += lc_score(&st, 1);
+        j->plies += st.nply;
+        }   /* rounds */
+        int score[2] = { cum[0], cum[1] };
 
         for (int p = 0; p < 2; p++) {
             float G = (float)(score[p] - score[p ^ 1]);
+            if (score[p] > score[p ^ 1]) G += j->winbonus;
+            else if (score[p] < score[p ^ 1]) G -= j->winbonus;
             for (int t = T - 1; t >= 0; t--) {
                 if (t < T - 1 && j->lambda < 0.999f) {
                     float vnext;
@@ -200,7 +216,6 @@ static void *gen_worker(void *arg)
         }
         j->sum_margin += score[0] - score[1];
         j->sum_abs += fabs((double)(score[0] - score[1]));
-        j->plies += st.nply;
         j->done++;
     }
     return NULL;
@@ -261,7 +276,7 @@ static void *train_worker(void *arg)
             }
             pn++;
         }
-        net_backward(t->net, &f, &act, 2.0f * e, pk, s->npi > 0 ? dlog : NULL, n, t->grad);
+        net_backward(t->net, &f, &act, 2.0f * e, pk, s->npi > 0 ? dlog : NULL, n, NULL, NULL, 0, t->grad);
     }
     t->vloss = vloss; t->ploss = ploss; t->pn = pn;
     return NULL;
@@ -288,6 +303,8 @@ int main(int argc, char **argv)
     int eval_pairs = 300;
     size_t bufcap = 800000;
     float lr = 1e-3f, wd = 1e-7f, tau = 1.0f, pw = 1.0f, lambda = 0.75f;
+    float winbonus = 15.0f;
+    int rounds = MATCH_ROUNDS;
     int sample_plies = 24;
     uint64_t seed = 1;
     int keep_lr_flat = 0;
@@ -316,6 +333,8 @@ int main(int argc, char **argv)
         else if (ARG("--wd")) wd = (float)atof(argv[++i]);
         else if (ARG("--lambda")) lambda = (float)atof(argv[++i]);
         else if (ARG("--sample-plies")) sample_plies = atoi(argv[++i]);
+        else if (ARG("--winbonus")) winbonus = (float)atof(argv[++i]);
+        else if (ARG("--rounds")) rounds = atoi(argv[++i]);
         else if (ARG("--eval")) eval_pairs = atoi(argv[++i]);
         else if (ARG("--seed")) seed = strtoull(argv[++i], NULL, 10);
         else if (ARG("--gen-switch")) gen_switch = atoi(argv[++i]);
@@ -378,7 +397,7 @@ int main(int argc, char **argv)
     Net **grads = (Net **)calloc((size_t)nthread, sizeof(Net *));
     for (int i = 0; i < nthread; i++) grads[i] = (Net *)malloc(sizeof(Net));
 
-    size_t sample_cap = (size_t)games * 200;
+    size_t sample_cap = (size_t)games * 200 * (size_t)rounds;
     Sample *genbuf = (Sample *)malloc(sizeof(Sample) * sample_cap);
     if (!genbuf) { fprintf(stderr, "generation buffer allocation failed\n"); return 1; }
 
@@ -432,6 +451,8 @@ int main(int argc, char **argv)
             jobs[i].cap = per;
             jobs[i].lambda = lambda;
             jobs[i].tau = tau;
+            jobs[i].winbonus = winbonus;
+            jobs[i].rounds = rounds;
             jobs[i].sample_plies = sample_plies;
             jobs[i].net = net;
         }
@@ -515,7 +536,7 @@ int main(int argc, char **argv)
                 agent_default(&cur, AG_POLICY, net);
             }
             MatchResult mr;
-            match_run(&cur, &ref, eval_pairs, nthread, 777 + (uint64_t)it, &mr);
+            match_run_r(&cur, &ref, eval_pairs, nthread, 777 + (uint64_t)it, rounds, &mr);
             printf("            %s vs %s: margin %+.2f +- %.2f, score %.1f%%, plies %.0f\n",
                    cur.name, ref_spec, mr.margin, mr.margin_se, 100 * mr.winrate, mr.plies);
             fflush(stdout);

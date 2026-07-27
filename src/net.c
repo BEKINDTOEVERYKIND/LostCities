@@ -32,6 +32,21 @@ void net_init(Net *n, uint64_t seed)
         for (int h = 0; h < NET_H2; h++) n->wdraw[i][h] = gauss(&r) * s4;
         n->bdraw[i] = 0.0f;
     }
+    for (int i = 0; i < NCARD; i++) {
+        for (int h = 0; h < NET_H2; h++) n->wbel[i][h] = gauss(&r) * s4;
+        n->bbel[i] = 0.0f;
+    }
+}
+
+/* random-init only the belief head (for upgrading older files) */
+static void net_init_belief(Net *n, uint64_t seed)
+{
+    Rng r; rng_seed(&r, seed);
+    float s4 = 0.1f * sqrtf(1.0f / (float)NET_H2);
+    for (int i = 0; i < NCARD; i++) {
+        for (int h = 0; h < NET_H2; h++) n->wbel[i][h] = gauss(&r) * s4;
+        n->bbel[i] = 0.0f;
+    }
 }
 
 void net_zero(Net *n)
@@ -93,6 +108,12 @@ void net_policy_act(const Net *n, const NetAct *act, const uint16_t *mv, int nmv
     }
 }
 
+void net_belief_act(const Net *n, const NetAct *act, const uint8_t *cards, int nc, float *logits)
+{
+    for (int i = 0; i < nc; i++)
+        logits[i] = n->bbel[cards[i]] + dot_h2(n->wbel[cards[i]], act->a2);
+}
+
 float net_value(const Net *n, const Features *f)
 {
     NetAct act;
@@ -102,6 +123,7 @@ float net_value(const Net *n, const Features *f)
 
 void net_backward(const Net *n, const Features *f, const NetAct *act,
                   float dvalue, const uint16_t *mv, const float *dlogit, int nmv,
+                  const uint8_t *bc, const float *dbel, int nb,
                   Net *g)
 {
     float d2[NET_H2];
@@ -146,6 +168,17 @@ void net_backward(const Net *n, const Features *f, const NetAct *act,
             const float *w = n->wdraw[id];
             g->bdraw[id] += d;
             for (int h = 0; h < NET_H2; h++) { gw[h] += d * act->a2[h]; d2[h] += d * w[h]; }
+        }
+    }
+    if (dbel) {
+        for (int i = 0; i < nb; i++) {
+            float dv = dbel[i];
+            if (dv == 0.0f) continue;
+            int card = bc[i];
+            float *gw = g->wbel[card];
+            const float *w = n->wbel[card];
+            g->bbel[card] += dv;
+            for (int h = 0; h < NET_H2; h++) { gw[h] += dv * act->a2[h]; d2[h] += dv * w[h]; }
         }
     }
     for (int h = 0; h < NET_H2; h++) if (act->a2[h] <= 0.0f) d2[h] = 0.0f;
@@ -196,13 +229,14 @@ void net_adam_step(Net *n, const Net *g, Adam *a, float lr, float scale, float w
     }
 }
 
-#define NET_MAGIC 0x4C435650U /* "LCVP" */
+#define NET_MAGIC 0x4C435651U /* "LCVQ" */
+#define NET_BELIEF_BYTES (sizeof(((Net *)0)->wbel) + sizeof(((Net *)0)->bbel))
 
 int net_save(const Net *n, const char *path)
 {
     FILE *fp = fopen(path, "wb");
     if (!fp) return -1;
-    uint32_t hdr[6] = { NET_MAGIC, FEAT_DIM, NET_H1, NET_H2, NET_NPLAY, 3 };
+    uint32_t hdr[6] = { NET_MAGIC, FEAT_DIM, NET_H1, NET_H2, NET_NPLAY, 4 };
     fwrite(hdr, sizeof(hdr), 1, fp);
     fwrite(n, sizeof(Net), 1, fp);
     fclose(fp);
@@ -217,7 +251,14 @@ int net_load(Net *n, const char *path)
     if (fread(hdr, sizeof(hdr), 1, fp) != 1) { fclose(fp); return -1; }
     if (hdr[0] != NET_MAGIC || hdr[1] != FEAT_DIM || hdr[2] != NET_H1 ||
         hdr[3] != NET_H2 || hdr[4] != NET_NPLAY) { fclose(fp); return -2; }
-    if (fread(n, sizeof(Net), 1, fp) != 1) { fclose(fp); return -1; }
+    if (hdr[5] >= 4) {
+        if (fread(n, sizeof(Net), 1, fp) != 1) { fclose(fp); return -1; }
+    } else {
+        /* older file without the belief head: load the prefix, init the rest */
+        size_t prefix = sizeof(Net) - NET_BELIEF_BYTES;
+        if (fread(n, prefix, 1, fp) != 1) { fclose(fp); return -1; }
+        net_init_belief(n, 0xBE11EFULL);
+    }
     fclose(fp);
     return 0;
 }

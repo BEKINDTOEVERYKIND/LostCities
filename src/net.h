@@ -17,6 +17,14 @@
  * hopeless here: candidate moves differ by one or two points, far below the
  * accuracy any regression on game outcomes can reach.  Predicting the choice
  * directly sidesteps that.
+ *
+ * Belief : one logit per card, trained to predict whether the opponent holds
+ *          it (the true hand is known when self-play data is generated, so the
+ *          labels are free).  This is where behavioural inference lives: the
+ *          trunk sees what the opponent has committed to and thrown away, and
+ *          the head learns what that implies about the cards they kept.  The
+ *          determinized search samples opponent hands from this posterior
+ *          instead of uniformly.
  */
 #ifndef NET_H
 #define NET_H
@@ -40,6 +48,9 @@ typedef struct {
     float bplay[NET_NPLAY];
     float wdraw[NET_NDRAW][NET_H2];    /* policy: where to draw from */
     float bdraw[NET_NDRAW];
+    /* belief head, appended last so files without it can still be loaded */
+    float wbel[NCARD][NET_H2];
+    float bbel[NCARD];
 } Net;
 
 typedef struct {
@@ -60,14 +71,18 @@ void  net_trunk(const Net *n, const Features *f, NetAct *act);
 float net_value_act(const Net *n, const NetAct *act);
 /* logits for the given packed moves */
 void  net_policy_act(const Net *n, const NetAct *act, const uint16_t *mv, int nmv, float *logits);
+/* belief logits (opponent holds card?) for the given card ids */
+void  net_belief_act(const Net *n, const NetAct *act, const uint8_t *cards, int nc, float *logits);
 
 /* convenience: trunk + value */
 float net_value(const Net *n, const Features *f);
 
 /* Accumulate gradients for one sample.  dvalue is dLoss/dvalue_output;
- * dlogit[i] is dLoss/dlogit for move mv[i] (may be NULL). */
+ * dlogit[i] is dLoss/dlogit for move mv[i]; dbel[i] likewise for belief card
+ * bc[i].  Either head may be skipped by passing NULL. */
 void  net_backward(const Net *n, const Features *f, const NetAct *act,
                    float dvalue, const uint16_t *mv, const float *dlogit, int nmv,
+                   const uint8_t *bc, const float *dbel, int nb,
                    Net *g);
 void  net_adam_step(Net *n, const Net *g, Adam *a, float lr, float scale, float wd);
 int   net_save(const Net *n, const char *path);

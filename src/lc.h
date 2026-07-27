@@ -1,6 +1,8 @@
 /* lc.h -- Lost Cities game engine (2 player, Reiner Knizia).
  *
- * Rules implemented (standard 2-player game, single round):
+ * Rules implemented (standard 2-player game; competitive play is a match of
+ * three rounds with cumulative scoring -- the State carries the match context
+ * so agents can condition on it, and the round loops live in the callers):
  *   Deck: 5 suits x 12 cards = 60.  Per suit: three wagers ("handshakes") and
  *   the number cards 2..10.
  *   Setup: each player is dealt 8 cards.
@@ -69,6 +71,10 @@ typedef struct {
     uint8_t hand_n[2];
     uint64_t played[2];    /* cards in each player's expeditions */
     uint64_t discarded;    /* cards sitting in the discard piles  */
+    /* Cards player p is publicly known to hold: drawing from a discard pile
+     * happens face up, so until such a card is played or discarded again the
+     * opponent knows exactly where it is.  Hidden (deck) draws never set it. */
+    uint64_t known[2];
 
     uint8_t exp_wager[2][NSUIT]; /* wagers played, 0..3            */
     uint8_t exp_top[2][NSUIT];   /* highest number played, 0=none  */
@@ -81,7 +87,14 @@ typedef struct {
     uint8_t turn;          /* player to move: 0 or 1 */
     uint8_t over;
     uint16_t nply;
+
+    /* match context, fixed for the duration of a round */
+    uint8_t round;         /* 0-based round of the match           */
+    int16_t cum[2];        /* cumulative score from earlier rounds */
 } State;
+
+/* competitive Lost Cities is played over three rounds, total score wins */
+#define MATCH_ROUNDS 3
 
 /* ---- rng: xoshiro256** ---------------------------------------------- */
 typedef struct { uint64_t s[4]; } Rng;
@@ -136,6 +149,9 @@ void lc_apply_draw(State *st, Move m, int card);
 int  lc_exp_score(const State *st, int p, int suit);
 int  lc_score(const State *st, int p);
 int  lc_hand_cards(const State *st, int p, uint8_t *out);
+/* Cards whose location p cannot pin down: not in p's hand, not public, and
+ * not known-held by the opponent.  This is the sampling pool for the unknown
+ * part of the opponent's hand and the deck. */
 void lc_unseen(const State *st, int p, uint8_t *out, int *n);
 const char *lc_card_name(int card, char *buf);
 void lc_move_name(const State *st, Move m, char *buf);

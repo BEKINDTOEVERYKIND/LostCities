@@ -17,13 +17,20 @@ void feat_extract(const State *st, int p, Features *f)
     while (mask) { int c = __builtin_ctzll(mask); mask &= mask - 1; f->idx[n++] = (uint16_t)(3 * NCARD + c); }
     for (int s = 0; s < NSUIT; s++)
         if (st->pile_n[s] > 0) f->idx[n++] = (uint16_t)(4 * NCARD + st->pile[s][st->pile_n[s] - 1]);
+    /* cards taken face up: I know the opponent holds these, and they know I
+     * hold mine -- both facts shape what is worth discarding or racing for */
+    mask = st->known[o];
+    while (mask) { int c = __builtin_ctzll(mask); mask &= mask - 1; f->idx[n++] = (uint16_t)(5 * NCARD + c); }
+    mask = st->known[p];
+    while (mask) { int c = __builtin_ctzll(mask); mask &= mask - 1; f->idx[n++] = (uint16_t)(6 * NCARD + c); }
     f->nidx = n;
 
     /* --- dense ---------------------------------------------------------- */
     float *d = f->dense;
     for (int i = 0; i < FEAT_DENSE; i++) d[i] = 0.0f;
 
-    uint64_t unseen = ~(st->hand[p] | st->played[0] | st->played[1] | st->discarded)
+    uint64_t unseen = ~(st->hand[p] | st->played[0] | st->played[1] | st->discarded
+                        | st->known[o])
                       & ((1ULL << NCARD) - 1);
 
     int my_started = 0, op_started = 0, my_score = 0, op_score = 0;
@@ -104,4 +111,12 @@ void feat_extract(const State *st, int p, Features *f)
     g[9]  = 1.0f;
     g[10] = st->deck_left <= 5 ? 1.0f : 0.0f;
     g[11] = st->deck_left <= 12 ? 1.0f : 0.0f;
+    /* match context: which round this is and where the match stands */
+    g[12] = st->round == 0 ? 1.0f : 0.0f;
+    g[13] = st->round == 1 ? 1.0f : 0.0f;
+    g[14] = st->round >= 2 ? 1.0f : 0.0f;
+    float cm = (float)(st->cum[p] - st->cum[o]) * 0.01f;
+    if (cm > 1.5f) cm = 1.5f;
+    if (cm < -1.5f) cm = -1.5f;
+    g[15] = cm;
 }

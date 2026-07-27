@@ -167,7 +167,7 @@ Move search_move(const struct Agent *a, const State *st, Rng *rng,
 
     for (int d = 0; d < a->dets; d++) {
         State root;
-        determinize(st, st->turn, rng, &root);
+        determinize_b(st, st->turn, rng, a->net, &root);
         t.nnode = 0;
         int rootn = new_node(&t);
         t.nodes[rootn] = root_tmpl;

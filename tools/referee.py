@@ -10,7 +10,8 @@ head-to-head even though each C binary compiles one fixed size.
 Usage:
   referee.py --selftest NETPATH SEED [--dumpfeat BIN]   parity check vs C dump
   referee.py --replay   NETPATH SEED [--dumpfeat BIN]   full-game determinism
-  referee.py match NETA NETB --pairs N --seed S         paired-deal match
+  referee.py match NETA NETB --pairs N --seed S [--rounds R]  paired-deal match
+                                                (R-round matches, default 3)
 """
 import argparse
 import subprocess
@@ -26,15 +27,17 @@ HAND_SIZE = 8
 WAGERS_PER_SUIT = 3
 LC_MAX_PLIES = 300
 
-FEAT_PLANES = 5
-FEAT_BIN = FEAT_PLANES * NCARD          # 300
+FEAT_PLANES = 7
+FEAT_BIN = FEAT_PLANES * NCARD          # 420
 SUIT_FEATS = 24
-GLOBAL_FEATS = 12
-FEAT_DENSE = NSUIT * SUIT_FEATS + GLOBAL_FEATS  # 132
-FEAT_DIM = FEAT_BIN + FEAT_DENSE        # 432
+GLOBAL_FEATS = 16
+FEAT_DENSE = NSUIT * SUIT_FEATS + GLOBAL_FEATS  # 136
+FEAT_DIM = FEAT_BIN + FEAT_DENSE        # 556
 NDRAW = NSUIT + 1
 VAL_SCALE = np.float32(50.0)
-NET_MAGIC = 0x4C435650
+NET_MAGIC = 0x4C435651
+MATCH_ROUNDS = 3
+CUM_CLAMP = 320  # tools/rl.c clamps the cumulative context fed into st.cum
 
 
 def card_suit(c):
@@ -56,8 +59,9 @@ def card_value(c):
 # ---- state (lc.c) ---------------------------------------------------------
 class State:
     __slots__ = ("deck", "deck_pos", "deck_left", "hand", "hand_n", "played",
-                 "discarded", "exp_wager", "exp_top", "exp_n", "exp_sum",
-                 "pile", "pile_n", "turn", "over", "nply")
+                 "discarded", "known", "exp_wager", "exp_top", "exp_n",
+                 "exp_sum", "pile", "pile_n", "turn", "over", "nply",
+                 "round", "cum")
 
     def __init__(self, deck):
         """lc_deal_from_deck: deck is a sequence of the 60 card ids."""
@@ -73,6 +77,9 @@ class State:
         self.deck_left = NCARD - 2 * HAND_SIZE
         self.played = [0, 0]
         self.discarded = 0
+        self.known = [0, 0]  # cards each player is publicly known to hold
+        self.round = 0       # match context: 0-based round index
+        self.cum = [0, 0]    # match context: cumulative score from earlier rounds
         self.exp_wager = [[0] * NSUIT, [0] * NSUIT]
         self.exp_top = [[0] * NSUIT, [0] * NSUIT]
         self.exp_n = [[0] * NSUIT, [0] * NSUIT]
@@ -129,6 +136,7 @@ class State:
         suit = card_suit(card)
         self.hand[p] &= ~(1 << card)
         self.hand_n[p] -= 1
+        self.known[p] &= ~(1 << card)  # the card is public again either way
         if disc:
             self.pile[suit].append(card)
             self.discarded |= 1 << card
@@ -150,11 +158,19 @@ class State:
             c = self.pile[s].pop()
             self.hand[p] |= 1 << c
             self.discarded &= ~(1 << c)
+            self.known[p] |= 1 << c    # taken face up: everyone saw it
         self.hand_n[p] += 1
         self.nply += 1
         if self.deck_left == 0 or self.nply >= LC_MAX_PLIES:
             self.over = True
         self.turn ^= 1
+
+    def unseen_mask(self, p):
+        """lc_unseen as a bitmask: cards p cannot locate (excludes cards the
+        opponent is publicly known to hold)."""
+        return (~(self.hand[p] | self.played[0] | self.played[1]
+                  | self.discarded | self.known[p ^ 1])
+                & ((1 << NCARD) - 1))
 
     def exp_score(self, p, suit):
         if self.exp_n[p][suit] == 0:
@@ -182,9 +198,16 @@ def feat_extract(st, p):
     for s in range(NSUIT):
         if len(st.pile[s]) > 0:
             idx.append(4 * NCARD + st.pile[s][-1])
+    for plane, mask in ((5, st.known[o]), (6, st.known[p])):
+        m = mask
+        while m:
+            c = (m & -m).bit_length() - 1
+            m &= m - 1
+            idx.append(plane * NCARD + c)
 
     d = np.zeros(FEAT_DENSE, dtype=np.float32)
-    unseen = ~(st.hand[p] | st.played[0] | st.played[1] | st.discarded) & ((1 << NCARD) - 1)
+    unseen = (~(st.hand[p] | st.played[0] | st.played[1] | st.discarded | st.known[o])
+              & ((1 << NCARD) - 1))
 
     my_started = op_started = my_score = op_score = 0
     for s in range(NSUIT):
@@ -263,6 +286,11 @@ def feat_extract(st, p):
     d[g + 9] = 1.0
     d[g + 10] = 1.0 if st.deck_left <= 5 else 0.0
     d[g + 11] = 1.0 if st.deck_left <= 12 else 0.0
+    d[g + 12] = 1.0 if st.round == 0 else 0.0
+    d[g + 13] = 1.0 if st.round == 1 else 0.0
+    d[g + 14] = 1.0 if st.round >= 2 else 0.0
+    cm = np.float32(st.cum[p] - st.cum[o]) * np.float32(0.01)
+    d[g + 15] = min(max(cm, np.float32(-1.5)), np.float32(1.5))
     return idx, d
 
 
@@ -351,6 +379,7 @@ def selftest(netpath, seed, binpath):
     st = None
     max_feat = max_val = max_prob = 0.0
     nstates = 0
+    nknown = 0  # dumped states where some card is publicly known to be held
     i = 0
     while i < len(lines):
         t = lines[i].split()
@@ -362,6 +391,8 @@ def selftest(netpath, seed, binpath):
         elif t[0] == "STATE":
             persp = int(t[3])
             assert persp == st.turn, f"perspective mismatch at state {t[1]}"
+            if st.known[0] | st.known[1]:
+                nknown += 1
             cfeat = np.array(lines[i + 1].split()[1:], dtype=np.float32)
             idx, dense = feat_extract(st, persp)
             pfeat = np.zeros(FEAT_DIM, dtype=np.float32)
@@ -393,9 +424,10 @@ def selftest(netpath, seed, binpath):
             assert m in st.moves(), "chosen move not legal in python"
             st.apply(m)
         i += 1
-    print(f"selftest {netpath} seed {seed}: {nstates} states OK  "
+    print(f"selftest {netpath} seed {seed}: {nstates} states OK "
+          f"({nknown} with nonzero known mask)  "
           f"max|dfeat|={max_feat:.2e} max|dvalue|={max_val:.2e} max|dprob|={max_prob:.2e}")
-    return max_feat, max_val, max_prob
+    return max_feat, max_val, max_prob, nknown
 
 
 def replay(netpath, seed, binpath):
@@ -434,22 +466,34 @@ def replay(netpath, seed, binpath):
 
 
 # ---- match ----------------------------------------------------------------
-def play_game(net_first, net_second, deck):
-    st = State(deck)
+def play_match(net_first, net_second, decks):
+    """src/match.c play_one: one full match of len(decks) rounds with
+    cumulative context; round r starts with player r & 1.  net_first sits in
+    seat 0, net_second in seat 1.  Returns the two match totals.  The cum[]
+    fed into each round's state is clamped to +-CUM_CLAMP like tools/rl.c."""
     nets = (net_first, net_second)
-    while not st.over:
-        st.apply(nets[st.turn].argmax_move(st))
-    return st.score(0), st.score(1)
+    cum = [0, 0]
+    for r, deck in enumerate(decks):
+        st = State(deck)
+        st.round = r
+        st.cum = [min(max(cum[0], -CUM_CLAMP), CUM_CLAMP),
+                  min(max(cum[1], -CUM_CLAMP), CUM_CLAMP)]
+        st.turn = r & 1
+        while not st.over:
+            st.apply(nets[st.turn].argmax_move(st))
+        cum[0] += st.score(0)
+        cum[1] += st.score(1)
+    return cum[0], cum[1]
 
 
-def match(patha, pathb, pairs, seed):
+def match(patha, pathb, pairs, seed, rounds=MATCH_ROUNDS):
     neta, netb = Net(patha), Net(pathb)
     rng = np.random.default_rng(seed)
     psum = psumsq = 0.0
     wins = losses = draws = 0
     for g in range(pairs):
-        deck = rng.permutation(NCARD).tolist()
-        s0, s1 = play_game(neta, netb, deck)      # A in seat 0
+        decks = [rng.permutation(NCARD).tolist() for _ in range(rounds)]
+        s0, s1 = play_match(neta, netb, decks)    # A in seat 0
         pair = s0 - s1
         if s0 > s1:
             wins += 1
@@ -457,7 +501,7 @@ def match(patha, pathb, pairs, seed):
             losses += 1
         else:
             draws += 1
-        s0, s1 = play_game(netb, neta, deck)      # seats swapped
+        s0, s1 = play_match(netb, neta, decks)    # seats swapped, same decks
         pair += s1 - s0
         if s1 > s0:
             wins += 1
@@ -480,8 +524,9 @@ def match(patha, pathb, pairs, seed):
     se = float(np.sqrt(var / pairs)) / 2.0
     winrate = (wins + 0.5 * draws) / ngames
     wse = float(np.sqrt(winrate * (1.0 - winrate) / ngames))
-    print(f"match {patha} vs {pathb}: {pairs} pairs ({int(ngames)} games)")
-    print(f"  margin/game {margin:+.2f} +- {se:.2f}   "
+    print(f"match {patha} vs {pathb}: {pairs} pairs "
+          f"({int(ngames)} matches of {rounds} round(s))")
+    print(f"  margin/match {margin:+.2f} +- {se:.2f}   "
           f"winrate {winrate * 100.0:.1f}% +- {wse * 100.0:.1f}%   "
           f"W-L-D {wins}-{losses}-{draws}")
     return margin, se, winrate
@@ -496,6 +541,8 @@ def main():
     ap.add_argument("cmd", nargs="*", help="match NETA NETB")
     ap.add_argument("--pairs", type=int, default=100)
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--rounds", type=int, default=MATCH_ROUNDS,
+                    help="rounds per match in match mode (default 3)")
     args = ap.parse_args()
 
     if args.selftest:
@@ -505,7 +552,7 @@ def main():
     if args.cmd:
         if args.cmd[0] != "match" or len(args.cmd) != 3:
             ap.error("positional usage: match NETA NETB")
-        match(args.cmd[1], args.cmd[2], args.pairs, args.seed)
+        match(args.cmd[1], args.cmd[2], args.pairs, args.seed, args.rounds)
 
 
 if __name__ == "__main__":

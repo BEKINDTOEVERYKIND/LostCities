@@ -22,10 +22,12 @@ static float project_side(const State *st, int p, int turns, int is_me)
         reach = st->hand[p];
         acquire = 1.0f;
     } else {
-        uint64_t unseen = ~(st->hand[p ^ 1] | st->played[0] | st->played[1] | st->discarded)
+        uint64_t unseen = ~(st->hand[p ^ 1] | st->played[0] | st->played[1] | st->discarded
+                            | st->known[p])
                           & ((1ULL << NCARD) - 1);
-        /* p here is the opponent index; unseen from the other player's view */
-        reach = unseen;
+        /* p here is the opponent index; unseen from the other player's view,
+         * plus the cards p is known for certain to hold */
+        reach = unseen | st->known[p];
         int nun = __builtin_popcountll(unseen);
         float have = (float)st->hand_n[p] + 0.55f * (float)turns;
         acquire = nun > 0 ? have / (float)nun : 0.0f;

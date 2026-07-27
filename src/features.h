@@ -12,13 +12,15 @@
 
 #include "lc.h"
 
-#define FEAT_PLANES 5
-#define FEAT_BIN (FEAT_PLANES * NCARD) /* 300 */
+/* card planes: my hand / my expeditions / their expeditions / discarded /
+ * pile tops / cards I know they hold / my cards they know about */
+#define FEAT_PLANES 7
+#define FEAT_BIN (FEAT_PLANES * NCARD) /* 420 */
 #define SUIT_FEATS 24
-#define GLOBAL_FEATS 12
-#define FEAT_DENSE (NSUIT * SUIT_FEATS + GLOBAL_FEATS) /* 132 */
-#define FEAT_DIM (FEAT_BIN + FEAT_DENSE)               /* 432 */
-#define FEAT_MAX_ACTIVE 160
+#define GLOBAL_FEATS 16
+#define FEAT_DENSE (NSUIT * SUIT_FEATS + GLOBAL_FEATS) /* 136 */
+#define FEAT_DIM (FEAT_BIN + FEAT_DENSE)               /* 556 */
+#define FEAT_MAX_ACTIVE 184
 
 typedef struct {
     int nidx;

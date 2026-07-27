@@ -1,11 +1,16 @@
-/* analyze -- play one self-play game and dump a per-ply JSON analysis.
+/* analyze -- play one self-play match and dump a per-ply JSON analysis.
+ *
+ * A match is -r ROUNDS rounds (default MATCH_ROUNDS): fresh deal per round,
+ * st.round / st.cum carrying the match context, and the first player
+ * alternating by round, exactly like the reference loop in src/match.c.
  *
  * For every ply, before the chosen move is applied, the dump records the full
- * public state plus the mover's hand(s), the value head from both
- * perspectives, the policy distribution over legal moves, and the rollout
- * search statistics.  rollout_move is called exactly once per ply and its
- * returned move is the move played, so the dump describes the game that was
- * actually generated.
+ * public state plus the mover's hand(s), the round and cumulative totals, the
+ * publicly known cards in each hand, the value head from both perspectives,
+ * the policy distribution over legal moves, and the rollout search
+ * statistics.  rollout_move is called exactly once per ply and its returned
+ * move is the move played, so the dump describes the game that was actually
+ * generated.
  *
  * Output is a single JSON object on stdout; redirect to a file.
  */
@@ -59,6 +64,22 @@ static void j_hand(FILE *fp, const State *st, int p)
     j_card_arr(fp, cards, n);
 }
 
+/* [[cards p0 is publicly known to hold],[same for p1]], sorted by card id
+ * (bit-order iteration of st->known is ascending id order already) */
+static void j_known(FILE *fp, const State *st)
+{
+    fputc('[', fp);
+    for (int p = 0; p < 2; p++) {
+        if (p) fputc(',', fp);
+        uint8_t cards[HAND_SIZE];
+        int n = 0;
+        uint64_t k = st->known[p];
+        while (k) { cards[n++] = (uint8_t)__builtin_ctzll(k); k &= k - 1; }
+        j_card_arr(fp, cards, n);
+    }
+    fputc(']', fp);
+}
+
 /* one player's five expeditions in play order (card-id order per suit:
  * wagers first, then ascending numbers -- which is the only legal order) */
 static void j_exps(FILE *fp, const State *st, int p)
@@ -106,11 +127,15 @@ int main(int argc, char **argv)
 {
     const char *spec = "rollout:data/big0.bin:128:6";
     uint64_t seed = 1;
+    int rounds = MATCH_ROUNDS;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-a") && i + 1 < argc) spec = argv[++i];
         else if (!strcmp(argv[i], "-s") && i + 1 < argc) seed = strtoull(argv[++i], NULL, 10);
-        else { fprintf(stderr, "usage: %s [-a SPEC] [-s seed]\n", argv[0]); return 1; }
+        else if (!strcmp(argv[i], "-r") && i + 1 < argc) rounds = atoi(argv[++i]);
+        else { fprintf(stderr, "usage: %s [-a SPEC] [-s seed] [-r rounds]\n", argv[0]); return 1; }
     }
+    if (rounds < 1) rounds = 1;
+    if (rounds > MATCH_ROUNDS) rounds = MATCH_ROUNDS;
 
     Agent ag;
     spec_parse(spec, &ag);
@@ -118,35 +143,49 @@ int main(int argc, char **argv)
 
     Rng rng;
     rng_seed(&rng, seed);
-    State st;
-    lc_deal(&st, &rng);
 
-    /* the ply array is streamed into memory while the game is played, because
-     * meta (which needs the final score) comes first in the output */
+    /* the ply array is streamed into memory while the match is played, because
+     * meta (which needs the final scores) comes first in the output */
     char *plybuf = NULL;
     size_t plylen = 0;
     FILE *pf = open_memstream(&plybuf, &plylen);
     if (!pf) { fprintf(stderr, "analyze: open_memstream failed\n"); return 1; }
 
     char start_hands[2][256];
-    for (int p = 0; p < 2; p++) {
-        char *hb = NULL;
-        size_t hl = 0;
-        FILE *hf = open_memstream(&hb, &hl);
-        j_hand(hf, &st, p);
-        fclose(hf);
-        snprintf(start_hands[p], sizeof start_hands[p], "%s", hb);
-        free(hb);
+    int cum[2] = { 0, 0 };
+    int round_scores[MATCH_ROUNDS][2];
+    int ply = 0;
+
+    for (int rd = 0; rd < rounds; rd++) {
+    State st;
+    lc_deal(&st, &rng);
+    st.round = (uint8_t)rd;
+    st.cum[0] = (int16_t)(cum[0] > 320 ? 320 : (cum[0] < -320 ? -320 : cum[0]));
+    st.cum[1] = (int16_t)(cum[1] > 320 ? 320 : (cum[1] < -320 ? -320 : cum[1]));
+    st.turn = (uint8_t)(rd & 1);
+
+    if (rd == 0) {
+        for (int p = 0; p < 2; p++) {
+            char *hb = NULL;
+            size_t hl = 0;
+            FILE *hf = open_memstream(&hb, &hl);
+            j_hand(hf, &st, p);
+            fclose(hf);
+            snprintf(start_hands[p], sizeof start_hands[p], "%s", hb);
+            free(hb);
+        }
     }
 
-    int ply = 0;
     while (!st.over) {
         int p = st.turn;
         ply++;
         if (ply > 1) fputc(',', pf);
-        fprintf(pf, "{\"n\":%d,\"player\":%d,\"deck_left\":%d,", ply, p, st.deck_left);
+        fprintf(pf, "{\"n\":%d,\"player\":%d,\"round\":%d,\"cum\":[%d,%d],\"deck_left\":%d,",
+                ply, p, rd, cum[0], cum[1], st.deck_left);
 
-        fprintf(pf, "\"hands\":[");
+        fprintf(pf, "\"known\":");
+        j_known(pf, &st);
+        fprintf(pf, ",\"hands\":[");
         j_hand(pf, &st, 0);
         fputc(',', pf);
         j_hand(pf, &st, 1);
@@ -216,11 +255,20 @@ int main(int argc, char **argv)
 
         lc_apply(&st, m);
     }
+
+    round_scores[rd][0] = lc_score(&st, 0);
+    round_scores[rd][1] = lc_score(&st, 1);
+    cum[0] += round_scores[rd][0];
+    cum[1] += round_scores[rd][1];
+    }   /* rounds */
     fclose(pf);
 
-    printf("{\"meta\":{\"agent\":\"%s\",\"seed\":%llu,\"plies\":%d,\"final\":[%d,%d],"
-           "\"generated\":\"analyze\"},\n",
-           spec, (unsigned long long)seed, ply, lc_score(&st, 0), lc_score(&st, 1));
+    printf("{\"meta\":{\"agent\":\"%s\",\"seed\":%llu,\"plies\":%d,\"rounds\":%d,"
+           "\"round_scores\":[",
+           spec, (unsigned long long)seed, ply, rounds);
+    for (int rd = 0; rd < rounds; rd++)
+        printf("%s[%d,%d]", rd ? "," : "", round_scores[rd][0], round_scores[rd][1]);
+    printf("],\"final\":[%d,%d],\"generated\":\"analyze\"},\n", cum[0], cum[1]);
     printf("\"start_hands\":[%s,%s],\n", start_hands[0], start_hands[1]);
     printf("\"plies\":[%s]}\n", plybuf);
     free(plybuf);

@@ -38,22 +38,26 @@ typedef struct {
 
 typedef struct {
     const Net *net;
-    int games;
+    int games;          /* matches per iteration */
     uint64_t seed;
     int thread, nthread;
     RLSample *out;
     size_t nout, cap;
     double plies, absmargin, score_sum, entropy;
+    double p0_match_wins;
     long entropy_n;
     int done;
     float lambda;
     float temp;
+    float winbonus;     /* terminal reward for winning the match, in points */
+    int rounds;
 } GenJob;
 
-static _Thread_local State chain[LC_MAX_PLIES + 2];
-static _Thread_local float chain_v[2][LC_MAX_PLIES + 2];
-static _Thread_local uint16_t chain_mv[LC_MAX_PLIES + 2];
-static _Thread_local float chain_p[LC_MAX_PLIES + 2];
+#define CHAIN_MAX (MATCH_ROUNDS * LC_MAX_PLIES + 4)
+static _Thread_local State chain[CHAIN_MAX];
+static _Thread_local float chain_v[2][CHAIN_MAX];
+static _Thread_local uint16_t chain_mv[CHAIN_MAX];
+static _Thread_local float chain_p[CHAIN_MAX];
 
 static void *gen_worker(void *arg)
 {
@@ -64,10 +68,18 @@ static void *gen_worker(void *arg)
     float pr[MAX_MOVES];
 
     for (int g = j->thread; g < j->games; g += j->nthread) {
+        /* one episode = one full match of j->rounds rounds */
+        int T = 0;
+        int cum[2] = { 0, 0 };
+        for (int rd = 0; rd < j->rounds; rd++) {
         State st;
         lc_deal(&st, &rng);
-        int T = 0;
-        while (!st.over && T < LC_MAX_PLIES) {
+        st.round = (uint8_t)rd;
+        st.cum[0] = (int16_t)(cum[0] > 320 ? 320 : (cum[0] < -320 ? -320 : cum[0]));
+        st.cum[1] = (int16_t)(cum[1] > 320 ? 320 : (cum[1] < -320 ? -320 : cum[1]));
+        st.turn = (uint8_t)(rd & 1);
+        int Tstop = T + LC_MAX_PLIES;
+        while (!st.over && T < Tstop) {
             chain[T] = st;
             int n = policy_probs(j->net, &st, mv, pr, NULL);
             double h = 0.0;
@@ -91,7 +103,14 @@ static void *gen_worker(void *arg)
             T++;
             lc_apply(&st, mv[c]);
         }
-        int score[2] = { lc_score(&st, 0), lc_score(&st, 1) };
+        cum[0] += lc_score(&st, 0);
+        cum[1] += lc_score(&st, 1);
+        j->plies += st.nply;
+        }   /* rounds */
+
+        int score[2] = { cum[0], cum[1] };
+        if (score[0] > score[1]) j->p0_match_wins += 1.0;
+        else if (score[0] == score[1]) j->p0_match_wins += 0.5;
 
         /* values of every state from both points of view */
         for (int p = 0; p < 2; p++)
@@ -101,7 +120,12 @@ static void *gen_worker(void *arg)
             }
 
         for (int p = 0; p < 2; p++) {
+            /* terminal return: the match margin, plus a bonus for actually
+             * winning the match -- this is what makes the policy risk-seeking
+             * when behind late and conservative when ahead */
             float G = (float)(score[p] - score[p ^ 1]);
+            if (score[p] > score[p ^ 1]) G += j->winbonus;
+            else if (score[p] < score[p ^ 1]) G -= j->winbonus;
             for (int t = T - 1; t >= 0; t--) {
                 if (t < T - 1) G = (1.0f - j->lambda) * chain_v[p][t + 1] + j->lambda * G;
                 if (j->nout >= j->cap) continue;
@@ -122,7 +146,6 @@ static void *gen_worker(void *arg)
                 }
             }
         }
-        j->plies += st.nply;
         j->absmargin += fabs((double)(score[0] - score[1]));
         j->score_sum += score[0] + score[1];
         j->done++;
@@ -138,22 +161,26 @@ typedef struct {
     const RLSample *buf;
     const int *idx;
     int from, to;
-    float clip, vcoef, entcoef, advscale;
-    double ploss, vloss, clipped;
+    float clip, vcoef, entcoef, advscale, bw;
+    double ploss, vloss, bloss, clipped;
     int pn;
+    long bn;
 } OptJob;
 
 static void *opt_worker(void *arg)
 {
     OptJob *t = (OptJob *)arg;
     net_zero(t->grad);
-    double ploss = 0, vloss = 0, clipped = 0;
+    double ploss = 0, vloss = 0, bloss = 0, clipped = 0;
     int pn = 0;
+    long bn = 0;
     Features f;
     NetAct act;
     Move mv[MAX_MOVES];
     uint16_t pk[MAX_MOVES];
     float logit[MAX_MOVES], prob[MAX_MOVES], dlog[MAX_MOVES];
+    uint8_t bcard[NCARD];
+    float blogit[NCARD], dbel[NCARD];
 
     for (int i = t->from; i < t->to; i++) {
         const RLSample *s = &t->buf[t->idx[i]];
@@ -166,6 +193,28 @@ static void *opt_worker(void *arg)
         vloss += (double)e * e;
         float dvalue = 2.0f * e * t->vcoef;
 
+        /* belief head: the sample stores the true opponent hand, so every
+         * state is a free supervised example of "what do their actions imply
+         * about their cards" */
+        int nb = 0;
+        {
+            const State *st = &s->st;
+            int p = s->persp, o = p ^ 1;
+            uint64_t vis = st->hand[p] | st->played[0] | st->played[1] | st->discarded;
+            uint64_t cands = ~vis & ((1ULL << NCARD) - 1);
+            uint64_t m2 = cands;
+            while (m2) { int cc = __builtin_ctzll(m2); m2 &= m2 - 1; bcard[nb++] = (uint8_t)cc; }
+            net_belief_act(t->net, &act, bcard, nb, blogit);
+            float scale = t->bw / (float)(nb > 0 ? nb : 1);
+            for (int k = 0; k < nb; k++) {
+                float lab = ((st->hand[o] >> bcard[k]) & 1ULL) ? 1.0f : 0.0f;
+                float pr2 = 1.0f / (1.0f + expf(-blogit[k]));
+                bloss += -(double)(lab * logf(pr2 + 1e-9f) + (1.0f - lab) * logf(1.0f - pr2 + 1e-9f));
+                dbel[k] = scale * (pr2 - lab);
+            }
+            bn += nb;
+        }
+
         int n = 0;
         if (s->actor) {
             n = lc_moves(&s->st, mv);
@@ -174,7 +223,7 @@ static void *opt_worker(void *arg)
                 pk[k] = MOVE_PACK(mv[k]);
                 if (pk[k] == s->chosen) ci = k;
             }
-            if (ci < 0) { net_backward(t->net, &f, &act, dvalue, pk, NULL, 0, t->grad); continue; }
+            if (ci < 0) { net_backward(t->net, &f, &act, dvalue, pk, NULL, 0, bcard, dbel, nb, t->grad); continue; }
             net_policy_act(t->net, &act, pk, n, logit);
             float mx = logit[0];
             for (int k = 1; k < n; k++) if (logit[k] > mx) mx = logit[k];
@@ -204,12 +253,13 @@ static void *opt_worker(void *arg)
                 dlog[k] = dsurr + dent;
             }
             pn++;
-            net_backward(t->net, &f, &act, dvalue, pk, dlog, n, t->grad);
+            net_backward(t->net, &f, &act, dvalue, pk, dlog, n, bcard, dbel, nb, t->grad);
         } else {
-            net_backward(t->net, &f, &act, dvalue, pk, NULL, 0, t->grad);
+            net_backward(t->net, &f, &act, dvalue, pk, NULL, 0, bcard, dbel, nb, t->grad);
         }
     }
-    t->ploss = ploss; t->vloss = vloss; t->pn = pn; t->clipped = clipped;
+    t->ploss = ploss; t->vloss = vloss; t->bloss = bloss; t->pn = pn; t->bn = bn;
+    t->clipped = clipped;
     return NULL;
 }
 
@@ -232,6 +282,8 @@ int main(int argc, char **argv)
     int eval_pairs = 400, eval_every = 1;
     float lr = 3e-4f, wd = 1e-7f, lambda = 0.85f, clip = 0.2f;
     float vcoef = 1.0f, entcoef = 0.004f, temp = 1.0f;
+    float winbonus = 15.0f, bw = 1.0f;
+    int rounds = MATCH_ROUNDS;
     uint64_t seed = 7;
 
     for (int i = 1; i < argc; i++) {
@@ -251,6 +303,9 @@ int main(int argc, char **argv)
         else if (ARG("--vcoef")) vcoef = (float)atof(argv[++i]);
         else if (ARG("--ent")) entcoef = (float)atof(argv[++i]);
         else if (ARG("--temp")) temp = (float)atof(argv[++i]);
+        else if (ARG("--winbonus")) winbonus = (float)atof(argv[++i]);
+        else if (ARG("--bw")) bw = (float)atof(argv[++i]);
+        else if (ARG("--rounds")) rounds = atoi(argv[++i]);
         else if (ARG("--wd")) wd = (float)atof(argv[++i]);
         else if (ARG("--eval")) eval_pairs = atoi(argv[++i]);
         else if (ARG("--eval-every")) eval_every = atoi(argv[++i]);
@@ -271,13 +326,14 @@ int main(int argc, char **argv)
     Net **grads = (Net **)calloc((size_t)nthread, sizeof(Net *));
     for (int i = 0; i < nthread; i++) grads[i] = (Net *)malloc(sizeof(Net));
 
-    size_t cap = (size_t)games * 210;
+    size_t cap = (size_t)games * 210 * (size_t)rounds;
     RLSample *buf = (RLSample *)malloc(sizeof(RLSample) * cap);
     if (!buf) { fprintf(stderr, "sample buffer allocation failed\n"); return 1; }
     int *order = (int *)malloc(sizeof(int) * cap);
 
-    printf("ppo: %d iters x %d games, batch %d, %d epochs, lr %.1e, lambda %.2f, ent %.4f\n",
-           iters, games, batch, epochs, lr, lambda, entcoef);
+    printf("ppo: %d iters x %d matches of %d round(s), batch %d, %d epochs, lr %.1e, "
+           "lambda %.2f, ent %.4f, winbonus %.0f\n",
+           iters, games, rounds, batch, epochs, lr, lambda, entcoef, winbonus);
     fflush(stdout);
 
     for (int it = 1; it <= iters; it++) {
@@ -297,6 +353,8 @@ int main(int argc, char **argv)
             jobs[i].cap = per;
             jobs[i].lambda = lambda;
             jobs[i].temp = temp;
+            jobs[i].winbonus = winbonus;
+            jobs[i].rounds = rounds;
         }
         for (int i = 0; i < nthread; i++) pthread_create(&th[i], NULL, gen_worker, &jobs[i]);
         for (int i = 0; i < nthread; i++) pthread_join(th[i], NULL);
@@ -307,12 +365,13 @@ int main(int argc, char **argv)
             if (jobs[i].out != buf + n) memmove(buf + n, jobs[i].out, jobs[i].nout * sizeof(RLSample));
             n += jobs[i].nout;
         }
-        double plies = 0, absm = 0, pts = 0, ent = 0;
+        double plies = 0, absm = 0, pts = 0, ent = 0, p0w = 0;
         long entn = 0;
         int gdone = 0;
         for (int i = 0; i < nthread; i++) {
             plies += jobs[i].plies; absm += jobs[i].absmargin; pts += jobs[i].score_sum;
             ent += jobs[i].entropy; entn += jobs[i].entropy_n;
+            p0w += jobs[i].p0_match_wins;
             gdone += jobs[i].done;
         }
         free(jobs); free(th);
@@ -328,16 +387,16 @@ int main(int argc, char **argv)
 
         clock_gettime(CLOCK_MONOTONIC, &t1);
         double gs = (t1.tv_sec - t0.tv_sec) + 1e-9 * (t1.tv_nsec - t0.tv_nsec);
-        printf("iter %2d: %d games %.1fs (%.0f g/s), %zu samples, plies %.1f, "
-               "points/game %.1f, |margin| %.1f, entropy %.2f, adv sd %.1f\n",
+        printf("iter %2d: %d matches %.1fs (%.0f m/s), %zu samples, plies %.1f, "
+               "points/side %.1f, |margin| %.1f, p0 wins %.1f%%, entropy %.2f, adv sd %.1f\n",
                it, gdone, gs, gdone / gs, n, plies / gdone, pts / (2 * gdone),
-               absm / gdone, ent / entn, av);
+               absm / gdone, 100.0 * p0w / gdone, ent / entn, av);
         fflush(stdout);
 
         clock_gettime(CLOCK_MONOTONIC, &t0);
         Rng r; rng_seed(&r, seed + 31ULL * (uint64_t)it);
-        double pl = 0, vl = 0, cl = 0;
-        long pn = 0, steps = 0;
+        double pl = 0, vl = 0, bl = 0, cl = 0;
+        long pn = 0, bcnt = 0, steps = 0;
         for (int ep = 0; ep < epochs; ep++) {
             for (size_t i = 0; i < n; i++) order[i] = (int)i;
             for (size_t i = n - 1; i > 0; i--) {
@@ -355,11 +414,11 @@ int main(int argc, char **argv)
                     tj[i].from = i * chunk > batch ? batch : i * chunk;
                     tj[i].to = (i + 1) * chunk > batch ? batch : (i + 1) * chunk;
                     tj[i].clip = clip; tj[i].vcoef = vcoef; tj[i].entcoef = entcoef;
-                    tj[i].advscale = 1.0f;
+                    tj[i].advscale = 1.0f; tj[i].bw = bw;
                 }
                 for (int i = 0; i < nt; i++) pthread_create(&tt[i], NULL, opt_worker, &tj[i]);
                 for (int i = 0; i < nt; i++) pthread_join(tt[i], NULL);
-                for (int i = 0; i < nt; i++) { pl += tj[i].ploss; vl += tj[i].vloss; pn += tj[i].pn; cl += tj[i].clipped; }
+                for (int i = 0; i < nt; i++) { pl += tj[i].ploss; vl += tj[i].vloss; bl += tj[i].bloss; pn += tj[i].pn; bcnt += tj[i].bn; cl += tj[i].clipped; }
                 grad_accumulate(grads[0], grads, nt);
                 net_adam_step(net, grads[0], adam, lr, 1.0f / (float)batch, wd);
                 steps++;
@@ -367,9 +426,10 @@ int main(int argc, char **argv)
         }
         clock_gettime(CLOCK_MONOTONIC, &t1);
         double ts = (t1.tv_sec - t0.tv_sec) + 1e-9 * (t1.tv_nsec - t0.tv_nsec);
-        printf("         %ld updates in %.1fs: value rmse %.1f pts, surrogate %.4f, clipped %.1f%%\n",
+        printf("         %ld updates in %.1fs: value rmse %.1f pts, surrogate %.4f, "
+               "belief bce %.3f, clipped %.1f%%\n",
                steps, ts, sqrt(vl / ((double)steps * batch)) * VAL_SCALE,
-               pn ? pl / pn : 0.0, pn ? 100.0 * cl / pn : 0.0);
+               pn ? pl / pn : 0.0, bcnt ? bl / bcnt : 0.0, pn ? 100.0 * cl / pn : 0.0);
         fflush(stdout);
 
         char path[512];
@@ -381,8 +441,8 @@ int main(int argc, char **argv)
             Agent cur;
             agent_default(&cur, AG_POLICY, net);
             MatchResult mr;
-            match_run(&cur, &ref, eval_pairs, nthread, 20260727 + (uint64_t)it, &mr);
-            printf("         vs %s: margin %+.2f +- %.2f, score %.1f%%, plies %.0f\n",
+            match_run_r(&cur, &ref, eval_pairs, nthread, 20260727 + (uint64_t)it, rounds, &mr);
+            printf("         vs %s: margin %+.2f +- %.2f, match wins %.1f%%, plies %.0f\n",
                    ref_spec, mr.margin, mr.margin_se, 100 * mr.winrate, mr.plies);
             fflush(stdout);
         }

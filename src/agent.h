@@ -66,8 +66,13 @@ Move agent_move(const Agent *a, const State *st, Rng *rng);
 /* Sample an index from weights[0..n) (already non-negative, sum > 0). */
 int  sample_index(const float *w, int n, Rng *rng);
 
-/* Build a determinization of st consistent with p's information: the
- * opponent's hand and the deck order are resampled from the unseen cards. */
+/* Build a determinization of st consistent with p's information: cards the
+ * opponent is known to hold are pinned, and the rest of their hand and the
+ * deck order are resampled from the unseen cards.  With a network, the
+ * opponent's unknown cards are drawn from the belief head's posterior (what
+ * their play so far implies they kept) instead of uniformly; net == NULL
+ * falls back to uniform. */
 void determinize(const State *st, int p, Rng *rng, State *out);
+void determinize_b(const State *st, int p, Rng *rng, const Net *net, State *out);
 
 #endif

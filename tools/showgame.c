@@ -36,28 +36,46 @@ static void print_hand(const State *st, int p)
 
 int main(int argc, char **argv)
 {
-    const char *spec = "rollout:data/best.bin:128:4";
+    const char *spec = "policy:data/best.bin";
     uint64_t seed = 20260727;
+    int rounds = 1;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-a") && i + 1 < argc) spec = argv[++i];
         else if (!strcmp(argv[i], "-s") && i + 1 < argc) seed = strtoull(argv[++i], NULL, 10);
-        else { fprintf(stderr, "usage: %s [-a SPEC] [-s seed]\n", argv[0]); return 1; }
+        else if (!strcmp(argv[i], "-r") && i + 1 < argc) rounds = atoi(argv[++i]);
+        else { fprintf(stderr, "usage: %s [-a SPEC] [-s seed] [-r rounds]\n", argv[0]); return 1; }
     }
+    if (rounds < 1) rounds = 1;
+    if (rounds > MATCH_ROUNDS) rounds = MATCH_ROUNDS;
 
     Agent ag;
     spec_parse(spec, &ag);
     Rng rng; rng_seed(&rng, seed);
+
+    printf("Lost Cities -- self-play, both seats %s, deal seed %llu%s\n",
+           spec, (unsigned long long)seed,
+           rounds > 1 ? ", full match" : "");
+
+    int cum[2] = { 0, 0 };
+    int grand_ok = 1;
+    for (int rd = 0; rd < rounds; rd++) {
     State st;
     lc_deal(&st, &rng);
-
-    printf("Lost Cities -- self-play, both seats %s, deal seed %llu\n\n",
-           spec, (unsigned long long)seed);
+    st.round = (uint8_t)rd;
+    st.cum[0] = (int16_t)cum[0];
+    st.cum[1] = (int16_t)cum[1];
+    st.turn = (uint8_t)(rd & 1);
+    if (rounds > 1)
+        printf("\n================ ROUND %d (totals so far P1 %+d, P2 %+d; P%d starts) ================\n",
+               rd + 1, cum[0], cum[1], (rd & 1) + 1);
+    printf("\n");
     printf("Player 1 hand:  "); print_hand(&st, 0);
     printf("Player 2 hand:  "); print_hand(&st, 1);
     printf("\n  #  who  action            draw\n");
     printf("  ---------------------------------------\n");
 
     int ply = 0;
+    (void)0;
     while (!st.over) {
         int p = st.turn;
         Move m = agent_move(&ag, &st, &rng);
@@ -105,15 +123,20 @@ int main(int argc, char **argv)
         }
         printf("    total %+d\n", recomputed[p]);
     }
-    printf("\nfinal score: Player 1 %+d, Player 2 %+d -- %s by %d\n",
-           recomputed[0], recomputed[1],
-           recomputed[0] > recomputed[1] ? "Player 1 wins" :
-           (recomputed[0] < recomputed[1] ? "Player 2 wins" : "draw"),
-           abs(recomputed[0] - recomputed[1]));
+    printf("\nround score: Player 1 %+d, Player 2 %+d\n", recomputed[0], recomputed[1]);
     if (recomputed[0] != lc_score(&st, 0) || recomputed[1] != lc_score(&st, 1)) {
         printf("MISMATCH between transcript and engine scoring\n");
-        return 1;
+        grand_ok = 0;
     }
-    printf("(%d plies; transcript re-scored from the cards above and matches the engine)\n", ply);
-    return 0;
+    printf("(%d plies this round; re-scored from the cards above and matches the engine)\n", ply);
+    cum[0] += recomputed[0];
+    cum[1] += recomputed[1];
+    }   /* rounds */
+
+    if (rounds > 1)
+        printf("\n================ MATCH RESULT: Player 1 %+d, Player 2 %+d -- %s ================\n",
+               cum[0], cum[1],
+               cum[0] > cum[1] ? "Player 1 wins the match" :
+               (cum[0] < cum[1] ? "Player 2 wins the match" : "drawn match"));
+    return grand_ok ? 0 : 1;
 }

@@ -87,6 +87,7 @@ void lc_apply_play(State *st, Move m)
 
     st->hand[p] &= ~(1ULL << m.card);
     st->hand_n[p]--;
+    st->known[p] &= ~(1ULL << m.card);   /* the card is public again either way */
 
     if (m.discard) {
         st->pile[suit][st->pile_n[suit]++] = m.card;
@@ -117,6 +118,7 @@ void lc_apply_draw(State *st, Move m, int card)
         uint8_t c = st->pile[s][--st->pile_n[s]];
         st->hand[p] |= 1ULL << c;
         st->discarded &= ~(1ULL << c);
+        st->known[p] |= 1ULL << c;       /* taken face up: everyone saw it */
     }
     st->hand_n[p]++;
     st->nply++;
@@ -148,7 +150,8 @@ int lc_score(const State *st, int p)
 /* Cards not visible to player p: opponent's hand plus the undrawn deck. */
 void lc_unseen(const State *st, int p, uint8_t *out, int *n)
 {
-    uint64_t hidden = ~(st->hand[p] | st->played[0] | st->played[1] | st->discarded);
+    uint64_t hidden = ~(st->hand[p] | st->played[0] | st->played[1] | st->discarded
+                        | st->known[p ^ 1]);
     hidden &= (NCARD == 64) ? ~0ULL : ((1ULL << NCARD) - 1);
     int k = 0;
     while (hidden) {

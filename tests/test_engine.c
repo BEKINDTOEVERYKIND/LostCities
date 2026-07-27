@@ -83,6 +83,23 @@ static void check_state(const State *st, int line)
     for (int s = 0; s < NSUIT; s++) pilecards += st->pile_n[s];
     if (pilecards != __builtin_popcountll(st->discarded)) { printf("FAIL line %d: pile bookkeeping\n", line); failures++; }
 
+    /* known cards must actually sit in that player's hand */
+    for (int p = 0; p < 2; p++)
+        if (st->known[p] & ~st->hand[p]) { printf("FAIL line %d: known card not in hand (p%d)\n", line, p); failures++; }
+
+    /* the unseen pool must exclude everything public and everything known */
+    for (int p = 0; p < 2; p++) {
+        uint8_t uns[NCARD]; int un = 0;
+        lc_unseen(st, p, uns, &un);
+        uint64_t umask = 0;
+        for (int i = 0; i < un; i++) umask |= 1ULL << uns[i];
+        uint64_t banned = st->hand[p] | st->played[0] | st->played[1] | st->discarded | st->known[p ^ 1];
+        if (umask & banned) { printf("FAIL line %d: unseen overlaps visible/known (p%d)\n", line, p); failures++; }
+        if (__builtin_popcountll(umask) + __builtin_popcountll(banned & ((1ULL << NCARD) - 1)) != NCARD) {
+            printf("FAIL line %d: unseen count wrong (p%d)\n", line, p); failures++;
+        }
+    }
+
     for (int p = 0; p < 2; p++) {
         for (int s = 0; s < NSUIT; s++) {
             int n = 0, w = 0, sum = 0, top = 0;
@@ -132,7 +149,11 @@ static void test_playouts(void)
                 if (m.discard && m.draw == CARD_SUIT(m.card) + 1) CHECK(0, "take back just discarded card");
             }
             int prev_turn = st.turn;
-            lc_apply(&st, mv[rng_below(&rng, (uint32_t)n)]);
+            Move chosen_mv = mv[rng_below(&rng, (uint32_t)n)];
+            uint8_t pile_top = chosen_mv.draw > 0 ? st.pile[chosen_mv.draw - 1][st.pile_n[chosen_mv.draw - 1] - 1] : 0;
+            lc_apply(&st, chosen_mv);
+            if (chosen_mv.draw > 0)
+                CHECK((st.known[prev_turn] >> pile_top) & 1ULL, "face-up draw must be known");
             CHECK(st.turn != prev_turn, "turn must alternate");
             CHECK(st.hand_n[prev_turn] == 8, "hand size restored");
             check_state(&st, __LINE__);
@@ -191,11 +212,59 @@ static void test_rules_detail(void)
     }
 }
 
+static void test_known_lifecycle(void)
+{
+    /* discard a card, have the opponent take it, then watch the known bit
+     * clear when it is finally played */
+    uint8_t deck[NCARD];
+    for (int i = 0; i < NCARD; i++) deck[i] = (uint8_t)i;
+    State st;
+    lc_deal_from_deck(&st, deck);
+    /* p0 discards suit0 value2 (card 3) */
+    Move d = { 3, 1, 0 };
+    lc_apply(&st, d);
+    CHECK(st.known[1] == 0, "nothing known yet");
+    /* p1 discards a suit1 card, draws the suit0 pile top (card 3) */
+    Move d2 = { 8, 1, 1 };   /* card 8 = suit0? no: 8 is suit0 rank8.  p1 holds 8..15 */
+    /* p1's hand is cards 8..15: suit0 ranks 8-11 and suit1 ranks 0-3.
+     * discard card 12 (suit1 wager) to pile B, draw from pile Y (suit0). */
+    Move d3 = { 12, 1, 1 };
+    lc_apply(&st, d3);
+    (void)d2;
+    CHECK((st.known[1] >> 3) & 1ULL, "p1 took card 3 face up: must be known");
+    CHECK((st.hand[1] >> 3) & 1ULL, "card 3 in p1 hand");
+    /* unseen for p0 must not contain card 3 */
+    uint8_t uns[NCARD]; int un = 0;
+    lc_unseen(&st, 0, uns, &un);
+    for (int i = 0; i < un; i++) CHECK(uns[i] != 3, "known card leaked into unseen");
+    /* p1 plays card 3 (suit0 value2, expedition empty): known bit clears */
+    st.turn = 1;
+    Move pl = { 3, 0, 0 };
+    lc_apply(&st, pl);
+    CHECK(!((st.known[1] >> 3) & 1ULL), "known bit must clear on play");
+}
+
+static void test_match_context(void)
+{
+    Rng rng; rng_seed(&rng, 9);
+    State st;
+    lc_deal(&st, &rng);
+    CHECK(st.round == 0 && st.cum[0] == 0 && st.cum[1] == 0, "fresh deal has empty context");
+    st.round = 2; st.cum[0] = 88; st.cum[1] = -17;
+    Move mv[MAX_MOVES];
+    int n = lc_moves(&st, mv);
+    CHECK(n > 0, "moves exist");
+    lc_apply(&st, mv[0]);
+    CHECK(st.round == 2 && st.cum[0] == 88 && st.cum[1] == -17, "context survives apply");
+}
+
 int main(void)
 {
     test_cards();
     test_scoring();
     test_rules_detail();
+    test_known_lifecycle();
+    test_match_context();
     test_playouts();
     if (failures == 0) { printf("all engine tests passed\n"); return 0; }
     printf("%d failures\n", failures);
