@@ -15,16 +15,16 @@ $(BIN):
 	mkdir -p $(BIN)
 
 $(BIN)/test_engine: tests/test_engine.c $(SRC)/lc.c $(HDRS) | $(BIN)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
 
 $(BIN)/arena: tools/arena.c $(CORE) $(HDRS) | $(BIN)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
 
 $(BIN)/train: tools/train.c $(CORE) $(HDRS) | $(BIN)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
 
 $(BIN)/bench: tools/bench.c $(CORE) $(HDRS) | $(BIN)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
 
 test: $(BIN)/test_engine
 	./$(BIN)/test_engine
@@ -35,22 +35,22 @@ clean:
 .PHONY: all test clean
 
 $(BIN)/probe: tools/probe.c $(CORE) $(HDRS) | $(BIN)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
 
 $(BIN)/rl: tools/rl.c $(CORE) $(HDRS) | $(BIN)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
 
 $(BIN)/ladder: tools/ladder.c $(CORE) $(HDRS) | $(BIN)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
 
 $(BIN)/play: tools/play.c $(CORE) $(HDRS) | $(BIN)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
 
 $(BIN)/showgame: tools/showgame.c $(CORE) $(HDRS) | $(BIN)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
 
 $(BIN)/dumpfeat: tools/dumpfeat.c $(CORE) $(HDRS) | $(BIN)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
 
 $(BIN)/analyze: tools/analyze.c $(CORE) $(HDRS) | $(BIN)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
