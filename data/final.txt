@@ -31,3 +31,15 @@ hrollout  vs  heuristic
   margin/game -5.26 +- 5.35
   W/L/D 56/64/0   score 46.7% +- 4.6%
   points/game 94.8 vs 100.0   plies/game 125.0
+policy:data/best.bin  vs  hrollout
+  120 games (60 paired deals) in 198.8s (0.6 games/s)
+  margin/game +79.31 +- 4.53
+  W/L/D 114/6/0   score 95.0% +- 2.0%
+  points/game 117.3 vs 38.0   plies/game 70.7
+
+=== search on top of the trained policy ===
+rollout:data/best.bin:128:4  vs  policy:data/best.bin
+  240 games (120 paired deals) in 78.3s (3.1 games/s)
+  margin/game +6.29 +- 2.20
+  W/L/D 134/104/2   score 56.2% +- 3.2%
+  points/game 42.2 vs 35.9   plies/game 47.9
