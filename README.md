@@ -106,12 +106,14 @@ Nothing in the training told it that; the ply cap in the engine exists only to
 stop degenerate early policies from looping forever, and trained self-play never
 approaches it.
 
-Two smaller stages follow the first PPO run. A second PPO phase at a lower
-learning rate adds +6.3 points a game over the first. Then the rollout operator
-below is used as an expert: its move distributions are distilled back into the
-policy head, which recovers a further +2.3. Distillation flattened out after
-about two rounds -- the operator's edge is roughly +6 points and only a fraction
-of it survives being compressed back into a single forward pass.
+Three smaller stages follow the first PPO run, each worth a few points and each
+kept only after beating its own starting point over hundreds of paired deals: a
+second PPO phase at a lower learning rate (+6.0), a round of distilling the
+rollout operator below back into the policy head (+2.3), and a third PPO phase
+(+2.2). Distillation flattened out after about two rounds -- the operator's edge
+is around +6 points and only a fraction of it survives being compressed into a
+single forward pass, which is why it stays worth running the search at play
+time.
 
 ## Results
 
@@ -121,32 +123,36 @@ seats swapped -- so deal luck cancels. Percentages are the share of games won
 
 | agent | Elo | margin vs heuristic (points/game) |
 | --- | ---: | ---: |
-| `policy:best` (one forward pass per move) | **1332** | **+92.8 ± 2.1** (96.2% of games) |
-| `policy:rl2` (after PPO phase 2) | 1327 | +90.1 ± 2.4 |
-| `policy:rl1.it60` (after PPO phase 1) | 1302 | +87.8 ± 2.2 |
-| `heur` (hand-crafted projection evaluation) | 817 | 0 |
-| `policy:base` (imitation of the heuristic) | 793 | −8.5 ± 2.6 |
-| `random` | 0 | −139.1 ± 1.9 |
+| `policy:best` (one forward pass per move) | **1366** | **+97.4 ± 1.8** (97.2% of games) |
+| `policy:rl2` (after PPO phase 2) | 1327 | +87.1 ± 2.0 |
+| `policy:rl1` (after PPO phase 1) | 1299 | +88.7 ± 1.9 |
+| `heur` (hand-crafted projection evaluation) | 820 | 0 |
+| `policy:base` (imitation of the heuristic) | 792 | −9.2 ± 2.4 |
+| `random` | 0 | −139.5 ± 1.7 |
 
-Elo comes from a round robin of 300 paired deals per pairing, fitted by
+(The margin column is not monotone between `rl1` and `rl2` -- their scores
+against a much weaker third party are noisy and not the right comparison. The
+head-to-head result below is: `rl2` beats `rl1` by +6.0 ± 1.3.)
+
+Elo comes from a round robin of 400 paired deals per pairing, fitted by
 Bradley-Terry and anchored at random play. The rollout agent is not in this
 table: a rollout move costs thousands of forward passes, so it is measured
 separately below rather than in a full round robin. The final policy is about
-**515 Elo above the hand-crafted heuristic**, winning 96% of games against it by
-an average of 93 points.
+**545 Elo above the hand-crafted heuristic**, winning 97% of games against it by
+an average of 97 points.
 
 Each stage also beats the one before it head to head, which is the check that
 matters -- an agent can drift away from a fixed baseline without getting better:
 
 ```
-              margin of the later stage over the earlier one
-base     -> rl1.it60      +92.3 +- 2.6    (imitation -> PPO phase 1)
-rl1.it60 -> rl2            +5.2 +- 1.5    (PPO phase 2)
-rl2      -> best           +2.3 +- 1.1    (rollout expert iteration)
+                  margin of the later stage over the earlier one
+base -> rl1            +91.7 +- 2.3    (imitation -> PPO phase 1)
+rl1  -> rl2             +6.0 +- 1.3    (PPO phase 2)
+rl2  -> best            +6.6 +- 1.1    (rollout distillation, then PPO phase 3)
 ```
 
 **Search on top.** Rollout search over the trained policy adds a further
-**+6.3 ± 2.2 points a game** (56.2% score) for about 30 ms of thinking per
+**+5.5 ± 1.9 points a game** (56.7% of games) for about 30 ms of thinking per
 move, at 128 sampled worlds and 4 candidates.
 
 **Against the classical approach.** The standard recipe for imperfect
@@ -155,13 +161,13 @@ Monte Carlo over sampled worlds (`hrollout`). Here it is worth measuring
 because it isolates what the learning bought:
 
 ```
-hrollout      vs heur           -5.3 +- 5.4    (PIMC over the heuristic: no gain)
-policy:best   vs hrollout      +79.3 +- 4.5    (95.0% of games)
+hrollout      vs heur          -5.3 +- 5.4    (PIMC over the heuristic: no gain)
+policy:best   vs hrollout     +93.4 +- 4.9    (96.7% of games)
 ```
 
 Sampling worlds does not rescue a weak rollout policy -- the heuristic's
 playouts stall, so the estimates it produces describe stalling, not good play.
-The same operator over the trained policy is worth +6.3. The rollout is only as
+The same operator over the trained policy is worth +5.5. The rollout is only as
 good as the policy driving it.
 
 ## Reproducing
@@ -188,7 +194,7 @@ cp data/rl2.bin data/ref2.bin
             --ref policy:data/ref2.bin --out data/ex1.bin
 ```
 
-Total training time was about an hour on four CPU cores. `tools/eval_ladder.sh`
+Total training time was about two hours on four CPU cores. `tools/eval_ladder.sh`
 and `tools/eval_final.sh` reproduce the tables above.
 
 ## Playing and measuring
@@ -223,8 +229,8 @@ seats swapped -- so reported margins are not polluted by deal luck.
 ## Honest limits
 
 * There is no public Lost Cities benchmark bot or human game corpus to test
-  against offline, so "strong" here means: 515 Elo over a competent
-  hand-crafted player, 95% of games against the classical
+  against offline, so "strong" here means: 545 Elo over a competent
+  hand-crafted player, 97% of games against the classical
   heuristic-plus-Monte-Carlo approach, and monotone head-to-head improvement
   across every training stage. It is not a measurement against known human
   experts.

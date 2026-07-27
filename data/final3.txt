@@ -1,0 +1,19 @@
+=== phase 3 result vs its starting point ===
+policy:data/rl3.bin  vs  policy:data/ref3.bin
+  1600 games (800 paired deals) in 0.1s (12472.6 games/s)
+  margin/game +2.22 +- 0.81
+  W/L/D 835/750/15   score 52.7% +- 1.2%
+  points/game 39.1 vs 36.9   plies/game 47.6
+phase 3 improved by 4.099 points/game; best.bin updated
+
+=== final agent vs the fixed references ===
+policy:data/best.bin  vs  heuristic
+  800 games (400 paired deals) in 0.2s (3585.5 games/s)
+  margin/game +93.44 +- 1.86
+  W/L/D 770/29/1   score 96.3% +- 0.7%
+  points/game 128.2 vs 34.8   plies/game 66.4
+rollout:data/best.bin:128:4  vs  policy:data/best.bin
+  240 games (120 paired deals) in 50.3s (4.8 games/s)
+  margin/game +5.51 +- 1.94
+  W/L/D 135/103/2   score 56.7% +- 3.2%
+  points/game 41.1 vs 35.6   plies/game 47.4

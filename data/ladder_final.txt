@@ -1,0 +1,23 @@
+random                       vs heur                          margin -139.54 +- 1.69   score   0.0%
+random                       vs policy:data/base.bin          margin -131.20 +- 1.91   score   2.1%
+random                       vs policy:data/rl1.bin           margin -179.31 +- 1.67   score   0.0%
+random                       vs policy:data/rl2.bin           margin -183.40 +- 1.85   score   0.0%
+random                       vs policy:data/best.bin          margin -191.81 +- 1.70   score   0.0%
+heur                         vs policy:data/base.bin          margin   +9.18 +- 2.38   score  54.5%
+heur                         vs policy:data/rl1.bin           margin  -88.73 +- 1.86   score   4.9%
+heur                         vs policy:data/rl2.bin           margin  -87.14 +- 2.02   score   6.3%
+heur                         vs policy:data/best.bin          margin  -97.38 +- 1.77   score   2.8%
+policy:data/base.bin         vs policy:data/rl1.bin           margin  -91.65 +- 2.26   score   4.7%
+policy:data/base.bin         vs policy:data/rl2.bin           margin  -95.84 +- 2.37   score   5.2%
+policy:data/base.bin         vs policy:data/best.bin          margin  -99.31 +- 2.28   score   4.5%
+policy:data/rl1.bin          vs policy:data/rl2.bin           margin   -5.98 +- 1.27   score  43.4%
+policy:data/rl1.bin          vs policy:data/best.bin          margin   -8.68 +- 1.12   score  41.2%
+policy:data/rl2.bin          vs policy:data/best.bin          margin   -6.56 +- 1.10   score  44.1%
+
+agent                                   elo avg margin
+policy:data/best.bin                  +1366     +80.75
+policy:data/rl2.bin                   +1327     +73.16
+policy:data/rl1.bin                   +1299     +69.01
+heur                                   +820     -24.90
+policy:data/base.bin                   +792     -32.96
+random                                   +0    -165.05
