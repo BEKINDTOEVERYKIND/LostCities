@@ -1,0 +1,33 @@
+expert iteration vs its starting point: 0.652 points/game
+best model: data/ex1.bin
+=== ladder (n=300 paired deals per pairing) ===
+random                       vs heur                          margin -139.10 +- 1.92   score   0.0%
+random                       vs policy:data/base.bin          margin -132.12 +- 2.18   score   2.1%
+random                       vs policy:data/rl1.bin.it60      margin -179.76 +- 1.96   score   0.0%
+random                       vs policy:data/rl2.bin           margin -185.40 +- 2.13   score   0.0%
+random                       vs policy:data/best.bin          margin -187.42 +- 1.84   score   0.0%
+heur                         vs policy:data/base.bin          margin   +8.52 +- 2.60   score  53.4%
+heur                         vs policy:data/rl1.bin.it60      margin  -87.75 +- 2.17   score   5.0%
+heur                         vs policy:data/rl2.bin           margin  -90.10 +- 2.39   score   6.0%
+heur                         vs policy:data/best.bin          margin  -92.79 +- 2.13   score   3.8%
+policy:data/base.bin         vs policy:data/rl1.bin.it60      margin  -92.29 +- 2.63   score   4.3%
+policy:data/base.bin         vs policy:data/rl2.bin           margin  -92.63 +- 2.66   score   5.3%
+policy:data/base.bin         vs policy:data/best.bin          margin  -95.02 +- 2.64   score   5.2%
+policy:data/rl1.bin.it60     vs policy:data/rl2.bin           margin   -5.21 +- 1.51   score  43.8%
+policy:data/rl1.bin.it60     vs policy:data/best.bin          margin   -4.85 +- 1.49   score  46.6%
+policy:data/rl2.bin          vs policy:data/best.bin          margin   -2.30 +- 1.13   score  48.6%
+
+agent                                   elo avg margin
+policy:data/best.bin                  +1332     +76.48
+policy:data/rl2.bin                   +1327     +74.21
+policy:data/rl1.bin.it60              +1302     +69.95
+heur                                   +817     -24.60
+policy:data/base.bin                   +793     -31.27
+random                                   +0    -164.76
+
+=== classical baseline: heuristic + perfect-information Monte Carlo ===
+hrollout  vs  heuristic
+  120 games (60 paired deals) in 402.4s (0.3 games/s)
+  margin/game -5.26 +- 5.35
+  W/L/D 56/64/0   score 46.7% +- 4.6%
+  points/game 94.8 vs 100.0   plies/game 125.0

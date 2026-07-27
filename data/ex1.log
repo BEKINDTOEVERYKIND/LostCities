@@ -1,0 +1,14 @@
+loaded initial network from data/best.bin
+network 432-256-128 value+policy, 160127 weights, replay 144 MB
+iter  1 [rollout]: 1200 games in 216.1s (5.6 g/s), 114192 new samples, buffer 114192, |margin| 32.6, plies 47.6
+            trained 3000 steps in 5.5s: value rmse 11.6 pts, policy ce 0.640
+            policy vs policy:data/ref2.bin: margin +1.19 +- 0.82, score 51.0%, plies 48
+iter  2 [rollout]: 1200 games in 242.9s (4.9 g/s), 114508 new samples, buffer 228700, |margin| 32.5, plies 47.7
+            trained 3000 steps in 6.5s: value rmse 11.4 pts, policy ce 0.697
+            policy vs policy:data/ref2.bin: margin +1.14 +- 0.98, score 50.6%, plies 48
+iter  3 [rollout]: 1200 games in 263.2s (4.6 g/s), 114598 new samples, buffer 343298, |margin| 32.4, plies 47.7
+            trained 3000 steps in 6.5s: value rmse 11.5 pts, policy ce 0.754
+            policy vs policy:data/ref2.bin: margin +0.22 +- 0.93, score 50.2%, plies 48
+iter  4 [rollout]: 1200 games in 286.6s (4.2 g/s), 115116 new samples, buffer 458414, |margin| 33.6, plies 48.0
+            trained 3000 steps in 6.1s: value rmse 11.5 pts, policy ce 0.805
+            policy vs policy:data/ref2.bin: margin +1.22 +- 0.99, score 50.6%, plies 48

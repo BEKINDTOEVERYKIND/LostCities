@@ -101,6 +101,14 @@ Notably, the trained agent stopped stalling on its own. Self-play games fell
 from 113 plies to around 57 -- close to the natural length of the game -- once
 the policy learned that dragging a game out is not worth what it costs.
 
+## Results
+
+Every number below is from paired deals -- each deal played twice with the
+seats swapped -- so deal luck cancels. Elo is fitted from win rates over the
+round robin and anchored at the hand-crafted heuristic.
+
+RESULTS_TABLE_PLACEHOLDER
+
 ## Reproducing
 
 ```

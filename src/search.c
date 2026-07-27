@@ -1,6 +1,5 @@
 #include "search.h"
 #include "agent.h"
-#include "heuristic.h"
 #include <math.h>
 #include <stdlib.h>
 

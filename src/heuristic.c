@@ -104,36 +104,3 @@ float heur_move_value_det(const State *st, Move m)
     if (s2.over) return (float)(lc_score(&s2, p) - lc_score(&s2, p ^ 1));
     return heur_eval(&s2, p);
 }
-
-float heur_move_value_is(const State *st, Move m, Rng *rng, int samples)
-{
-    const int p = st->turn;
-    State base = *st;
-    lc_apply_play(&base, m);
-
-    if (m.draw > 0) {
-        State s2 = base;
-        lc_apply_draw(&s2, m, -1);
-        if (s2.over) return (float)(lc_score(&s2, p) - lc_score(&s2, p ^ 1));
-        return heur_eval(&s2, p);
-    }
-    uint8_t unseen[NCARD];
-    int n = 0;
-    lc_unseen(&base, p, unseen, &n);
-    int ns = samples < 1 ? 1 : samples;
-    if (ns > n) ns = n;
-    if (n == 0) {
-        State s2 = base;
-        lc_apply_draw(&s2, m, -1);
-        if (s2.over) return (float)(lc_score(&s2, p) - lc_score(&s2, p ^ 1));
-        return heur_eval(&s2, p);
-    }
-    float sum = 0.0f;
-    for (int i = 0; i < ns; i++) {
-        int k = (ns == n) ? i : (int)rng_below(rng, (uint32_t)n);
-        State s2 = base;
-        lc_apply_draw(&s2, m, unseen[k]);
-        sum += s2.over ? (float)(lc_score(&s2, p) - lc_score(&s2, p ^ 1)) : heur_eval(&s2, p);
-    }
-    return sum / (float)ns;
-}
