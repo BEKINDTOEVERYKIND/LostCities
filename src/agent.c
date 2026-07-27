@@ -76,7 +76,10 @@ void determinize_b(const State *st, int p, Rng *rng, const Net *net, State *out)
     int order[NCARD];
     for (int i = 0; i < n; i++) {
         float u = rng_float(rng) + 1e-7f;
-        key[i] = logit[i] - logf(-logf(u));
+        float l = logit[i];
+        if (l > 15.0f) l = 15.0f;
+        if (l < -15.0f) l = -15.0f;
+        key[i] = l - logf(-logf(u));
         order[i] = i;
     }
     for (int i = 0; i < need; i++) {

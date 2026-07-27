@@ -18,10 +18,11 @@
 int main(int argc, char **argv)
 {
     const char *specs[MAXA];
-    int na = 0, pairs = 200, nthread = 4;
+    int na = 0, pairs = 200, nthread = 4, rounds = 1;
     uint64_t seed = 12345;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-n") && i + 1 < argc) pairs = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "-r") && i + 1 < argc) rounds = atoi(argv[++i]);
         else if (!strcmp(argv[i], "-t") && i + 1 < argc) nthread = atoi(argv[++i]);
         else if (!strcmp(argv[i], "-s") && i + 1 < argc) seed = strtoull(argv[++i], NULL, 10);
         else if (na < MAXA) specs[na++] = argv[i];
@@ -35,7 +36,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < na; i++)
         for (int j = i + 1; j < na; j++) {
             MatchResult r;
-            match_run(&ag[i], &ag[j], pairs, nthread, seed + (uint64_t)(i * 31 + j), &r);
+            match_run_r(&ag[i], &ag[j], pairs, nthread, seed + (uint64_t)(i * 31 + j), rounds, &r);
             margin[i][j] = r.margin;   margin[j][i] = -r.margin;
             score[i][j] = r.winrate * r.games; score[j][i] = (1.0 - r.winrate) * r.games;
             games[i][j] = games[j][i] = r.games;

@@ -32,6 +32,7 @@ typedef struct Agent {
     int node_width;     /* interior moves kept                             */
     float cpuct;
     float cand_floor;   /* AG_ROLLOUT: ignore candidates below this policy  */
+    int no_belief;      /* AG_ROLLOUT ablation: sample worlds uniformly      */
     const char *name;
 } Agent;
 

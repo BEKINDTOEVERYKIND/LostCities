@@ -208,8 +208,14 @@ static void *opt_worker(void *arg)
             float scale = t->bw / (float)(nb > 0 ? nb : 1);
             for (int k = 0; k < nb; k++) {
                 float lab = ((st->hand[o] >> bcard[k]) & 1ULL) ? 1.0f : 0.0f;
-                float pr2 = 1.0f / (1.0f + expf(-blogit[k]));
-                bloss += -(double)(lab * logf(pr2 + 1e-9f) + (1.0f - lab) * logf(1.0f - pr2 + 1e-9f));
+                /* clamp before the sigmoid: with -ffast-math an overflowing
+                 * expf poisons the gradient with NaN, and a NaN here would
+                 * flow into the shared trunk and destroy all three heads */
+                float l = blogit[k];
+                if (l > 15.0f) l = 15.0f;
+                if (l < -15.0f) l = -15.0f;
+                float pr2 = 1.0f / (1.0f + expf(-l));
+                bloss += -(double)(lab * logf(pr2 + 1e-6f) + (1.0f - lab) * logf(1.0f - pr2 + 1e-6f));
                 dbel[k] = scale * (pr2 - lab);
             }
             bn += nb;

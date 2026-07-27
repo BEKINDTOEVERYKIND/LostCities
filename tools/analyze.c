@@ -18,6 +18,7 @@
 #include "../src/lc.h"
 #include "../src/agent.h"
 #include "../src/search.h"
+#include <math.h>
 #include "../src/spec.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -204,6 +205,40 @@ int main(int argc, char **argv)
             v[q] = net_value(ag.net, &feat) * VAL_SCALE;
         }
         fprintf(pf, ",\"values\":[%.1f,%.1f]", v[0], v[1]);
+
+        /* belief head from the MOVER's perspective: for every card whose
+         * location the mover cannot pin down, the learned probability that
+         * the opponent holds it -- with the omniscient truth beside it so the
+         * viewer can show how good the inference actually is */
+        {
+            int mp = st.turn, mo = mp ^ 1;
+            uint8_t bcards[NCARD];
+            int nb = 0;
+            lc_unseen(&st, mp, bcards, &nb);
+            Features bf;
+            feat_extract(&st, mp, &bf);
+            NetAct bact;
+            net_trunk(ag.net, &bf, &bact);
+            float blg[NCARD];
+            net_belief_act(ag.net, &bact, bcards, nb, blg);
+            int bord[NCARD];
+            for (int i = 0; i < nb; i++) bord[i] = i;
+            for (int i = 0; i < nb; i++)
+                for (int j2 = i + 1; j2 < nb; j2++)
+                    if (blg[bord[j2]] > blg[bord[i]]) { int t = bord[i]; bord[i] = bord[j2]; bord[j2] = t; }
+            fprintf(pf, ",\"belief\":{\"persp\":%d,\"cards\":[", mp);
+            int bkeep = nb < 14 ? nb : 14;
+            for (int i = 0; i < bkeep; i++) {
+                int ci = bord[i];
+                float bp = 1.0f / (1.0f + expf(-blg[ci]));
+                if (i) fputc(',', pf);
+                fprintf(pf, "{\"card\":");
+                j_card(pf, bcards[ci]);
+                fprintf(pf, ",\"p\":%.3f,\"held\":%s}",
+                        bp, ((st.hand[mo] >> bcards[ci]) & 1ULL) ? "true" : "false");
+            }
+            fprintf(pf, "]}");
+        }
 
         /* policy head over all legal moves, best first, capped at 10 */
         Move pmv[MAX_MOVES];

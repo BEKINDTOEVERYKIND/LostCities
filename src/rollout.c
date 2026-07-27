@@ -100,7 +100,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
 
     for (int d = 0; d < reps; d++) {
         State world;
-        determinize_b(st, p, rng, a->net, &world);
+        determinize_b(st, p, rng, a->no_belief ? NULL : a->net, &world);
         for (int c = 0; c < ncand; c++) {
             State s = world;                 /* same world for every candidate */
             lc_apply(&s, mv[order[c]]);
