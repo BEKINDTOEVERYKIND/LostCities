@@ -1,0 +1,23 @@
+heur                         vs policy:data/base.bin          margin  +11.97 +- 3.06   score  54.9%
+heur                         vs policy:data/rl1.bin.it10      margin  -49.66 +- 2.44   score  17.3%
+heur                         vs policy:data/rl1.bin.it25      margin  -80.90 +- 2.57   score   7.4%
+heur                         vs policy:data/rl1.bin.it40      margin  -85.12 +- 2.40   score   5.4%
+heur                         vs policy:data/rl1.bin.it60      margin  -87.79 +- 2.35   score   5.0%
+policy:data/base.bin         vs policy:data/rl1.bin.it10      margin  -45.23 +- 2.94   score  22.7%
+policy:data/base.bin         vs policy:data/rl1.bin.it25      margin  -90.30 +- 2.93   score   6.0%
+policy:data/base.bin         vs policy:data/rl1.bin.it40      margin  -95.50 +- 2.81   score   6.1%
+policy:data/base.bin         vs policy:data/rl1.bin.it60      margin  -99.54 +- 2.94   score   5.9%
+policy:data/rl1.bin.it10     vs policy:data/rl1.bin.it25      margin  -40.46 +- 2.34   score  23.0%
+policy:data/rl1.bin.it10     vs policy:data/rl1.bin.it40      margin  -52.21 +- 2.55   score  17.0%
+policy:data/rl1.bin.it10     vs policy:data/rl1.bin.it60      margin  -55.10 +- 2.63   score  17.5%
+policy:data/rl1.bin.it25     vs policy:data/rl1.bin.it40      margin  -14.79 +- 1.98   score  38.3%
+policy:data/rl1.bin.it25     vs policy:data/rl1.bin.it60      margin  -20.99 +- 1.80   score  31.0%
+policy:data/rl1.bin.it40     vs policy:data/rl1.bin.it60      margin   -5.95 +- 1.61   score  44.7%
+
+agent                                   elo avg margin
+policy:data/rl1.bin.it60               +531     +53.88
+policy:data/rl1.bin.it40               +498     +48.34
+policy:data/rl1.bin.it25               +422     +35.17
+policy:data/rl1.bin.it10               +233     -10.58
+heur                                     +0     -58.30
+policy:data/base.bin                     -9     -68.51

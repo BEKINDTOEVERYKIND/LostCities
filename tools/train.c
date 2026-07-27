@@ -117,7 +117,25 @@ static void *gen_worker(void *arg)
             int n = 0;
             chain_hasv[T] = 0;
 
-            if (j->agent.kind == AG_MCTS) {
+            if (j->agent.kind == AG_ROLLOUT) {
+                SearchStats ss;
+                float sv = 0.0f;
+                rollout_move(&j->agent, &st, &rng, &sv, &ss);
+                n = ss.n;
+                /* The rollout values are margins in points, so the softmax
+                 * temperature is in points too: wide enough not to trust
+                 * differences smaller than the sampling error. */
+                double mx = -1e30;
+                for (int i = 0; i < n; i++) if (ss.q[i] > mx) mx = ss.q[i];
+                double sum = 0.0;
+                for (int i = 0; i < n; i++) {
+                    mv[i] = ss.mv[i];
+                    pr[i] = (float)exp((ss.q[i] - mx) / j->tau);
+                    sum += pr[i];
+                }
+                for (int i = 0; i < n; i++) pr[i] /= (float)sum;
+                chain_sval[T] = sv; chain_hasv[T] = 1;
+            } else if (j->agent.kind == AG_MCTS) {
                 SearchStats ss;
                 float sv = 0.0f;
                 search_move(&j->agent, &st, &rng, &sv, &ss);
@@ -352,6 +370,15 @@ int main(int argc, char **argv)
             agent_default(&gen, AG_NET, net);
         } else if (!strcmp(gen_spec, "selfpolicy")) {
             agent_default(&gen, AG_POLICY, net);
+        } else if (!strncmp(gen_spec, "selfrollout", 11)) {
+            agent_default(&gen, AG_ROLLOUT, net);
+            char tmp[128];
+            snprintf(tmp, sizeof tmp, "%s", gen_spec);
+            char *save = NULL;
+            strtok_r(tmp, ":", &save);
+            char *v;
+            if ((v = strtok_r(NULL, ":", &save))) gen.dets = atoi(v);
+            if ((v = strtok_r(NULL, ":", &save))) gen.root_width = atoi(v);
         } else {
             spec_parse(gen_spec, &gen);
             gen.net = net;

@@ -25,15 +25,32 @@ void spec_parse(const char *spec, Agent *a)
     if (!tok) { fprintf(stderr, "empty agent spec\n"); exit(1); }
     if (!strcmp(tok, "random")) { agent_default(a, AG_RANDOM, NULL); return; }
     if (!strcmp(tok, "heur"))   { agent_default(a, AG_HEUR, NULL); return; }
-    if (!strcmp(tok, "net") || !strcmp(tok, "mcts") || !strcmp(tok, "policy")) {
+    if (!strcmp(tok, "hrollout")) {
+        /* classical baseline: hand-crafted evaluation with perfect-information
+         * Monte Carlo over sampled worlds, no network anywhere */
+        agent_default(a, AG_ROLLOUT, NULL);
+        a->name = "hrollout";
+        char *v;
+        if ((v = strtok_r(NULL, ":", &save))) a->dets = atoi(v);
+        if ((v = strtok_r(NULL, ":", &save))) a->root_width = atoi(v);
+        return;
+    }
+    if (!strcmp(tok, "net") || !strcmp(tok, "mcts") || !strcmp(tok, "policy") ||
+        !strcmp(tok, "rollout")) {
         int is_mcts = !strcmp(tok, "mcts");
         int is_policy = !strcmp(tok, "policy");
+        int is_rollout = !strcmp(tok, "rollout");
         char *path = strtok_r(NULL, ":", &save);
         if (!path) { fprintf(stderr, "agent '%s' needs a network path\n", tok); exit(1); }
         Net *n = load_net(path);
-        agent_default(a, is_mcts ? AG_MCTS : (is_policy ? AG_POLICY : AG_NET), n);
+        agent_default(a, is_rollout ? AG_ROLLOUT :
+                         (is_mcts ? AG_MCTS : (is_policy ? AG_POLICY : AG_NET)), n);
         char *v;
-        if (is_policy) {
+        if (is_rollout) {
+            if ((v = strtok_r(NULL, ":", &save))) a->dets = atoi(v);
+            if ((v = strtok_r(NULL, ":", &save))) a->root_width = atoi(v);
+            if ((v = strtok_r(NULL, ":", &save))) a->cand_floor = (float)atof(v);
+        } else if (is_policy) {
             if ((v = strtok_r(NULL, ":", &save))) a->temp = (float)atof(v);
         } else if (is_mcts) {
             if ((v = strtok_r(NULL, ":", &save))) a->dets = atoi(v);

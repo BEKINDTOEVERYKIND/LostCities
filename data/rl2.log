@@ -1,0 +1,54 @@
+initialised from data/best.bin
+ppo: 80 iters x 6000 games, batch 512, 2 epochs, lr 2.0e-04, lambda 0.85, ent 0.0060
+iter  1: 6000 games 1.8s (3307 g/s), 583634 samples, plies 48.6, points/game 36.9, |margin| 32.3, entropy 0.49, adv sd 11.1
+         2278 updates in 5.9s: value rmse 10.8 pts, surrogate -0.0058, clipped 7.1%
+         vs policy:data/ref1.bin: margin -0.69 +- 0.89, score 47.6%, plies 48
+iter  2: 6000 games 1.6s (3841 g/s), 582972 samples, plies 48.6, points/game 37.6, |margin| 33.4, entropy 0.49, adv sd 11.2
+         2276 updates in 6.3s: value rmse 10.9 pts, surrogate -0.0058, clipped 7.5%
+         vs policy:data/ref1.bin: margin +0.33 +- 0.88, score 50.1%, plies 48
+iter  3: 6000 games 1.6s (3800 g/s), 582428 samples, plies 48.5, points/game 36.5, |margin| 33.0, entropy 0.48, adv sd 11.2
+         2274 updates in 5.9s: value rmse 10.9 pts, surrogate -0.0060, clipped 7.4%
+         vs policy:data/ref1.bin: margin +0.19 +- 1.00, score 49.8%, plies 48
+iter  4: 6000 games 1.6s (3738 g/s), 582844 samples, plies 48.6, points/game 36.2, |margin| 32.7, entropy 0.48, adv sd 11.1
+         2276 updates in 7.9s: value rmse 10.8 pts, surrogate -0.0057, clipped 7.5%
+         vs policy:data/ref1.bin: margin -0.44 +- 1.06, score 49.5%, plies 48
+iter  5: 6000 games 1.7s (3556 g/s), 582248 samples, plies 48.5, points/game 36.4, |margin| 32.8, entropy 0.48, adv sd 11.1
+         2274 updates in 6.6s: value rmse 10.8 pts, surrogate -0.0059, clipped 7.4%
+         vs policy:data/ref1.bin: margin +2.12 +- 1.09, score 54.2%, plies 48
+iter  6: 6000 games 1.6s (3814 g/s), 580862 samples, plies 48.4, points/game 36.9, |margin| 33.0, entropy 0.47, adv sd 11.2
+         2268 updates in 6.3s: value rmse 10.9 pts, surrogate -0.0057, clipped 7.5%
+         vs policy:data/ref1.bin: margin +0.48 +- 1.01, score 50.1%, plies 48
+iter  7: 6000 games 1.6s (3838 g/s), 579116 samples, plies 48.3, points/game 35.9, |margin| 32.9, entropy 0.47, adv sd 11.2
+         2262 updates in 6.1s: value rmse 10.9 pts, surrogate -0.0059, clipped 7.5%
+         vs policy:data/ref1.bin: margin +2.22 +- 1.13, score 51.1%, plies 48
+iter  8: 6000 games 1.5s (3929 g/s), 579840 samples, plies 48.3, points/game 36.3, |margin| 32.8, entropy 0.46, adv sd 11.2
+         2264 updates in 5.8s: value rmse 10.9 pts, surrogate -0.0057, clipped 7.5%
+         vs policy:data/ref1.bin: margin +3.23 +- 1.06, score 52.5%, plies 48
+iter  9: 6000 games 1.5s (4006 g/s), 577980 samples, plies 48.2, points/game 35.5, |margin| 32.4, entropy 0.46, adv sd 11.1
+         2256 updates in 6.0s: value rmse 10.8 pts, surrogate -0.0057, clipped 7.6%
+         vs policy:data/ref1.bin: margin +1.98 +- 1.08, score 52.1%, plies 48
+iter 10: 6000 games 1.6s (3694 g/s), 577268 samples, plies 48.1, points/game 36.2, |margin| 32.9, entropy 0.45, adv sd 11.2
+         2254 updates in 6.4s: value rmse 10.9 pts, surrogate -0.0057, clipped 7.3%
+         vs policy:data/ref1.bin: margin +2.27 +- 1.12, score 51.9%, plies 48
+iter 11: 6000 games 1.5s (3925 g/s), 575626 samples, plies 48.0, points/game 35.5, |margin| 33.0, entropy 0.44, adv sd 11.2
+         2248 updates in 6.4s: value rmse 10.9 pts, surrogate -0.0057, clipped 7.4%
+         vs policy:data/ref1.bin: margin +2.30 +- 1.12, score 51.4%, plies 48
+iter 12: 6000 games 1.5s (3874 g/s), 574936 samples, plies 47.9, points/game 34.9, |margin| 32.7, entropy 0.44, adv sd 11.2
+         2244 updates in 6.6s: value rmse 10.9 pts, surrogate -0.0056, clipped 7.4%
+         vs policy:data/ref1.bin: margin +0.91 +- 1.11, score 52.4%, plies 48
+iter 13: 6000 games 2.0s (2930 g/s), 573790 samples, plies 47.8, points/game 35.1, |margin| 32.9, entropy 0.43, adv sd 11.2
+         2240 updates in 9.8s: value rmse 10.9 pts, surrogate -0.0055, clipped 7.3%
+         vs policy:data/ref1.bin: margin +2.35 +- 1.15, score 52.7%, plies 48
+iter 14: 6000 games 1.6s (3736 g/s), 571806 samples, plies 47.7, points/game 34.9, |margin| 32.5, entropy 0.43, adv sd 11.3
+         2232 updates in 6.3s: value rmse 10.9 pts, surrogate -0.0058, clipped 7.3%
+         vs policy:data/ref1.bin: margin +1.22 +- 1.22, score 50.6%, plies 48
+iter 15: 6000 games 1.5s (3932 g/s), 571690 samples, plies 47.6, points/game 34.6, |margin| 32.2, entropy 0.43, adv sd 11.1
+         2232 updates in 6.8s: value rmse 10.8 pts, surrogate -0.0056, clipped 7.3%
+         vs policy:data/ref1.bin: margin +1.61 +- 1.10, score 51.3%, plies 48
+iter 16: 6000 games 1.6s (3809 g/s), 570760 samples, plies 47.6, points/game 35.0, |margin| 32.6, entropy 0.42, adv sd 11.1
+         2228 updates in 7.6s: value rmse 10.8 pts, surrogate -0.0055, clipped 7.2%
+         vs policy:data/ref1.bin: margin +3.82 +- 1.11, score 54.4%, plies 48
+iter 17: 6000 games 1.5s (3996 g/s), 571276 samples, plies 47.6, points/game 34.8, |margin| 32.3, entropy 0.42, adv sd 11.1
+         2230 updates in 5.7s: value rmse 10.8 pts, surrogate -0.0056, clipped 7.2%
+         vs policy:data/ref1.bin: margin +1.16 +- 1.14, score 52.1%, plies 47
+iter 18: 6000 games 1.7s (3544 g/s), 571210 samples, plies 47.6, points/game 34.3, |margin| 32.3, entropy 0.42, adv sd 11.0

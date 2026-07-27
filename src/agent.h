@@ -15,7 +15,8 @@ typedef enum {
     AG_HEUR,     /* one-ply greedy on the hand-crafted evaluation */
     AG_NET,      /* one-ply greedy on the value head             */
     AG_POLICY,   /* single forward pass, argmax of the policy head */
-    AG_MCTS      /* determinized MCTS, network priors and values  */
+    AG_MCTS,     /* determinized MCTS, network priors and values  */
+    AG_ROLLOUT   /* candidate moves played out in sampled worlds   */
 } AgentKind;
 
 typedef struct Agent {
@@ -30,6 +31,7 @@ typedef struct Agent {
     int root_width;     /* root moves kept after prior pruning             */
     int node_width;     /* interior moves kept                             */
     float cpuct;
+    float cand_floor;   /* AG_ROLLOUT: ignore candidates below this policy  */
     const char *name;
 } Agent;
 

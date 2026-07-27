@@ -23,5 +23,8 @@ typedef struct {
 
 Move search_move(const struct Agent *a, const State *st, Rng *rng,
                  float *out_value, SearchStats *stats);
+/* Policy improvement by paired playouts from sampled worlds (rollout.c). */
+Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
+                  float *out_value, SearchStats *stats);
 
 #endif

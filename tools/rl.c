@@ -76,14 +76,18 @@ static void *gen_worker(void *arg)
 
             int c;
             if (j->temp != 1.0f) {
-                float w[MAX_MOVES];
-                for (int i = 0; i < n; i++) w[i] = powf(pr[i], 1.0f / j->temp);
+                /* Sampling off-policy is fine as long as the recorded
+                 * probability is the behaviour policy's, since that is what the
+                 * PPO ratio divides by. */
+                float w[MAX_MOVES], sum = 0.0f;
+                for (int i = 0; i < n; i++) { w[i] = powf(pr[i], 1.0f / j->temp); sum += w[i]; }
                 c = sample_index(w, n, &rng);
+                chain_p[T] = w[c] / sum;
             } else {
                 c = sample_index(pr, n, &rng);
+                chain_p[T] = pr[c];
             }
             chain_mv[T] = MOVE_PACK(mv[c]);
-            chain_p[T] = pr[c];
             T++;
             lc_apply(&st, mv[c]);
         }

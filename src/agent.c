@@ -16,12 +16,14 @@ void agent_default(Agent *a, AgentKind k, const Net *net)
     a->root_width = 14;
     a->node_width = 8;
     a->cpuct = 1.4f;
+    a->cand_floor = 0.02f;
     switch (k) {
     case AG_RANDOM: a->name = "random"; break;
     case AG_HEUR:   a->name = "heuristic"; break;
     case AG_NET:    a->name = "net1"; break;
     case AG_POLICY: a->name = "policy"; break;
     case AG_MCTS:   a->name = "mcts"; break;
+    case AG_ROLLOUT: a->name = "rollout"; a->dets = 128; a->root_width = 4; break;
     }
 }
 
@@ -197,6 +199,7 @@ Move agent_move(const Agent *a, const State *st, Rng *rng)
     Move mv[MAX_MOVES];
     float val[MAX_MOVES];
     if (a->kind == AG_MCTS) return search_move(a, st, rng, NULL, NULL);
+    if (a->kind == AG_ROLLOUT) return rollout_move(a, st, rng, NULL, NULL);
     if (a->kind == AG_POLICY) {
         float prob[MAX_MOVES];
         int n = policy_probs(a->net, st, mv, prob, NULL);

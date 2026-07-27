@@ -60,3 +60,123 @@ iter 19: 5000 games 1.8s (2731 g/s), 594662 samples, plies 59.5, points/game 80.
 iter 20: 5000 games 1.5s (3255 g/s), 585168 samples, plies 58.5, points/game 77.0, |margin| 43.6, entropy 1.04, adv sd 14.0
          2284 updates in 6.6s: value rmse 13.8 pts, surrogate -0.0112, clipped 12.2%
          vs heur: margin +73.25 +- 2.02, score 90.6%, plies 65
+iter 21: 5000 games 1.6s (3087 g/s), 574468 samples, plies 57.4, points/game 75.4, |margin| 43.1, entropy 0.98, adv sd 13.7
+         2244 updates in 6.1s: value rmse 13.5 pts, surrogate -0.0109, clipped 12.0%
+         vs heur: margin +77.86 +- 2.11, score 91.4%, plies 66
+iter 22: 5000 games 2.3s (2198 g/s), 571928 samples, plies 57.2, points/game 75.1, |margin| 42.9, entropy 0.95, adv sd 13.6
+         2234 updates in 7.0s: value rmse 13.4 pts, surrogate -0.0101, clipped 11.6%
+         vs heur: margin +77.42 +- 1.86, score 91.2%, plies 68
+iter 23: 5000 games 2.0s (2558 g/s), 570762 samples, plies 57.1, points/game 72.7, |margin| 42.8, entropy 0.93, adv sd 13.4
+         2228 updates in 6.9s: value rmse 13.2 pts, surrogate -0.0099, clipped 11.8%
+         vs heur: margin +78.30 +- 2.16, score 90.5%, plies 68
+iter 24: 5000 games 1.8s (2793 g/s), 565444 samples, plies 56.5, points/game 69.1, |margin| 41.2, entropy 0.91, adv sd 13.1
+         2208 updates in 6.4s: value rmse 12.9 pts, surrogate -0.0097, clipped 11.6%
+         vs heur: margin +82.04 +- 2.03, score 91.2%, plies 68
+iter 25: 5000 games 1.7s (2870 g/s), 553874 samples, plies 55.4, points/game 65.3, |margin| 40.0, entropy 0.87, adv sd 13.0
+         2162 updates in 5.8s: value rmse 12.8 pts, surrogate -0.0097, clipped 11.6%
+         vs heur: margin +80.12 +- 2.05, score 92.2%, plies 65
+iter 26: 5000 games 1.5s (3340 g/s), 550282 samples, plies 55.0, points/game 63.1, |margin| 39.8, entropy 0.85, adv sd 12.9
+         2148 updates in 5.9s: value rmse 12.7 pts, surrogate -0.0089, clipped 11.4%
+         vs heur: margin +84.14 +- 1.98, score 93.0%, plies 68
+iter 27: 5000 games 1.5s (3438 g/s), 547686 samples, plies 54.8, points/game 61.9, |margin| 40.3, entropy 0.83, adv sd 12.9
+         2138 updates in 6.2s: value rmse 12.6 pts, surrogate -0.0092, clipped 11.4%
+         vs heur: margin +81.84 +- 1.99, score 92.6%, plies 66
+iter 28: 5000 games 1.4s (3570 g/s), 543864 samples, plies 54.4, points/game 59.6, |margin| 38.2, entropy 0.82, adv sd 12.6
+         2124 updates in 6.0s: value rmse 12.3 pts, surrogate -0.0091, clipped 11.7%
+         vs heur: margin +85.61 +- 2.02, score 93.4%, plies 66
+iter 29: 5000 games 1.5s (3239 g/s), 538222 samples, plies 53.8, points/game 56.3, |margin| 38.2, entropy 0.79, adv sd 12.5
+         2102 updates in 5.9s: value rmse 12.2 pts, surrogate -0.0093, clipped 11.3%
+         vs heur: margin +83.57 +- 1.94, score 93.4%, plies 67
+iter 30: 5000 games 1.5s (3432 g/s), 538006 samples, plies 53.8, points/game 55.3, |margin| 37.1, entropy 0.79, adv sd 12.2
+         2100 updates in 5.7s: value rmse 11.9 pts, surrogate -0.0089, clipped 11.4%
+         vs heur: margin +87.30 +- 2.07, score 94.3%, plies 66
+iter 31: 5000 games 1.5s (3289 g/s), 533476 samples, plies 53.3, points/game 53.3, |margin| 37.6, entropy 0.76, adv sd 12.0
+         2082 updates in 6.2s: value rmse 11.7 pts, surrogate -0.0089, clipped 11.5%
+         vs heur: margin +81.53 +- 1.99, score 93.1%, plies 67
+iter 32: 5000 games 1.5s (3341 g/s), 529426 samples, plies 52.9, points/game 51.5, |margin| 37.1, entropy 0.74, adv sd 12.1
+         2068 updates in 6.1s: value rmse 11.8 pts, surrogate -0.0089, clipped 11.4%
+         vs heur: margin +88.16 +- 2.07, score 93.6%, plies 71
+iter 33: 5000 games 1.4s (3573 g/s), 529564 samples, plies 53.0, points/game 50.9, |margin| 36.3, entropy 0.73, adv sd 11.8
+         2068 updates in 5.3s: value rmse 11.6 pts, surrogate -0.0085, clipped 11.2%
+         vs heur: margin +87.58 +- 2.10, score 94.2%, plies 69
+iter 34: 5000 games 1.4s (3629 g/s), 526156 samples, plies 52.6, points/game 49.3, |margin| 36.8, entropy 0.72, adv sd 11.8
+         2054 updates in 5.2s: value rmse 11.6 pts, surrogate -0.0083, clipped 11.2%
+         vs heur: margin +85.38 +- 2.09, score 92.5%, plies 70
+iter 35: 5000 games 1.3s (3756 g/s), 523680 samples, plies 52.4, points/game 47.5, |margin| 35.9, entropy 0.70, adv sd 11.8
+         2044 updates in 5.3s: value rmse 11.5 pts, surrogate -0.0081, clipped 11.1%
+         vs heur: margin +87.78 +- 2.01, score 94.8%, plies 74
+iter 36: 5000 games 1.3s (3727 g/s), 522510 samples, plies 52.3, points/game 45.8, |margin| 35.3, entropy 0.70, adv sd 11.5
+         2040 updates in 5.1s: value rmse 11.2 pts, surrogate -0.0080, clipped 11.3%
+         vs heur: margin +84.33 +- 2.03, score 94.0%, plies 68
+iter 37: 5000 games 1.4s (3659 g/s), 519688 samples, plies 52.0, points/game 46.0, |margin| 35.2, entropy 0.69, adv sd 11.5
+         2030 updates in 5.8s: value rmse 11.2 pts, surrogate -0.0078, clipped 10.9%
+         vs heur: margin +90.94 +- 2.06, score 94.9%, plies 67
+iter 38: 5000 games 1.4s (3639 g/s), 511476 samples, plies 51.1, points/game 44.8, |margin| 35.2, entropy 0.66, adv sd 11.5
+         1996 updates in 5.7s: value rmse 11.2 pts, surrogate -0.0078, clipped 10.8%
+         vs heur: margin +86.58 +- 1.92, score 95.0%, plies 67
+iter 39: 5000 games 1.5s (3439 g/s), 509912 samples, plies 51.0, points/game 44.5, |margin| 35.0, entropy 0.64, adv sd 11.6
+         1990 updates in 5.8s: value rmse 11.3 pts, surrogate -0.0075, clipped 10.6%
+         vs heur: margin +88.01 +- 2.04, score 93.9%, plies 65
+iter 40: 5000 games 1.3s (3803 g/s), 508020 samples, plies 50.8, points/game 44.2, |margin| 34.4, entropy 0.63, adv sd 11.5
+         1984 updates in 5.5s: value rmse 11.2 pts, surrogate -0.0076, clipped 10.6%
+         vs heur: margin +86.28 +- 1.98, score 95.4%, plies 66
+iter 41: 5000 games 1.4s (3471 g/s), 508594 samples, plies 50.9, points/game 43.1, |margin| 34.9, entropy 0.62, adv sd 11.5
+         1986 updates in 8.7s: value rmse 11.2 pts, surrogate -0.0076, clipped 10.8%
+         vs heur: margin +87.32 +- 1.92, score 94.1%, plies 66
+iter 42: 5000 games 1.8s (2793 g/s), 508422 samples, plies 50.8, points/game 44.2, |margin| 34.8, entropy 0.61, adv sd 11.4
+         1986 updates in 6.7s: value rmse 11.1 pts, surrogate -0.0074, clipped 10.4%
+         vs heur: margin +85.17 +- 1.94, score 94.6%, plies 65
+iter 43: 5000 games 1.4s (3622 g/s), 506706 samples, plies 50.7, points/game 43.3, |margin| 34.7, entropy 0.60, adv sd 11.4
+         1978 updates in 5.8s: value rmse 11.1 pts, surrogate -0.0075, clipped 10.5%
+         vs heur: margin +87.09 +- 1.97, score 94.0%, plies 66
+iter 44: 5000 games 1.3s (3853 g/s), 504920 samples, plies 50.5, points/game 43.0, |margin| 34.1, entropy 0.59, adv sd 11.4
+         1972 updates in 4.9s: value rmse 11.1 pts, surrogate -0.0076, clipped 10.6%
+         vs heur: margin +89.98 +- 2.03, score 94.3%, plies 66
+iter 45: 5000 games 1.3s (3784 g/s), 505644 samples, plies 50.6, points/game 43.0, |margin| 34.4, entropy 0.59, adv sd 11.3
+         1974 updates in 5.1s: value rmse 11.0 pts, surrogate -0.0075, clipped 10.5%
+         vs heur: margin +88.83 +- 1.86, score 94.6%, plies 67
+iter 46: 5000 games 1.3s (3804 g/s), 506184 samples, plies 50.6, points/game 43.5, |margin| 34.4, entropy 0.59, adv sd 11.3
+         1976 updates in 5.3s: value rmse 11.0 pts, surrogate -0.0074, clipped 10.7%
+         vs heur: margin +88.92 +- 1.79, score 96.0%, plies 69
+iter 47: 5000 games 1.3s (3841 g/s), 503778 samples, plies 50.4, points/game 42.1, |margin| 34.1, entropy 0.57, adv sd 11.3
+         1966 updates in 5.5s: value rmse 11.0 pts, surrogate -0.0072, clipped 10.6%
+         vs heur: margin +88.02 +- 2.01, score 94.1%, plies 67
+iter 48: 5000 games 1.4s (3629 g/s), 502376 samples, plies 50.2, points/game 42.1, |margin| 33.8, entropy 0.56, adv sd 11.3
+         1962 updates in 6.0s: value rmse 11.0 pts, surrogate -0.0072, clipped 10.4%
+         vs heur: margin +85.54 +- 1.91, score 94.2%, plies 66
+iter 49: 5000 games 1.5s (3422 g/s), 502498 samples, plies 50.2, points/game 41.6, |margin| 34.2, entropy 0.57, adv sd 11.3
+         1962 updates in 5.6s: value rmse 11.0 pts, surrogate -0.0071, clipped 10.5%
+         vs heur: margin +88.28 +- 1.96, score 95.1%, plies 65
+iter 50: 5000 games 1.4s (3659 g/s), 500536 samples, plies 50.1, points/game 41.1, |margin| 35.1, entropy 0.55, adv sd 11.5
+         1954 updates in 5.8s: value rmse 11.1 pts, surrogate -0.0072, clipped 10.2%
+         vs heur: margin +90.93 +- 1.96, score 95.6%, plies 67
+iter 51: 5000 games 1.3s (3729 g/s), 498736 samples, plies 49.9, points/game 40.1, |margin| 34.4, entropy 0.55, adv sd 11.5
+         1948 updates in 5.0s: value rmse 11.1 pts, surrogate -0.0069, clipped 10.3%
+         vs heur: margin +90.73 +- 2.01, score 95.9%, plies 64
+iter 52: 5000 games 1.3s (3892 g/s), 497462 samples, plies 49.7, points/game 38.9, |margin| 34.3, entropy 0.55, adv sd 11.5
+         1942 updates in 5.0s: value rmse 11.1 pts, surrogate -0.0071, clipped 10.3%
+         vs heur: margin +89.16 +- 1.82, score 95.5%, plies 64
+iter 53: 5000 games 1.3s (3807 g/s), 495976 samples, plies 49.6, points/game 39.5, |margin| 33.8, entropy 0.54, adv sd 11.4
+         1936 updates in 5.4s: value rmse 11.1 pts, surrogate -0.0067, clipped 10.2%
+         vs heur: margin +87.78 +- 1.91, score 95.7%, plies 64
+iter 54: 5000 games 1.3s (3870 g/s), 494758 samples, plies 49.5, points/game 39.0, |margin| 34.3, entropy 0.53, adv sd 11.3
+         1932 updates in 5.2s: value rmse 11.0 pts, surrogate -0.0070, clipped 10.2%
+         vs heur: margin +87.31 +- 1.92, score 94.9%, plies 64
+iter 55: 5000 games 1.3s (3801 g/s), 493482 samples, plies 49.3, points/game 39.4, |margin| 33.7, entropy 0.51, adv sd 11.4
+         1926 updates in 5.1s: value rmse 11.1 pts, surrogate -0.0066, clipped 10.0%
+         vs heur: margin +85.74 +- 1.83, score 94.8%, plies 64
+iter 56: 5000 games 1.3s (3852 g/s), 491362 samples, plies 49.1, points/game 38.7, |margin| 34.3, entropy 0.50, adv sd 11.4
+         1918 updates in 5.2s: value rmse 11.1 pts, surrogate -0.0068, clipped 9.8%
+         vs heur: margin +91.07 +- 1.96, score 95.6%, plies 62
+iter 57: 5000 games 1.3s (3872 g/s), 489072 samples, plies 48.9, points/game 38.0, |margin| 33.1, entropy 0.50, adv sd 11.3
+         1910 updates in 5.6s: value rmse 10.9 pts, surrogate -0.0068, clipped 9.9%
+         vs heur: margin +87.71 +- 2.01, score 94.6%, plies 64
+iter 58: 5000 games 1.3s (3856 g/s), 489482 samples, plies 48.9, points/game 38.2, |margin| 33.7, entropy 0.50, adv sd 11.3
+         1912 updates in 5.7s: value rmse 10.9 pts, surrogate -0.0068, clipped 10.0%
+         vs heur: margin +87.59 +- 2.00, score 95.4%, plies 62
+iter 59: 5000 games 1.3s (3821 g/s), 487752 samples, plies 48.8, points/game 38.6, |margin| 33.8, entropy 0.49, adv sd 11.3
+         1904 updates in 5.4s: value rmse 10.9 pts, surrogate -0.0067, clipped 9.9%
+         vs heur: margin +87.67 +- 1.88, score 95.4%, plies 62
+iter 60: 5000 games 1.4s (3685 g/s), 486408 samples, plies 48.6, points/game 37.1, |margin| 33.1, entropy 0.49, adv sd 11.3
+         1900 updates in 5.5s: value rmse 11.0 pts, surrogate -0.0068, clipped 9.9%
+         vs heur: margin +90.20 +- 1.95, score 95.9%, plies 63
