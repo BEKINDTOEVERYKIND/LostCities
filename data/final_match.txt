@@ -1,0 +1,15 @@
+=== final policy vs imitation start (400 paired matches) ===
+policy:data/best.bin  vs  policy:data/ref_m0.bin  (3-round matches)
+  800 games (400 paired deals) in 1.9s (423.6 games/s)
+  margin/game +204.83 +- 3.99
+  W/L/D 773/27/0   score 96.6% +- 0.6%
+  points/game 305.8 vs 100.9   plies/game 231.5
+
+=== final policy vs heuristic (300 paired matches) ===
+policy:data/best.bin  vs  heuristic  (3-round matches)
+  600 games (300 paired deals) in 2.2s (276.1 games/s)
+  margin/game +159.84 +- 4.07
+  W/L/D 573/27/0   score 95.5% +- 0.8%
+  points/game 304.3 vs 144.5   plies/game 303.0
+
+=== rollout search on top (60 paired matches) ===

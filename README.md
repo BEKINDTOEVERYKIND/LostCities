@@ -101,7 +101,30 @@ belief head learning on the side. The trunk is 556 -> 512 -> 256.
 
 ## Results
 
-RESULTS_PLACEHOLDER
+All numbers are 3-round paired matches (each triple of deals played twice with
+seats swapped) unless stated. Margins are total match points; "wins" are match
+wins with draws counting half.
+
+| comparison | margin/match | match wins |
+| --- | ---: | ---: |
+| final policy vs imitation start | **+204.8 ± 4.0** | **96.6%** (400 pairs) |
+| final policy vs heuristic | **+159.8 ± 4.1** | **95.5%** (300 pairs) |
+| rollout search vs raw policy | ROLLOUT_NUM | ROLLOUT_WINS (60 pairs) |
+| belief-sampled vs uniform worlds | ABLATION_NUM | ABLATION_WINS (60 pairs) |
+
+The training trajectory (evaluated vs the frozen imitation start every 3
+iterations): the PPO run climbs from parity to a peak of ~+205/match around
+iteration 51, then over-optimises into stall-heavy play and falls back to
++66 by iteration 130. The shipped model is the peak checkpoint, selected by a
+5-way 300-pair tournament and confirmed head-to-head against its neighbours
+(+5.5 ± 1.9 over iteration 45, +2.9 ± 1.8 over iteration 48). Checkpoint
+selection matters: the *last* iterate of a PPO run is not the best one.
+
+**Belief quality** (tools/belief_quality.py over the embedded analysis game):
+AUC 0.734 for "does the opponent hold this card", with calibration close to
+the diagonal (predicted 29% -> observed 28%, predicted 88% -> observed 93%).
+In the analysis console you can watch it work: mid-game, most of its top-ranked
+cards really are in the opponent's hand.
 
 ## Reproducing
 
