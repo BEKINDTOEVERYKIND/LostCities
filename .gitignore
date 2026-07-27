@@ -1,4 +1,7 @@
 bin/
+bin_v1/
 data/*.bin.it*
 data/*.log
+data/*.smp
+data/ignore.bin
 *.o

@@ -293,6 +293,8 @@ int main(int argc, char **argv)
     int keep_lr_flat = 0;
     int gen_switch = 1;
     int gen_dets = 12, gen_sims = 100, gen_rw = 12, gen_nw = 8;
+    const char *dump_path = NULL;   /* write generated samples to this file  */
+    const char *data_path = NULL;   /* train from this file, no generation   */
 
     for (int i = 1; i < argc; i++) {
         const char *k = argv[i];
@@ -321,6 +323,8 @@ int main(int argc, char **argv)
         else if (ARG("--gen-sims")) gen_sims = atoi(argv[++i]);
         else if (ARG("--gen-rw")) gen_rw = atoi(argv[++i]);
         else if (ARG("--gen-nw")) gen_nw = atoi(argv[++i]);
+        else if (ARG("--dump")) dump_path = argv[++i];
+        else if (ARG("--data")) data_path = argv[++i];
         else if (!strcmp(k, "--flat-lr")) keep_lr_flat = 1;
         else { fprintf(stderr, "unknown option %s\n", k); return 1; }
         #undef ARG
@@ -335,8 +339,38 @@ int main(int argc, char **argv)
         net_init(net, seed * 977 + 13);
     }
 
+    /* Sample files: header {magic, sizeof(Sample), PI_K, 0, count(u64)} then
+     * raw samples.  States and targets are architecture independent, which is
+     * what lets an old network's play teach a differently sized one. */
+    #define SMP_MAGIC 0x4C435344u
     Replay rp;
-    replay_init(&rp, bufcap);
+    if (data_path) {
+        FILE *f = fopen(data_path, "rb");
+        if (!f) { fprintf(stderr, "cannot open %s\n", data_path); return 1; }
+        uint32_t h[4]; uint64_t count;
+        if (fread(h, sizeof h, 1, f) != 1 || fread(&count, sizeof count, 1, f) != 1 ||
+            h[0] != SMP_MAGIC || h[1] != sizeof(Sample) || h[2] != PI_K) {
+            fprintf(stderr, "%s is not a compatible sample file\n", data_path); return 1;
+        }
+        replay_init(&rp, (size_t)count);
+        if (fread(rp.buf, sizeof(Sample), (size_t)count, f) != (size_t)count) {
+            fprintf(stderr, "short read from %s\n", data_path); return 1;
+        }
+        fclose(f);
+        rp.n = (size_t)count;
+        printf("loaded %zu samples from %s\n", rp.n, data_path);
+    } else {
+        replay_init(&rp, bufcap);
+    }
+    FILE *dumpf = NULL;
+    uint64_t dumped = 0;
+    if (dump_path) {
+        dumpf = fopen(dump_path, "wb");
+        if (!dumpf) { fprintf(stderr, "cannot open %s\n", dump_path); return 1; }
+        uint32_t h[4] = { SMP_MAGIC, sizeof(Sample), PI_K, 0 };
+        fwrite(h, sizeof h, 1, dumpf);
+        fwrite(&dumped, sizeof dumped, 1, dumpf);
+    }
 
     Agent ref;
     spec_parse(ref_spec, &ref);
@@ -356,6 +390,8 @@ int main(int argc, char **argv)
     for (int it = 1; it <= iters; it++) {
         struct timespec t0, t1;
         clock_gettime(CLOCK_MONOTONIC, &t0);
+
+        if (data_path) goto training;   /* dataset mode: nothing to generate */
 
         Agent gen;
         if (it <= gen_switch && !init_path) {
@@ -402,6 +438,13 @@ int main(int argc, char **argv)
         for (int i = 0; i < nthread; i++) pthread_create(&th[i], NULL, gen_worker, &jobs[i]);
         for (int i = 0; i < nthread; i++) pthread_join(th[i], NULL);
 
+        if (dumpf) {
+            for (int i = 0; i < nthread; i++) {
+                fwrite(jobs[i].out, sizeof(Sample), jobs[i].nout, dumpf);
+                dumped += jobs[i].nout;
+            }
+        }
+
         size_t added = 0;
         double ga = 0, gp = 0;
         int gdone = 0;
@@ -420,6 +463,7 @@ int main(int argc, char **argv)
         fflush(stdout);
         free(jobs); free(th);
 
+    training:
         clock_gettime(CLOCK_MONOTONIC, &t0);
         Rng r; rng_seed(&r, seed + 555ULL * (uint64_t)it);
         size_t *idx = (size_t *)malloc(sizeof(size_t) * (size_t)batch);
@@ -476,6 +520,12 @@ int main(int argc, char **argv)
                    cur.name, ref_spec, mr.margin, mr.margin_se, 100 * mr.winrate, mr.plies);
             fflush(stdout);
         }
+    }
+    if (dumpf) {
+        fseek(dumpf, sizeof(uint32_t) * 4, SEEK_SET);
+        fwrite(&dumped, sizeof dumped, 1, dumpf);
+        fclose(dumpf);
+        printf("dumped %llu samples to %s\n", (unsigned long long)dumped, dump_path);
     }
     return 0;
 }

@@ -1,0 +1,480 @@
+<title>Lost Cities — Analysis Console</title>
+<style>
+:root{
+  --ground:#FAF7F2; --panel:#FFFDF8; --ink:#2A2519; --muted:#6E6654;
+  --line:#E4DCCB; --accent:#0F5A52; --pos:#0E8A66; --neg:#C74A32;
+  --suit-Y:#A87F0A; --suit-B:#235E9E; --suit-W:#8781C9; --suit-G:#0E8A66; --suit-R:#C74A32;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --ground:#201D18; --panel:#292520; --ink:#EDE7DA; --muted:#9B9280;
+    --line:#3A352C; --accent:#57B3A8; --pos:#3EC697; --neg:#F08B66;
+    --suit-Y:#E3B23A; --suit-B:#7FADEE; --suit-W:#E4DFCE; --suit-G:#3EC697; --suit-R:#F08B66;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#201D18; --panel:#292520; --ink:#EDE7DA; --muted:#9B9280;
+  --line:#3A352C; --accent:#57B3A8; --pos:#3EC697; --neg:#F08B66;
+  --suit-Y:#E3B23A; --suit-B:#7FADEE; --suit-W:#E4DFCE; --suit-G:#3EC697; --suit-R:#F08B66;
+}
+:root[data-theme="light"]{
+  --ground:#FAF7F2; --panel:#FFFDF8; --ink:#2A2519; --muted:#6E6654;
+  --line:#E4DCCB; --accent:#0F5A52; --pos:#0E8A66; --neg:#C74A32;
+  --suit-Y:#A87F0A; --suit-B:#235E9E; --suit-W:#8781C9; --suit-G:#0E8A66; --suit-R:#C74A32;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font:14px/1.45 system-ui,sans-serif;overflow-x:hidden;
+  font-variant-numeric:tabular-nums}
+.num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+button{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);
+  border-radius:6px;padding:2px 10px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible, .movelist li:focus-visible, a:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px}
+/* ---- top bar ---- */
+.topbar{display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+.title{font-family:var(--mono);text-transform:uppercase;letter-spacing:.14em;
+  font-size:14px;font-weight:600}
+.title span{color:var(--muted);font-weight:400}
+.meta{color:var(--muted);font-size:12px;display:flex;gap:12px;align-items:center}
+.chip{display:inline-flex;gap:6px;align-items:center;font-family:var(--mono);font-size:12px;
+  border:1px solid var(--line);border-radius:999px;padding:2px 10px;background:var(--ground)}
+.plypos{margin-left:auto;display:flex;gap:8px;align-items:center;font-family:var(--mono);font-size:13px}
+/* ---- layout ---- */
+.layout{display:grid;grid-template-columns:240px 1fr 340px;gap:14px;
+  padding:14px 16px;align-items:start;max-width:100%}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.panel h2{margin:0;padding:8px 12px 6px;font-size:11px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;
+  border-bottom:1px solid var(--line)}
+/* ---- move list ---- */
+.movelist{max-height:calc(100vh - 130px);display:flex;flex-direction:column}
+.movelist ol{list-style:none;margin:0;padding:4px 0;overflow-y:auto;overflow-x:auto;flex:1}
+.movelist li{padding:3px 10px 3px 12px;font-family:var(--mono);font-size:12px;
+  white-space:nowrap;cursor:pointer;border-left:3px solid transparent;color:var(--muted)}
+.movelist li:hover{color:var(--ink)}
+.movelist li.cur{border-left-color:var(--accent);color:var(--ink);
+  background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.movelist li .pn{display:inline-block;width:3ch;text-align:right;margin-right:1ch}
+/* ---- board ---- */
+.board{padding:12px;display:flex;flex-direction:column;gap:12px;overflow-x:auto}
+.boardhead{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.exprow{display:grid;grid-template-columns:repeat(5,minmax(88px,1fr));gap:8px}
+.suitcol{border:1px solid var(--line);border-radius:8px;padding:6px;min-height:56px;
+  display:flex;flex-direction:column;gap:4px}
+.suitcol .colhead{display:flex;justify-content:space-between;align-items:baseline;
+  font-size:11px;color:var(--muted)}
+.suitcol .colhead .sname{text-transform:uppercase;letter-spacing:.08em}
+.suitcol .colhead .score{font-family:var(--mono)}
+.stack{display:flex;flex-wrap:wrap;gap:3px;align-content:flex-start}
+.card{font-family:var(--mono);font-size:12px;line-height:1;padding:4px 5px;border-radius:5px;
+  border:1px solid;color:var(--ink);white-space:nowrap}
+.card.Y{border-color:var(--suit-Y);background:color-mix(in srgb,var(--suit-Y) 14%,transparent)}
+.card.B{border-color:var(--suit-B);background:color-mix(in srgb,var(--suit-B) 14%,transparent)}
+.card.W{border-color:var(--suit-W);background:color-mix(in srgb,var(--suit-W) 14%,transparent)}
+.card.G{border-color:var(--suit-G);background:color-mix(in srgb,var(--suit-G) 14%,transparent)}
+.card.R{border-color:var(--suit-R);background:color-mix(in srgb,var(--suit-R) 14%,transparent)}
+.card.dim{opacity:.55}
+.card.about{outline:2px solid var(--accent);outline-offset:1px;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{outline-offset:1px}50%{outline-offset:3px}}
+@media (prefers-reduced-motion: reduce){.card.about{animation:none}}
+.pilerow{display:grid;grid-template-columns:repeat(5,minmax(88px,1fr));gap:8px}
+.pile{border:1px dashed var(--line);border-radius:8px;padding:6px;display:flex;
+  flex-direction:column;gap:4px;font-size:11px;color:var(--muted)}
+.pile .top{display:flex;gap:6px;align-items:center}
+.pile .rest{display:flex;flex-wrap:wrap;gap:3px}
+.pile .rest .card{font-size:10px;padding:2px 3px;opacity:.6}
+.handrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  padding:6px 8px;border:1px solid var(--line);border-radius:8px}
+.handrow.mover{border-color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.handrow .hlabel{font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);min-width:60px}
+.handrow.mover .hlabel{color:var(--accent);font-weight:600}
+.caption{font-size:13px;color:var(--ink);border-top:1px solid var(--line);padding-top:8px}
+.caption b{font-family:var(--mono);font-weight:600}
+/* ---- decision ---- */
+.decision{display:flex;flex-direction:column;max-height:calc(100vh - 130px);overflow-y:auto}
+.dsec{padding:8px 12px;display:flex;flex-direction:column;gap:4px}
+.dsec + .dsec{border-top:1px solid var(--line)}
+.cand{display:grid;grid-template-columns:11ch 6ch 1fr;gap:8px;align-items:center;
+  font-family:var(--mono);font-size:12px;padding:2px 4px;border-radius:6px}
+.cand.chosen{outline:1.5px solid var(--accent);outline-offset:0}
+.cand .q{text-align:right}
+.cand .bar{height:6px;border-radius:3px;min-width:1px}
+.cand .bar.pos{background:var(--pos)}
+.cand .bar.neg{background:var(--neg)}
+.cand .tag{font-size:10px;color:var(--accent);letter-spacing:.08em;text-transform:uppercase}
+.pol .bar{height:3px;background:color-mix(in srgb,var(--accent) 60%,transparent)}
+.note{font-size:11px;color:var(--neg);padding:2px 4px}
+.dsec .visits{color:var(--muted)}
+/* ---- chart ---- */
+.chartwrap{padding:8px 12px 12px;position:relative}
+.chartwrap svg{display:block;width:100%;height:auto;cursor:pointer}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);
+  border-radius:6px;padding:2px 7px;font-family:var(--mono);font-size:11px;display:none;
+  white-space:nowrap;z-index:2}
+/* ---- footer ---- */
+.about-line{padding:8px 16px 16px;font-size:11.5px;color:var(--muted);max-width:1100px}
+.loadrow{display:flex;gap:10px;align-items:center;padding:0 16px 8px;font-size:11.5px;color:var(--muted)}
+body.dragging::after{content:"drop JSON to load";position:fixed;inset:0;display:flex;
+  align-items:center;justify-content:center;font-family:var(--mono);font-size:18px;
+  letter-spacing:.1em;background:color-mix(in srgb,var(--accent) 12%,var(--ground));
+  border:3px dashed var(--accent);z-index:10}
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .movelist{max-height:200px}
+  .decision{max-height:none}
+}
+</style>
+
+<div class="topbar">
+  <div class="title">Lost Cities <span>/ analysis console</span></div>
+  <div class="meta">
+    <span class="mono" id="m-agent"></span>
+    <span class="mono" id="m-seed"></span>
+    <span class="chip" id="m-final"></span>
+  </div>
+  <div class="plypos">
+    <button id="btn-prev" aria-label="previous ply">&#8592;</button>
+    <span id="m-ply"></span>
+    <button id="btn-next" aria-label="next ply">&#8594;</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="panel movelist">
+    <h2>Moves</h2>
+    <ol id="movelist"></ol>
+  </div>
+
+  <div class="panel board" id="board">
+    <div class="boardhead">
+      <span id="b-state"></span>
+      <span class="chip num" id="b-deck"></span>
+      <span>all hands visible</span>
+    </div>
+    <div class="handrow" id="hand0"><span class="hlabel">P1 hand</span></div>
+    <div>
+      <div class="boardhead" style="margin-bottom:4px">P1 expeditions</div>
+      <div class="exprow" id="exp0"></div>
+    </div>
+    <div>
+      <div class="boardhead" style="margin-bottom:4px">discard piles</div>
+      <div class="pilerow" id="piles"></div>
+    </div>
+    <div>
+      <div class="boardhead" style="margin-bottom:4px">P2 expeditions</div>
+      <div class="exprow" id="exp1"></div>
+    </div>
+    <div class="handrow" id="hand1"><span class="hlabel">P2 hand</span></div>
+    <div class="caption" id="caption"></div>
+  </div>
+
+  <div class="panel decision">
+    <h2>Decision</h2>
+    <div class="dsec" id="search"></div>
+    <div class="dsec pol" id="policy"></div>
+    <div class="dsec">
+      <h2 style="border:none;padding:0 0 4px">Value trajectory</h2>
+      <div class="chartwrap" id="chartwrap" style="padding:0">
+        <svg id="chart" viewBox="0 0 316 150" preserveAspectRatio="xMidYMid meet"
+             role="img" aria-label="P1 value trajectory over plies"></svg>
+        <div class="tip" id="tip"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="loadrow">
+  <label>load another game: <input type="file" id="file" accept=".json,application/json"></label>
+  <span>or drag &amp; drop a JSON file anywhere</span>
+</div>
+<div class="about-line" id="about">
+  Q = mean final margin (points) over rollouts, from the mover's perspective on that ply.
+  The value line is the network's evaluation from P1's perspective (values[0]) before each move.
+  Board shows the state before the move; policy is the raw network prior, search is the rollout result.
+</div>
+
+<script type="application/json" id="game-data">{"meta":{"agent":"rollout:data/big0.bin:128:6","seed":3,"plies":47,"final":[8,55],"generated":"analyze"},
+"start_hands":[["Yx","B8","Wx","Wx","W2","W5","R2","R8"],["Y2","Y3","Y4","B7","W6","W9","Gx","R4"]],
+"plies":[{"n":1,"player":0,"deck_left":44,"hands":[["Yx","B8","Wx","Wx","W2","W5","R2","R8"],["Y2","Y3","Y4","B7","W6","W9","Gx","R4"]],"exps":[[[],[],[],[],[]],[[],[],[],[],[]]],"piles":[[],[],[],[],[]],"values":[-2.0,-11.2],"nlegal":16,"policy":[{"card":"Wx","act":"play","draw":"deck","prob":0.885},{"card":"Wx","act":"play","draw":"deck","prob":0.114},{"card":"R2","act":"play","draw":"deck","prob":0.001},{"card":"R2","act":"discard","draw":"deck","prob":0.000},{"card":"Yx","act":"discard","draw":"deck","prob":0.000},{"card":"W2","act":"play","draw":"deck","prob":0.000},{"card":"Wx","act":"discard","draw":"deck","prob":0.000},{"card":"Wx","act":"discard","draw":"deck","prob":0.000},{"card":"B8","act":"play","draw":"deck","prob":0.000},{"card":"R8","act":"play","draw":"deck","prob":0.000}],"search":[{"card":"Wx","act":"play","draw":"deck","q":-2.4,"visits":128,"chosen":true},{"card":"Wx","act":"play","draw":"deck","q":-4.2,"visits":128,"chosen":false}],"move":{"card":"Wx","act":"play","draw":"deck","drawn":"G6"}},{"n":2,"player":1,"deck_left":43,"hands":[["Yx","B8","Wx","W2","W5","G6","R2","R8"],["Y2","Y3","Y4","B7","W6","W9","Gx","R4"]],"exps":[[[],[],["Wx"],[],[]],[[],[],[],[],[]]],"piles":[[],[],[],[],[]],"values":[-2.5,-7.6],"nlegal":16,"policy":[{"card":"Y2","act":"play","draw":"deck","prob":0.994},{"card":"R4","act":"play","draw":"deck","prob":0.005},{"card":"Y3","act":"play","draw":"deck","prob":0.001},{"card":"Gx","act":"discard","draw":"deck","prob":0.000},{"card":"Y2","act":"discard","draw":"deck","prob":0.000},{"card":"Y4","act":"play","draw":"deck","prob":0.000},{"card":"W6","act":"play","draw":"deck","prob":0.000},{"card":"R4","act":"discard","draw":"deck","prob":0.000},{"card":"W6","act":"discard","draw":"deck","prob":0.000},{"card":"Gx","act":"play","draw":"deck","prob":0.000}],"search":[{"card":"Y2","act":"play","draw":"deck","q":-1.2,"visits":128,"chosen":true}],"move":{"card":"Y2","act":"play","draw":"deck","drawn":"G4"}},{"n":3,"player":0,"deck_left":42,"hands":[["Yx","B8","Wx","W2","W5","G6","R2","R8"],["Y3","Y4","B7","W6","W9","Gx","G4","R4"]],"exps":[[[],[],["Wx"],[],[]],[["Y2"],[],[],[],[]]],"piles":[[],[],[],[],[]],"values":[-2.4,-7.5],"nlegal":16,"policy":[{"card":"Wx","act":"play","draw":"deck","prob":1.000},{"card":"R2","act":"play","draw":"deck","prob":0.000},{"card":"Yx","act":"discard","draw":"deck","prob":0.000},{"card":"R2","act":"discard","draw":"deck","prob":0.000},{"card":"W2","act":"play","draw":"deck","prob":0.000},{"card":"Wx","act":"discard","draw":"deck","prob":0.000},{"card":"G6","act":"play","draw":"deck","prob":0.000},{"card":"B8","act":"play","draw":"deck","prob":0.000},{"card":"R8","act":"play","draw":"deck","prob":0.000},{"card":"G6","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"Wx","act":"play","draw":"deck","q":0.3,"visits":128,"chosen":true}],"move":{"card":"Wx","act":"play","draw":"deck","drawn":"B10"}},{"n":4,"player":1,"deck_left":41,"hands":[["Yx","B8","B10","W2","W5","G6","R2","R8"],["Y3","Y4","B7","W6","W9","Gx","G4","R4"]],"exps":[[[],[],["Wx","Wx"],[],[]],[["Y2"],[],[],[],[]]],"piles":[[],[],[],[],[]],"values":[3.5,-4.2],"nlegal":16,"policy":[{"card":"Y3","act":"play","draw":"deck","prob":0.989},{"card":"Y4","act":"play","draw":"deck","prob":0.011},{"card":"Y3","act":"discard","draw":"deck","prob":0.000},{"card":"Gx","act":"play","draw":"deck","prob":0.000},{"card":"W6","act":"play","draw":"deck","prob":0.000},{"card":"Y4","act":"discard","draw":"deck","prob":0.000},{"card":"R4","act":"play","draw":"deck","prob":0.000},{"card":"R4","act":"discard","draw":"deck","prob":0.000},{"card":"Gx","act":"discard","draw":"deck","prob":0.000},{"card":"G4","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"Y3","act":"play","draw":"deck","q":-3.9,"visits":128,"chosen":true}],"move":{"card":"Y3","act":"play","draw":"deck","drawn":"Wx"}},{"n":5,"player":0,"deck_left":40,"hands":[["Yx","B8","B10","W2","W5","G6","R2","R8"],["Y4","B7","Wx","W6","W9","Gx","G4","R4"]],"exps":[[[],[],["Wx","Wx"],[],[]],[["Y2","Y3"],[],[],[],[]]],"piles":[[],[],[],[],[]],"values":[4.0,-4.9],"nlegal":16,"policy":[{"card":"W2","act":"play","draw":"deck","prob":0.715},{"card":"R2","act":"play","draw":"deck","prob":0.209},{"card":"Yx","act":"discard","draw":"deck","prob":0.073},{"card":"R2","act":"discard","draw":"deck","prob":0.003},{"card":"G6","act":"play","draw":"deck","prob":0.000},{"card":"W2","act":"discard","draw":"deck","prob":0.000},{"card":"R8","act":"play","draw":"deck","prob":0.000},{"card":"G6","act":"discard","draw":"deck","prob":0.000},{"card":"W5","act":"play","draw":"deck","prob":0.000},{"card":"B8","act":"play","draw":"deck","prob":0.000}],"search":[{"card":"W2","act":"play","draw":"deck","q":11.0,"visits":128,"chosen":true},{"card":"Yx","act":"discard","draw":"deck","q":9.8,"visits":128,"chosen":false},{"card":"R2","act":"play","draw":"deck","q":4.8,"visits":128,"chosen":false}],"move":{"card":"W2","act":"play","draw":"deck","drawn":"R6"}},{"n":6,"player":1,"deck_left":39,"hands":[["Yx","B8","B10","W5","G6","R2","R6","R8"],["Y4","B7","Wx","W6","W9","Gx","G4","R4"]],"exps":[[[],[],["Wx","Wx","W2"],[],[]],[["Y2","Y3"],[],[],[],[]]],"piles":[[],[],[],[],[]],"values":[2.4,-5.3],"nlegal":16,"policy":[{"card":"Y4","act":"play","draw":"deck","prob":0.995},{"card":"Wx","act":"play","draw":"deck","prob":0.005},{"card":"Y4","act":"discard","draw":"deck","prob":0.000},{"card":"Gx","act":"play","draw":"deck","prob":0.000},{"card":"W6","act":"play","draw":"deck","prob":0.000},{"card":"R4","act":"discard","draw":"deck","prob":0.000},{"card":"R4","act":"play","draw":"deck","prob":0.000},{"card":"Wx","act":"discard","draw":"deck","prob":0.000},{"card":"Gx","act":"discard","draw":"deck","prob":0.000},{"card":"G4","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"Y4","act":"play","draw":"deck","q":-3.3,"visits":128,"chosen":true}],"move":{"card":"Y4","act":"play","draw":"deck","drawn":"Rx"}},{"n":7,"player":0,"deck_left":38,"hands":[["Yx","B8","B10","W5","G6","R2","R6","R8"],["B7","Wx","W6","W9","Gx","G4","Rx","R4"]],"exps":[[[],[],["Wx","Wx","W2"],[],[]],[["Y2","Y3","Y4"],[],[],[],[]]],"piles":[[],[],[],[],[]],"values":[1.2,-7.3],"nlegal":16,"policy":[{"card":"Yx","act":"discard","draw":"deck","prob":0.994},{"card":"W5","act":"play","draw":"deck","prob":0.004},{"card":"R2","act":"play","draw":"deck","prob":0.002},{"card":"R2","act":"discard","draw":"deck","prob":0.000},{"card":"G6","act":"discard","draw":"deck","prob":0.000},{"card":"G6","act":"play","draw":"deck","prob":0.000},{"card":"W5","act":"discard","draw":"deck","prob":0.000},{"card":"B8","act":"discard","draw":"deck","prob":0.000},{"card":"Yx","act":"play","draw":"deck","prob":0.000},{"card":"R6","act":"play","draw":"deck","prob":0.000}],"search":[{"card":"Yx","act":"discard","draw":"deck","q":11.1,"visits":128,"chosen":true}],"move":{"card":"Yx","act":"discard","draw":"deck","drawn":"R9"}},{"n":8,"player":1,"deck_left":37,"hands":[["B8","B10","W5","G6","R2","R6","R8","R9"],["B7","Wx","W6","W9","Gx","G4","Rx","R4"]],"exps":[[[],[],["Wx","Wx","W2"],[],[]],[["Y2","Y3","Y4"],[],[],[],[]]],"piles":[["Yx"],[],[],[],[]],"values":[-2.8,-3.1],"nlegal":32,"policy":[{"card":"Wx","act":"play","draw":"deck","prob":0.773},{"card":"Rx","act":"play","draw":"deck","prob":0.222},{"card":"Wx","act":"discard","draw":"deck","prob":0.001},{"card":"R4","act":"discard","draw":"deck","prob":0.001},{"card":"W6","act":"play","draw":"deck","prob":0.001},{"card":"Gx","act":"play","draw":"deck","prob":0.001},{"card":"Rx","act":"discard","draw":"deck","prob":0.000},{"card":"G4","act":"discard","draw":"deck","prob":0.000},{"card":"Gx","act":"discard","draw":"deck","prob":0.000},{"card":"W6","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"Wx","act":"play","draw":"deck","q":1.3,"visits":128,"chosen":true},{"card":"Rx","act":"play","draw":"deck","q":-3.8,"visits":128,"chosen":false}],"move":{"card":"Wx","act":"play","draw":"deck","drawn":"Bx"}},{"n":9,"player":0,"deck_left":36,"hands":[["B8","B10","W5","G6","R2","R6","R8","R9"],["Bx","B7","W6","W9","Gx","G4","Rx","R4"]],"exps":[[[],[],["Wx","Wx","W2"],[],[]],[["Y2","Y3","Y4"],[],["Wx"],[],[]]],"piles":[["Yx"],[],[],[],[]],"values":[-9.9,-9.9],"nlegal":32,"policy":[{"card":"W5","act":"play","draw":"deck","prob":0.990},{"card":"R2","act":"play","draw":"deck","prob":0.008},{"card":"G6","act":"play","draw":"deck","prob":0.001},{"card":"G6","act":"discard","draw":"deck","prob":0.001},{"card":"R2","act":"discard","draw":"deck","prob":0.000},{"card":"B8","act":"play","draw":"deck","prob":0.000},{"card":"W5","act":"discard","draw":"deck","prob":0.000},{"card":"B8","act":"discard","draw":"deck","prob":0.000},{"card":"R9","act":"discard","draw":"deck","prob":0.000},{"card":"B10","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"W5","act":"play","draw":"deck","q":6.1,"visits":128,"chosen":true}],"move":{"card":"W5","act":"play","draw":"deck","drawn":"B2"}},{"n":10,"player":1,"deck_left":35,"hands":[["B2","B8","B10","G6","R2","R6","R8","R9"],["Bx","B7","W6","W9","Gx","G4","Rx","R4"]],"exps":[[[],[],["Wx","Wx","W2","W5"],[],[]],[["Y2","Y3","Y4"],[],["Wx"],[],[]]],"piles":[["Yx"],[],[],[],[]],"values":[-11.7,-11.9],"nlegal":32,"policy":[{"card":"W6","act":"play","draw":"deck","prob":0.994},{"card":"Rx","act":"play","draw":"deck","prob":0.005},{"card":"R4","act":"discard","draw":"deck","prob":0.000},{"card":"G4","act":"discard","draw":"deck","prob":0.000},{"card":"Bx","act":"discard","draw":"deck","prob":0.000},{"card":"Gx","act":"discard","draw":"deck","prob":0.000},{"card":"Rx","act":"discard","draw":"deck","prob":0.000},{"card":"W6","act":"discard","draw":"deck","prob":0.000},{"card":"Bx","act":"play","draw":"deck","prob":0.000},{"card":"Gx","act":"play","draw":"deck","prob":0.000}],"search":[{"card":"W6","act":"play","draw":"deck","q":-8.0,"visits":128,"chosen":true}],"move":{"card":"W6","act":"play","draw":"deck","drawn":"G8"}},{"n":11,"player":0,"deck_left":34,"hands":[["B2","B8","B10","G6","R2","R6","R8","R9"],["Bx","B7","W9","Gx","G4","G8","Rx","R4"]],"exps":[[[],[],["Wx","Wx","W2","W5"],[],[]],[["Y2","Y3","Y4"],[],["Wx","W6"],[],[]]],"piles":[["Yx"],[],[],[],[]],"values":[-14.8,-12.1],"nlegal":32,"policy":[{"card":"B2","act":"play","draw":"deck","prob":0.514},{"card":"R2","act":"play","draw":"deck","prob":0.315},{"card":"G6","act":"play","draw":"deck","prob":0.136},{"card":"G6","act":"discard","draw":"deck","prob":0.029},{"card":"R2","act":"discard","draw":"deck","prob":0.003},{"card":"B8","act":"discard","draw":"deck","prob":0.002},{"card":"B2","act":"discard","draw":"deck","prob":0.001},{"card":"B10","act":"discard","draw":"deck","prob":0.001},{"card":"R9","act":"discard","draw":"deck","prob":0.000},{"card":"B8","act":"play","draw":"deck","prob":0.000}],"search":[{"card":"G6","act":"play","draw":"deck","q":-0.9,"visits":128,"chosen":true},{"card":"R2","act":"play","draw":"deck","q":-1.9,"visits":128,"chosen":false},{"card":"B2","act":"play","draw":"deck","q":-4.9,"visits":128,"chosen":false},{"card":"G6","act":"discard","draw":"deck","q":-6.1,"visits":128,"chosen":false}],"move":{"card":"G6","act":"play","draw":"deck","drawn":"Rx"}},{"n":12,"player":1,"deck_left":33,"hands":[["B2","B8","B10","Rx","R2","R6","R8","R9"],["Bx","B7","W9","Gx","G4","G8","Rx","R4"]],"exps":[[[],[],["Wx","Wx","W2","W5"],["G6"],[]],[["Y2","Y3","Y4"],[],["Wx","W6"],[],[]]],"piles":[["Yx"],[],[],[],[]],"values":[-14.3,-16.6],"nlegal":32,"policy":[{"card":"Gx","act":"discard","draw":"deck","prob":0.465},{"card":"G4","act":"discard","draw":"deck","prob":0.218},{"card":"W9","act":"play","draw":"deck","prob":0.135},{"card":"Gx","act":"play","draw":"deck","prob":0.108},{"card":"R4","act":"discard","draw":"deck","prob":0.023},{"card":"Rx","act":"play","draw":"deck","prob":0.021},{"card":"G4","act":"play","draw":"deck","prob":0.010},{"card":"Rx","act":"discard","draw":"deck","prob":0.010},{"card":"Bx","act":"discard","draw":"deck","prob":0.009},{"card":"Bx","act":"play","draw":"deck","prob":0.001}],"search":[{"card":"R4","act":"discard","draw":"deck","q":4.8,"visits":128,"chosen":true},{"card":"G4","act":"discard","draw":"deck","q":1.9,"visits":128,"chosen":false},{"card":"Rx","act":"play","draw":"deck","q":-0.7,"visits":128,"chosen":false},{"card":"W9","act":"play","draw":"deck","q":-0.8,"visits":128,"chosen":false},{"card":"Gx","act":"discard","draw":"deck","q":-1.2,"visits":128,"chosen":false},{"card":"Gx","act":"play","draw":"deck","q":-4.2,"visits":128,"chosen":false}],"move":{"card":"R4","act":"discard","draw":"deck","drawn":"Gx"}},{"n":13,"player":0,"deck_left":32,"hands":[["B2","B8","B10","Rx","R2","R6","R8","R9"],["Bx","B7","W9","Gx","Gx","G4","G8","Rx"]],"exps":[[[],[],["Wx","Wx","W2","W5"],["G6"],[]],[["Y2","Y3","Y4"],[],["Wx","W6"],[],[]]],"piles":[["Yx"],[],[],[],["R4"]],"values":[-11.7,-20.6],"nlegal":43,"policy":[{"card":"Rx","act":"play","draw":"R","prob":0.991},{"card":"Rx","act":"play","draw":"deck","prob":0.009},{"card":"B2","act":"play","draw":"R","prob":0.000},{"card":"B2","act":"play","draw":"deck","prob":0.000},{"card":"B2","act":"discard","draw":"R","prob":0.000},{"card":"R2","act":"play","draw":"R","prob":0.000},{"card":"B10","act":"discard","draw":"R","prob":0.000},{"card":"B8","act":"discard","draw":"R","prob":0.000},{"card":"B8","act":"play","draw":"R","prob":0.000},{"card":"Rx","act":"play","draw":"Y","prob":0.000}],"search":[{"card":"Rx","act":"play","draw":"R","q":13.9,"visits":128,"chosen":true}],"move":{"card":"Rx","act":"play","draw":"R","drawn":"R4"}},{"n":14,"player":1,"deck_left":32,"hands":[["B2","B8","B10","R2","R4","R6","R8","R9"],["Bx","B7","W9","Gx","Gx","G4","G8","Rx"]],"exps":[[[],[],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4"],[],["Wx","W6"],[],[]]],"piles":[["Yx"],[],[],[],[]],"values":[-5.5,-20.9],"nlegal":32,"policy":[{"card":"Gx","act":"play","draw":"deck","prob":0.800},{"card":"Gx","act":"play","draw":"deck","prob":0.127},{"card":"Gx","act":"discard","draw":"deck","prob":0.031},{"card":"W9","act":"play","draw":"deck","prob":0.019},{"card":"G4","act":"discard","draw":"deck","prob":0.010},{"card":"Gx","act":"discard","draw":"deck","prob":0.007},{"card":"Bx","act":"discard","draw":"deck","prob":0.003},{"card":"Rx","act":"discard","draw":"deck","prob":0.002},{"card":"Bx","act":"play","draw":"deck","prob":0.000},{"card":"G8","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"Gx","act":"play","draw":"deck","q":1.7,"visits":128,"chosen":true},{"card":"Gx","act":"play","draw":"deck","q":0.4,"visits":128,"chosen":false},{"card":"Gx","act":"discard","draw":"deck","q":-3.8,"visits":128,"chosen":false}],"move":{"card":"Gx","act":"play","draw":"deck","drawn":"Y6"}},{"n":15,"player":0,"deck_left":31,"hands":[["B2","B8","B10","R2","R4","R6","R8","R9"],["Y6","Bx","B7","W9","Gx","G4","G8","Rx"]],"exps":[[[],[],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4"],[],["Wx","W6"],["Gx"],[]]],"piles":[["Yx"],[],[],[],[]],"values":[-8.7,-26.6],"nlegal":32,"policy":[{"card":"B2","act":"play","draw":"deck","prob":0.726},{"card":"R2","act":"play","draw":"deck","prob":0.272},{"card":"B2","act":"discard","draw":"deck","prob":0.001},{"card":"B8","act":"discard","draw":"deck","prob":0.000},{"card":"B10","act":"discard","draw":"deck","prob":0.000},{"card":"B8","act":"play","draw":"deck","prob":0.000},{"card":"R4","act":"play","draw":"deck","prob":0.000},{"card":"R9","act":"discard","draw":"deck","prob":0.000},{"card":"R2","act":"discard","draw":"deck","prob":0.000},{"card":"R4","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"B2","act":"play","draw":"deck","q":12.2,"visits":128,"chosen":true},{"card":"R2","act":"play","draw":"deck","q":9.4,"visits":128,"chosen":false}],"move":{"card":"B2","act":"play","draw":"deck","drawn":"G2"}},{"n":16,"player":1,"deck_left":30,"hands":[["B8","B10","G2","R2","R4","R6","R8","R9"],["Y6","Bx","B7","W9","Gx","G4","G8","Rx"]],"exps":[[[],["B2"],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4"],[],["Wx","W6"],["Gx"],[]]],"piles":[["Yx"],[],[],[],[]],"values":[-16.6,-23.0],"nlegal":31,"policy":[{"card":"Gx","act":"play","draw":"deck","prob":0.596},{"card":"Y6","act":"play","draw":"deck","prob":0.402},{"card":"Bx","act":"discard","draw":"deck","prob":0.002},{"card":"W9","act":"play","draw":"deck","prob":0.000},{"card":"Gx","act":"discard","draw":"deck","prob":0.000},{"card":"Y6","act":"discard","draw":"deck","prob":0.000},{"card":"Rx","act":"discard","draw":"deck","prob":0.000},{"card":"G4","act":"play","draw":"deck","prob":0.000},{"card":"G4","act":"discard","draw":"deck","prob":0.000},{"card":"B7","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"Y6","act":"play","draw":"deck","q":7.7,"visits":128,"chosen":true},{"card":"Gx","act":"play","draw":"deck","q":5.6,"visits":128,"chosen":false}],"move":{"card":"Y6","act":"play","draw":"deck","drawn":"Y10"}},{"n":17,"player":0,"deck_left":29,"hands":[["B8","B10","G2","R2","R4","R6","R8","R9"],["Y10","Bx","B7","W9","Gx","G4","G8","Rx"]],"exps":[[[],["B2"],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx"],[]]],"piles":[["Yx"],[],[],[],[]],"values":[-16.1,-24.5],"nlegal":30,"policy":[{"card":"G2","act":"discard","draw":"deck","prob":1.000},{"card":"B8","act":"play","draw":"deck","prob":0.000},{"card":"R2","act":"play","draw":"deck","prob":0.000},{"card":"B8","act":"discard","draw":"deck","prob":0.000},{"card":"B10","act":"discard","draw":"deck","prob":0.000},{"card":"R9","act":"discard","draw":"deck","prob":0.000},{"card":"G2","act":"discard","draw":"Y","prob":0.000},{"card":"R2","act":"discard","draw":"deck","prob":0.000},{"card":"R8","act":"discard","draw":"deck","prob":0.000},{"card":"R4","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"G2","act":"discard","draw":"deck","q":-1.4,"visits":128,"chosen":true}],"move":{"card":"G2","act":"discard","draw":"deck","drawn":"B6"}},{"n":18,"player":1,"deck_left":28,"hands":[["B6","B8","B10","R2","R4","R6","R8","R9"],["Y10","Bx","B7","W9","Gx","G4","G8","Rx"]],"exps":[[[],["B2"],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx"],[]]],"piles":[["Yx"],[],[],["G2"],[]],"values":[-16.1,-16.5],"nlegal":44,"policy":[{"card":"Gx","act":"play","draw":"deck","prob":0.986},{"card":"Gx","act":"play","draw":"G","prob":0.010},{"card":"Bx","act":"discard","draw":"deck","prob":0.004},{"card":"W9","act":"play","draw":"deck","prob":0.000},{"card":"Bx","act":"discard","draw":"G","prob":0.000},{"card":"Gx","act":"discard","draw":"deck","prob":0.000},{"card":"G4","act":"play","draw":"deck","prob":0.000},{"card":"Rx","act":"discard","draw":"deck","prob":0.000},{"card":"G4","act":"discard","draw":"deck","prob":0.000},{"card":"B7","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"Gx","act":"play","draw":"deck","q":6.7,"visits":128,"chosen":true}],"move":{"card":"Gx","act":"play","draw":"deck","drawn":"B4"}},{"n":19,"player":0,"deck_left":27,"hands":[["B6","B8","B10","R2","R4","R6","R8","R9"],["Y10","Bx","B4","B7","W9","G4","G8","Rx"]],"exps":[[[],["B2"],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx","Gx"],[]]],"piles":[["Yx"],[],[],["G2"],[]],"values":[-21.4,-22.0],"nlegal":48,"policy":[{"card":"B6","act":"play","draw":"deck","prob":0.989},{"card":"R2","act":"play","draw":"deck","prob":0.006},{"card":"B6","act":"discard","draw":"deck","prob":0.003},{"card":"B8","act":"play","draw":"deck","prob":0.002},{"card":"B8","act":"discard","draw":"deck","prob":0.000},{"card":"R4","act":"play","draw":"deck","prob":0.000},{"card":"R9","act":"discard","draw":"deck","prob":0.000},{"card":"R2","act":"discard","draw":"deck","prob":0.000},{"card":"B10","act":"discard","draw":"deck","prob":0.000},{"card":"R4","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"B6","act":"play","draw":"deck","q":9.0,"visits":128,"chosen":true}],"move":{"card":"B6","act":"play","draw":"deck","drawn":"Bx"}},{"n":20,"player":1,"deck_left":26,"hands":[["Bx","B8","B10","R2","R4","R6","R8","R9"],["Y10","Bx","B4","B7","W9","G4","G8","Rx"]],"exps":[[[],["B2","B6"],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx","Gx"],[]]],"piles":[["Yx"],[],[],["G2"],[]],"values":[-31.9,-21.5],"nlegal":45,"policy":[{"card":"Bx","act":"discard","draw":"deck","prob":0.898},{"card":"B4","act":"discard","draw":"deck","prob":0.085},{"card":"B4","act":"play","draw":"deck","prob":0.010},{"card":"G4","act":"play","draw":"deck","prob":0.006},{"card":"Bx","act":"play","draw":"deck","prob":0.000},{"card":"W9","act":"play","draw":"deck","prob":0.000},{"card":"Bx","act":"discard","draw":"G","prob":0.000},{"card":"B7","act":"play","draw":"deck","prob":0.000},{"card":"B4","act":"discard","draw":"G","prob":0.000},{"card":"B7","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"B4","act":"discard","draw":"deck","q":-0.6,"visits":128,"chosen":true},{"card":"Bx","act":"discard","draw":"deck","q":-1.0,"visits":128,"chosen":false}],"move":{"card":"B4","act":"discard","draw":"deck","drawn":"B3"}},{"n":21,"player":0,"deck_left":25,"hands":[["Bx","B8","B10","R2","R4","R6","R8","R9"],["Y10","Bx","B3","B7","W9","G4","G8","Rx"]],"exps":[[[],["B2","B6"],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx","Gx"],[]]],"piles":[["Yx"],["B4"],[],["G2"],[]],"values":[-28.9,-34.6],"nlegal":57,"policy":[{"card":"B8","act":"play","draw":"deck","prob":0.939},{"card":"Bx","act":"discard","draw":"deck","prob":0.060},{"card":"B8","act":"play","draw":"B","prob":0.000},{"card":"R2","act":"play","draw":"deck","prob":0.000},{"card":"B10","act":"play","draw":"deck","prob":0.000},{"card":"B8","act":"discard","draw":"deck","prob":0.000},{"card":"R2","act":"play","draw":"B","prob":0.000},{"card":"R2","act":"discard","draw":"deck","prob":0.000},{"card":"R4","act":"play","draw":"deck","prob":0.000},{"card":"B10","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"Bx","act":"discard","draw":"deck","q":-1.2,"visits":128,"chosen":true},{"card":"B8","act":"play","draw":"deck","q":-3.0,"visits":128,"chosen":false}],"move":{"card":"Bx","act":"discard","draw":"deck","drawn":"Y9"}},{"n":22,"player":1,"deck_left":24,"hands":[["Y9","B8","B10","R2","R4","R6","R8","R9"],["Y10","Bx","B3","B7","W9","G4","G8","Rx"]],"exps":[[[],["B2","B6"],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx","Gx"],[]]],"piles":[["Yx"],["B4","Bx"],[],["G2"],[]],"values":[-33.3,-29.7],"nlegal":58,"policy":[{"card":"Bx","act":"discard","draw":"deck","prob":0.984},{"card":"B3","act":"discard","draw":"deck","prob":0.012},{"card":"G4","act":"play","draw":"deck","prob":0.003},{"card":"W9","act":"play","draw":"deck","prob":0.000},{"card":"B3","act":"play","draw":"deck","prob":0.000},{"card":"Bx","act":"discard","draw":"G","prob":0.000},{"card":"B7","act":"play","draw":"deck","prob":0.000},{"card":"Bx","act":"play","draw":"deck","prob":0.000},{"card":"B7","act":"discard","draw":"deck","prob":0.000},{"card":"Rx","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"Bx","act":"discard","draw":"deck","q":-0.3,"visits":128,"chosen":true}],"move":{"card":"Bx","act":"discard","draw":"deck","drawn":"Bx"}},{"n":23,"player":0,"deck_left":23,"hands":[["Y9","B8","B10","R2","R4","R6","R8","R9"],["Y10","Bx","B3","B7","W9","G4","G8","Rx"]],"exps":[[[],["B2","B6"],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx","Gx"],[]]],"piles":[["Yx"],["B4","Bx","Bx"],[],["G2"],[]],"values":[-30.7,-32.3],"nlegal":61,"policy":[{"card":"B8","act":"play","draw":"deck","prob":1.000},{"card":"B10","act":"play","draw":"deck","prob":0.000},{"card":"R2","act":"play","draw":"deck","prob":0.000},{"card":"B8","act":"play","draw":"B","prob":0.000},{"card":"B8","act":"discard","draw":"deck","prob":0.000},{"card":"Y9","act":"discard","draw":"deck","prob":0.000},{"card":"B8","act":"play","draw":"G","prob":0.000},{"card":"B8","act":"play","draw":"Y","prob":0.000},{"card":"Y9","act":"play","draw":"deck","prob":0.000},{"card":"R9","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"B8","act":"play","draw":"deck","q":-0.9,"visits":128,"chosen":true}],"move":{"card":"B8","act":"play","draw":"deck","drawn":"G5"}},{"n":24,"player":1,"deck_left":22,"hands":[["Y9","B10","G5","R2","R4","R6","R8","R9"],["Y10","Bx","B3","B7","W9","G4","G8","Rx"]],"exps":[[[],["B2","B6","B8"],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx","Gx"],[]]],"piles":[["Yx"],["B4","Bx","Bx"],[],["G2"],[]],"values":[-32.3,-29.8],"nlegal":58,"policy":[{"card":"Bx","act":"discard","draw":"deck","prob":0.999},{"card":"B3","act":"discard","draw":"deck","prob":0.001},{"card":"G4","act":"play","draw":"deck","prob":0.000},{"card":"Bx","act":"discard","draw":"G","prob":0.000},{"card":"W9","act":"play","draw":"deck","prob":0.000},{"card":"Bx","act":"play","draw":"deck","prob":0.000},{"card":"B3","act":"play","draw":"deck","prob":0.000},{"card":"B7","act":"play","draw":"deck","prob":0.000},{"card":"B7","act":"discard","draw":"deck","prob":0.000},{"card":"G4","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"Bx","act":"discard","draw":"deck","q":-7.3,"visits":128,"chosen":true}],"move":{"card":"Bx","act":"discard","draw":"deck","drawn":"G9"}},{"n":25,"player":0,"deck_left":21,"hands":[["Y9","B10","G5","R2","R4","R6","R8","R9"],["Y10","B3","B7","W9","G4","G8","G9","Rx"]],"exps":[[[],["B2","B6","B8"],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx","Gx"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx"],[],["G2"],[]],"values":[-23.7,-20.6],"nlegal":57,"policy":[{"card":"B10","act":"play","draw":"deck","prob":0.946},{"card":"G5","act":"discard","draw":"deck","prob":0.050},{"card":"R2","act":"play","draw":"deck","prob":0.005},{"card":"Y9","act":"discard","draw":"deck","prob":0.000},{"card":"B10","act":"discard","draw":"deck","prob":0.000},{"card":"Y9","act":"play","draw":"deck","prob":0.000},{"card":"R8","act":"discard","draw":"deck","prob":0.000},{"card":"R9","act":"discard","draw":"deck","prob":0.000},{"card":"R2","act":"discard","draw":"deck","prob":0.000},{"card":"R4","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"B10","act":"play","draw":"deck","q":-3.3,"visits":128,"chosen":true},{"card":"G5","act":"discard","draw":"deck","q":-7.3,"visits":128,"chosen":false}],"move":{"card":"B10","act":"play","draw":"deck","drawn":"B5"}},{"n":26,"player":1,"deck_left":20,"hands":[["Y9","B5","G5","R2","R4","R6","R8","R9"],["Y10","B3","B7","W9","G4","G8","G9","Rx"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx","Gx"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx"],[],["G2"],[]],"values":[-35.3,-18.0],"nlegal":58,"policy":[{"card":"B3","act":"discard","draw":"deck","prob":0.935},{"card":"B3","act":"discard","draw":"G","prob":0.032},{"card":"W9","act":"play","draw":"deck","prob":0.010},{"card":"B3","act":"play","draw":"deck","prob":0.009},{"card":"B7","act":"play","draw":"deck","prob":0.005},{"card":"G4","act":"play","draw":"deck","prob":0.004},{"card":"B7","act":"discard","draw":"deck","prob":0.003},{"card":"W9","act":"play","draw":"G","prob":0.000},{"card":"Rx","act":"discard","draw":"deck","prob":0.000},{"card":"B3","act":"play","draw":"G","prob":0.000}],"search":[{"card":"B3","act":"discard","draw":"G","q":10.9,"visits":128,"chosen":true},{"card":"B3","act":"discard","draw":"deck","q":10.0,"visits":128,"chosen":false}],"move":{"card":"B3","act":"discard","draw":"G","drawn":"G2"}},{"n":27,"player":0,"deck_left":20,"hands":[["Y9","B5","G5","R2","R4","R6","R8","R9"],["Y10","B7","W9","G2","G4","G8","G9","Rx"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx","Gx"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3"],[],[],[]],"values":[-35.3,-17.0],"nlegal":40,"policy":[{"card":"B5","act":"discard","draw":"deck","prob":1.000},{"card":"G5","act":"discard","draw":"deck","prob":0.000},{"card":"R2","act":"play","draw":"deck","prob":0.000},{"card":"Y9","act":"discard","draw":"deck","prob":0.000},{"card":"R8","act":"discard","draw":"deck","prob":0.000},{"card":"R9","act":"discard","draw":"deck","prob":0.000},{"card":"B5","act":"discard","draw":"Y","prob":0.000},{"card":"R4","act":"discard","draw":"deck","prob":0.000},{"card":"Y9","act":"play","draw":"deck","prob":0.000},{"card":"R2","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"B5","act":"discard","draw":"deck","q":4.7,"visits":128,"chosen":true}],"move":{"card":"B5","act":"discard","draw":"deck","drawn":"W10"}},{"n":28,"player":1,"deck_left":19,"hands":[["Y9","W10","G5","R2","R4","R6","R8","R9"],["Y10","B7","W9","G2","G4","G8","G9","Rx"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx","Gx"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],[],[]],"values":[-14.9,-10.6],"nlegal":46,"policy":[{"card":"G2","act":"play","draw":"deck","prob":0.999},{"card":"G2","act":"play","draw":"B","prob":0.000},{"card":"W9","act":"play","draw":"deck","prob":0.000},{"card":"B7","act":"discard","draw":"deck","prob":0.000},{"card":"G2","act":"discard","draw":"deck","prob":0.000},{"card":"G4","act":"play","draw":"deck","prob":0.000},{"card":"Rx","act":"discard","draw":"deck","prob":0.000},{"card":"B7","act":"play","draw":"deck","prob":0.000},{"card":"Y10","act":"play","draw":"deck","prob":0.000},{"card":"W9","act":"play","draw":"B","prob":0.000}],"search":[{"card":"G2","act":"play","draw":"deck","q":16.2,"visits":128,"chosen":true}],"move":{"card":"G2","act":"play","draw":"deck","drawn":"R7"}},{"n":29,"player":0,"deck_left":18,"hands":[["Y9","W10","G5","R2","R4","R6","R8","R9"],["Y10","B7","W9","G4","G8","G9","Rx","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6"],["Rx"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx","Gx","G2"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],[],[]],"values":[-13.1,-8.1],"nlegal":44,"policy":[{"card":"R2","act":"play","draw":"deck","prob":0.977},{"card":"G5","act":"discard","draw":"deck","prob":0.023},{"card":"Y9","act":"discard","draw":"deck","prob":0.000},{"card":"W10","act":"play","draw":"deck","prob":0.000},{"card":"R4","act":"play","draw":"deck","prob":0.000},{"card":"R2","act":"discard","draw":"deck","prob":0.000},{"card":"R4","act":"discard","draw":"deck","prob":0.000},{"card":"R9","act":"discard","draw":"deck","prob":0.000},{"card":"R8","act":"discard","draw":"deck","prob":0.000},{"card":"W10","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"R2","act":"play","draw":"deck","q":13.9,"visits":128,"chosen":true},{"card":"G5","act":"discard","draw":"deck","q":5.5,"visits":128,"chosen":false}],"move":{"card":"R2","act":"play","draw":"deck","drawn":"Y8"}},{"n":30,"player":1,"deck_left":17,"hands":[["Y8","Y9","W10","G5","R4","R6","R8","R9"],["Y10","B7","W9","G4","G8","G9","Rx","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6"],["Rx","R2"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx","Gx","G2"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],[],[]],"values":[-19.0,-4.8],"nlegal":46,"policy":[{"card":"G4","act":"play","draw":"deck","prob":0.989},{"card":"W9","act":"play","draw":"deck","prob":0.008},{"card":"Rx","act":"discard","draw":"deck","prob":0.002},{"card":"B7","act":"discard","draw":"deck","prob":0.001},{"card":"G4","act":"play","draw":"B","prob":0.000},{"card":"B7","act":"play","draw":"deck","prob":0.000},{"card":"G4","act":"discard","draw":"deck","prob":0.000},{"card":"R7","act":"play","draw":"deck","prob":0.000},{"card":"R7","act":"discard","draw":"deck","prob":0.000},{"card":"Y10","act":"play","draw":"deck","prob":0.000}],"search":[{"card":"G4","act":"play","draw":"deck","q":17.8,"visits":128,"chosen":true}],"move":{"card":"G4","act":"play","draw":"deck","drawn":"W7"}},{"n":31,"player":0,"deck_left":16,"hands":[["Y8","Y9","W10","G5","R4","R6","R8","R9"],["Y10","B7","W7","W9","G8","G9","Rx","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6"],["Rx","R2"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx","Gx","G2","G4"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],[],[]],"values":[-16.3,11.9],"nlegal":43,"policy":[{"card":"R4","act":"play","draw":"deck","prob":0.999},{"card":"G5","act":"discard","draw":"deck","prob":0.001},{"card":"R4","act":"discard","draw":"deck","prob":0.000},{"card":"W10","act":"play","draw":"deck","prob":0.000},{"card":"R6","act":"play","draw":"deck","prob":0.000},{"card":"Y8","act":"discard","draw":"deck","prob":0.000},{"card":"Y8","act":"play","draw":"deck","prob":0.000},{"card":"Y9","act":"discard","draw":"deck","prob":0.000},{"card":"R9","act":"discard","draw":"deck","prob":0.000},{"card":"Y9","act":"play","draw":"deck","prob":0.000}],"search":[{"card":"R4","act":"play","draw":"deck","q":19.9,"visits":128,"chosen":true}],"move":{"card":"R4","act":"play","draw":"deck","drawn":"Gx"}},{"n":32,"player":1,"deck_left":15,"hands":[["Y8","Y9","W10","Gx","G5","R6","R8","R9"],["Y10","B7","W7","W9","G8","G9","Rx","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6"],["Rx","R2","R4"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6"],["Gx","Gx","G2","G4"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],[],[]],"values":[-23.6,13.5],"nlegal":46,"policy":[{"card":"W7","act":"play","draw":"deck","prob":1.000},{"card":"Rx","act":"discard","draw":"deck","prob":0.000},{"card":"W9","act":"play","draw":"deck","prob":0.000},{"card":"W7","act":"play","draw":"B","prob":0.000},{"card":"B7","act":"discard","draw":"deck","prob":0.000},{"card":"W7","act":"discard","draw":"deck","prob":0.000},{"card":"G8","act":"play","draw":"deck","prob":0.000},{"card":"B7","act":"play","draw":"deck","prob":0.000},{"card":"Y10","act":"play","draw":"deck","prob":0.000},{"card":"W7","act":"play","draw":"Y","prob":0.000}],"search":[{"card":"W7","act":"play","draw":"deck","q":40.5,"visits":128,"chosen":true}],"move":{"card":"W7","act":"play","draw":"deck","drawn":"Yx"}},{"n":33,"player":0,"deck_left":14,"hands":[["Y8","Y9","W10","Gx","G5","R6","R8","R9"],["Yx","Y10","B7","W9","G8","G9","Rx","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6"],["Rx","R2","R4"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6","W7"],["Gx","Gx","G2","G4"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],[],[]],"values":[-23.5,6.0],"nlegal":40,"policy":[{"card":"R6","act":"play","draw":"deck","prob":0.960},{"card":"Gx","act":"discard","draw":"deck","prob":0.037},{"card":"W10","act":"play","draw":"deck","prob":0.002},{"card":"G5","act":"discard","draw":"deck","prob":0.001},{"card":"R8","act":"play","draw":"deck","prob":0.000},{"card":"Y8","act":"play","draw":"deck","prob":0.000},{"card":"Y8","act":"discard","draw":"deck","prob":0.000},{"card":"R6","act":"discard","draw":"deck","prob":0.000},{"card":"Y9","act":"play","draw":"deck","prob":0.000},{"card":"R8","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"Gx","act":"discard","draw":"deck","q":-1.7,"visits":128,"chosen":true},{"card":"R6","act":"play","draw":"deck","q":-3.0,"visits":128,"chosen":false}],"move":{"card":"Gx","act":"discard","draw":"deck","drawn":"B9"}},{"n":34,"player":1,"deck_left":13,"hands":[["Y8","Y9","B9","W10","G5","R6","R8","R9"],["Yx","Y10","B7","W9","G8","G9","Rx","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6"],["Rx","R2","R4"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6","W7"],["Gx","Gx","G2","G4"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],["Gx"],[]],"values":[-34.6,9.1],"nlegal":55,"policy":[{"card":"W9","act":"play","draw":"deck","prob":0.976},{"card":"W9","act":"play","draw":"G","prob":0.009},{"card":"Rx","act":"discard","draw":"deck","prob":0.007},{"card":"Yx","act":"discard","draw":"deck","prob":0.007},{"card":"B7","act":"discard","draw":"deck","prob":0.000},{"card":"Rx","act":"discard","draw":"G","prob":0.000},{"card":"Yx","act":"discard","draw":"G","prob":0.000},{"card":"Y10","act":"play","draw":"deck","prob":0.000},{"card":"G8","act":"play","draw":"deck","prob":0.000},{"card":"R7","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"W9","act":"play","draw":"deck","q":34.2,"visits":128,"chosen":true}],"move":{"card":"W9","act":"play","draw":"deck","drawn":"Y7"}},{"n":35,"player":0,"deck_left":12,"hands":[["Y8","Y9","B9","W10","G5","R6","R8","R9"],["Yx","Y7","Y10","B7","G8","G9","Rx","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6"],["Rx","R2","R4"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6","W7","W9"],["Gx","Gx","G2","G4"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],["Gx"],[]],"values":[-31.8,16.6],"nlegal":52,"policy":[{"card":"R6","act":"play","draw":"deck","prob":0.961},{"card":"W10","act":"play","draw":"deck","prob":0.039},{"card":"G5","act":"discard","draw":"deck","prob":0.000},{"card":"R8","act":"play","draw":"deck","prob":0.000},{"card":"Y8","act":"discard","draw":"deck","prob":0.000},{"card":"R6","act":"discard","draw":"deck","prob":0.000},{"card":"R8","act":"discard","draw":"deck","prob":0.000},{"card":"B9","act":"discard","draw":"deck","prob":0.000},{"card":"Y8","act":"play","draw":"deck","prob":0.000},{"card":"R6","act":"play","draw":"B","prob":0.000}],"search":[{"card":"R6","act":"play","draw":"deck","q":-11.1,"visits":128,"chosen":true},{"card":"W10","act":"play","draw":"deck","q":-13.0,"visits":128,"chosen":false}],"move":{"card":"R6","act":"play","draw":"deck","drawn":"G7"}},{"n":36,"player":1,"deck_left":11,"hands":[["Y8","Y9","B9","W10","G5","G7","R8","R9"],["Yx","Y7","Y10","B7","G8","G9","Rx","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6"],["Rx","R2","R4","R6"]],[["Y2","Y3","Y4","Y6"],[],["Wx","W6","W7","W9"],["Gx","Gx","G2","G4"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],["Gx"],[]],"values":[-25.0,16.3],"nlegal":54,"policy":[{"card":"Y7","act":"play","draw":"deck","prob":0.999},{"card":"Y7","act":"play","draw":"G","prob":0.001},{"card":"Rx","act":"discard","draw":"deck","prob":0.000},{"card":"Yx","act":"discard","draw":"deck","prob":0.000},{"card":"B7","act":"discard","draw":"deck","prob":0.000},{"card":"Y7","act":"discard","draw":"deck","prob":0.000},{"card":"R7","act":"discard","draw":"deck","prob":0.000},{"card":"Y7","act":"play","draw":"B","prob":0.000},{"card":"G8","act":"play","draw":"deck","prob":0.000},{"card":"Y7","act":"play","draw":"Y","prob":0.000}],"search":[{"card":"Y7","act":"play","draw":"deck","q":28.0,"visits":128,"chosen":true}],"move":{"card":"Y7","act":"play","draw":"deck","drawn":"W4"}},{"n":37,"player":0,"deck_left":10,"hands":[["Y8","Y9","B9","W10","G5","G7","R8","R9"],["Yx","Y10","B7","W4","G8","G9","Rx","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6"],["Rx","R2","R4","R6"]],[["Y2","Y3","Y4","Y6","Y7"],[],["Wx","W6","W7","W9"],["Gx","Gx","G2","G4"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],["Gx"],[]],"values":[-21.7,13.9],"nlegal":51,"policy":[{"card":"G7","act":"play","draw":"deck","prob":0.977},{"card":"R8","act":"play","draw":"deck","prob":0.017},{"card":"W10","act":"play","draw":"deck","prob":0.006},{"card":"R9","act":"play","draw":"deck","prob":0.000},{"card":"G5","act":"discard","draw":"deck","prob":0.000},{"card":"G7","act":"play","draw":"G","prob":0.000},{"card":"Y8","act":"discard","draw":"deck","prob":0.000},{"card":"G7","act":"play","draw":"B","prob":0.000},{"card":"G7","act":"discard","draw":"deck","prob":0.000},{"card":"R8","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"G7","act":"play","draw":"deck","q":4.4,"visits":128,"chosen":true}],"move":{"card":"G7","act":"play","draw":"deck","drawn":"Rx"}},{"n":38,"player":1,"deck_left":9,"hands":[["Y8","Y9","B9","W10","G5","Rx","R8","R9"],["Yx","Y10","B7","W4","G8","G9","Rx","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6","G7"],["Rx","R2","R4","R6"]],[["Y2","Y3","Y4","Y6","Y7"],[],["Wx","W6","W7","W9"],["Gx","Gx","G2","G4"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],["Gx"],[]],"values":[-25.3,14.3],"nlegal":51,"policy":[{"card":"Rx","act":"discard","draw":"deck","prob":0.592},{"card":"G8","act":"play","draw":"deck","prob":0.256},{"card":"W4","act":"discard","draw":"deck","prob":0.095},{"card":"B7","act":"discard","draw":"deck","prob":0.025},{"card":"Yx","act":"discard","draw":"deck","prob":0.018},{"card":"Y10","act":"play","draw":"deck","prob":0.009},{"card":"R7","act":"discard","draw":"deck","prob":0.004},{"card":"G9","act":"play","draw":"deck","prob":0.000},{"card":"Rx","act":"discard","draw":"G","prob":0.000},{"card":"G8","act":"play","draw":"G","prob":0.000}],"search":[{"card":"G8","act":"play","draw":"deck","q":18.4,"visits":128,"chosen":true},{"card":"W4","act":"discard","draw":"deck","q":17.8,"visits":128,"chosen":false},{"card":"Rx","act":"discard","draw":"deck","q":17.3,"visits":128,"chosen":false},{"card":"B7","act":"discard","draw":"deck","q":17.2,"visits":128,"chosen":false}],"move":{"card":"G8","act":"play","draw":"deck","drawn":"G10"}},{"n":39,"player":0,"deck_left":8,"hands":[["Y8","Y9","B9","W10","G5","Rx","R8","R9"],["Yx","Y10","B7","W4","G9","G10","Rx","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6","G7"],["Rx","R2","R4","R6"]],[["Y2","Y3","Y4","Y6","Y7"],[],["Wx","W6","W7","W9"],["Gx","Gx","G2","G4","G8"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],["Gx"],[]],"values":[-26.9,38.6],"nlegal":48,"policy":[{"card":"R8","act":"play","draw":"deck","prob":0.899},{"card":"W10","act":"play","draw":"deck","prob":0.094},{"card":"R9","act":"play","draw":"deck","prob":0.007},{"card":"G5","act":"discard","draw":"deck","prob":0.000},{"card":"Rx","act":"discard","draw":"deck","prob":0.000},{"card":"R8","act":"play","draw":"B","prob":0.000},{"card":"Y8","act":"discard","draw":"deck","prob":0.000},{"card":"R8","act":"play","draw":"Y","prob":0.000},{"card":"R8","act":"play","draw":"G","prob":0.000},{"card":"R8","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"R8","act":"play","draw":"deck","q":-15.9,"visits":128,"chosen":true},{"card":"W10","act":"play","draw":"deck","q":-18.8,"visits":128,"chosen":false}],"move":{"card":"R8","act":"play","draw":"deck","drawn":"Yx"}},{"n":40,"player":1,"deck_left":7,"hands":[["Yx","Y8","Y9","B9","W10","G5","Rx","R9"],["Yx","Y10","B7","W4","G9","G10","Rx","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6","G7"],["Rx","R2","R4","R6","R8"]],[["Y2","Y3","Y4","Y6","Y7"],[],["Wx","W6","W7","W9"],["Gx","Gx","G2","G4","G8"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],["Gx"],[]],"values":[-33.8,41.4],"nlegal":51,"policy":[{"card":"G9","act":"play","draw":"deck","prob":0.997},{"card":"Rx","act":"discard","draw":"deck","prob":0.002},{"card":"G10","act":"play","draw":"deck","prob":0.000},{"card":"W4","act":"discard","draw":"deck","prob":0.000},{"card":"B7","act":"discard","draw":"deck","prob":0.000},{"card":"Yx","act":"discard","draw":"deck","prob":0.000},{"card":"Y10","act":"play","draw":"deck","prob":0.000},{"card":"G9","act":"play","draw":"G","prob":0.000},{"card":"R7","act":"discard","draw":"deck","prob":0.000},{"card":"G10","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"G9","act":"play","draw":"deck","q":37.6,"visits":128,"chosen":true}],"move":{"card":"G9","act":"play","draw":"deck","drawn":"R5"}},{"n":41,"player":0,"deck_left":6,"hands":[["Yx","Y8","Y9","B9","W10","G5","Rx","R9"],["Yx","Y10","B7","W4","G10","Rx","R5","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6","G7"],["Rx","R2","R4","R6","R8"]],[["Y2","Y3","Y4","Y6","Y7"],[],["Wx","W6","W7","W9"],["Gx","Gx","G2","G4","G8","G9"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],["Gx"],[]],"values":[-36.5,30.1],"nlegal":47,"policy":[{"card":"R9","act":"play","draw":"deck","prob":0.987},{"card":"W10","act":"play","draw":"deck","prob":0.012},{"card":"R9","act":"play","draw":"Y","prob":0.001},{"card":"R9","act":"play","draw":"B","prob":0.000},{"card":"R9","act":"play","draw":"G","prob":0.000},{"card":"W10","act":"play","draw":"Y","prob":0.000},{"card":"W10","act":"play","draw":"B","prob":0.000},{"card":"G5","act":"discard","draw":"deck","prob":0.000},{"card":"W10","act":"play","draw":"G","prob":0.000},{"card":"Yx","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"R9","act":"play","draw":"deck","q":-29.1,"visits":128,"chosen":true}],"move":{"card":"R9","act":"play","draw":"deck","drawn":"W3"}},{"n":42,"player":1,"deck_left":5,"hands":[["Yx","Y8","Y9","B9","W3","W10","G5","Rx"],["Yx","Y10","B7","W4","G10","Rx","R5","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6","G7"],["Rx","R2","R4","R6","R8","R9"]],[["Y2","Y3","Y4","Y6","Y7"],[],["Wx","W6","W7","W9"],["Gx","Gx","G2","G4","G8","G9"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],["Gx"],[]],"values":[-43.2,34.0],"nlegal":52,"policy":[{"card":"G10","act":"play","draw":"deck","prob":0.977},{"card":"Y10","act":"play","draw":"deck","prob":0.013},{"card":"Rx","act":"discard","draw":"deck","prob":0.005},{"card":"R5","act":"discard","draw":"deck","prob":0.002},{"card":"W4","act":"discard","draw":"deck","prob":0.002},{"card":"Yx","act":"discard","draw":"deck","prob":0.000},{"card":"B7","act":"discard","draw":"deck","prob":0.000},{"card":"R7","act":"discard","draw":"deck","prob":0.000},{"card":"G10","act":"play","draw":"G","prob":0.000},{"card":"G10","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"G10","act":"play","draw":"deck","q":32.3,"visits":128,"chosen":true}],"move":{"card":"G10","act":"play","draw":"deck","drawn":"W8"}},{"n":43,"player":0,"deck_left":4,"hands":[["Yx","Y8","Y9","B9","W3","W10","G5","Rx"],["Yx","Y10","B7","W4","W8","Rx","R5","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5"],["G6","G7"],["Rx","R2","R4","R6","R8","R9"]],[["Y2","Y3","Y4","Y6","Y7"],[],["Wx","W6","W7","W9"],["Gx","Gx","G2","G4","G8","G9","G10"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],["Gx"],[]],"values":[-48.0,42.9],"nlegal":43,"policy":[{"card":"W10","act":"play","draw":"deck","prob":0.819},{"card":"W10","act":"play","draw":"Y","prob":0.104},{"card":"W10","act":"play","draw":"B","prob":0.066},{"card":"W10","act":"play","draw":"G","prob":0.010},{"card":"Yx","act":"discard","draw":"deck","prob":0.000},{"card":"W3","act":"discard","draw":"deck","prob":0.000},{"card":"Y8","act":"discard","draw":"deck","prob":0.000},{"card":"G5","act":"discard","draw":"deck","prob":0.000},{"card":"B9","act":"discard","draw":"deck","prob":0.000},{"card":"Y9","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"W10","act":"play","draw":"B","q":-42.7,"visits":128,"chosen":true},{"card":"W10","act":"play","draw":"deck","q":-43.1,"visits":128,"chosen":false},{"card":"W10","act":"play","draw":"Y","q":-44.7,"visits":128,"chosen":false}],"move":{"card":"W10","act":"play","draw":"B","drawn":"B5"}},{"n":44,"player":1,"deck_left":4,"hands":[["Yx","Y8","Y9","B5","B9","W3","G5","Rx"],["Yx","Y10","B7","W4","W8","Rx","R5","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5","W10"],["G6","G7"],["Rx","R2","R4","R6","R8","R9"]],[["Y2","Y3","Y4","Y6","Y7"],[],["Wx","W6","W7","W9"],["Gx","Gx","G2","G4","G8","G9","G10"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3"],[],["Gx"],[]],"values":[-52.6,40.8],"nlegal":49,"policy":[{"card":"Y10","act":"play","draw":"deck","prob":0.977},{"card":"Y10","act":"play","draw":"Y","prob":0.007},{"card":"W4","act":"discard","draw":"deck","prob":0.006},{"card":"Rx","act":"discard","draw":"deck","prob":0.004},{"card":"R5","act":"discard","draw":"deck","prob":0.003},{"card":"Y10","act":"play","draw":"G","prob":0.001},{"card":"R7","act":"discard","draw":"deck","prob":0.001},{"card":"Yx","act":"discard","draw":"deck","prob":0.001},{"card":"W8","act":"discard","draw":"deck","prob":0.001},{"card":"B7","act":"discard","draw":"deck","prob":0.000}],"search":[{"card":"Y10","act":"play","draw":"deck","q":32.8,"visits":128,"chosen":true}],"move":{"card":"Y10","act":"play","draw":"deck","drawn":"G3"}},{"n":45,"player":0,"deck_left":3,"hands":[["Yx","Y8","Y9","B5","B9","W3","G5","Rx"],["Yx","B7","W4","W8","G3","Rx","R5","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5","W10"],["G6","G7"],["Rx","R2","R4","R6","R8","R9"]],[["Y2","Y3","Y4","Y6","Y7","Y10"],[],["Wx","W6","W7","W9"],["Gx","Gx","G2","G4","G8","G9","G10"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3"],[],["Gx"],[]],"values":[-48.8,34.4],"nlegal":38,"policy":[{"card":"B5","act":"discard","draw":"deck","prob":0.227},{"card":"B5","act":"discard","draw":"Y","prob":0.108},{"card":"Yx","act":"discard","draw":"deck","prob":0.100},{"card":"Y8","act":"discard","draw":"deck","prob":0.087},{"card":"Yx","act":"discard","draw":"B","prob":0.070},{"card":"G5","act":"discard","draw":"deck","prob":0.064},{"card":"Y8","act":"discard","draw":"B","prob":0.061},{"card":"G5","act":"discard","draw":"B","prob":0.044},{"card":"W3","act":"discard","draw":"deck","prob":0.035},{"card":"G5","act":"discard","draw":"Y","prob":0.030}],"search":[{"card":"B5","act":"discard","draw":"deck","q":-45.3,"visits":128,"chosen":true},{"card":"Yx","act":"discard","draw":"deck","q":-45.3,"visits":128,"chosen":false},{"card":"Y8","act":"discard","draw":"deck","q":-45.3,"visits":128,"chosen":false},{"card":"G5","act":"discard","draw":"deck","q":-45.3,"visits":128,"chosen":false},{"card":"Yx","act":"discard","draw":"B","q":-47.0,"visits":128,"chosen":false},{"card":"B5","act":"discard","draw":"Y","q":-47.0,"visits":128,"chosen":false}],"move":{"card":"B5","act":"discard","draw":"deck","drawn":"R3"}},{"n":46,"player":1,"deck_left":2,"hands":[["Yx","Y8","Y9","B9","W3","G5","Rx","R3"],["Yx","B7","W4","W8","G3","Rx","R5","R7"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5","W10"],["G6","G7"],["Rx","R2","R4","R6","R8","R9"]],[["Y2","Y3","Y4","Y6","Y7","Y10"],[],["Wx","W6","W7","W9"],["Gx","Gx","G2","G4","G8","G9","G10"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],["Gx"],[]],"values":[-54.7,43.6],"nlegal":45,"policy":[{"card":"G3","act":"discard","draw":"deck","prob":0.249},{"card":"W4","act":"discard","draw":"deck","prob":0.248},{"card":"R5","act":"discard","draw":"deck","prob":0.153},{"card":"Rx","act":"discard","draw":"deck","prob":0.134},{"card":"W8","act":"discard","draw":"deck","prob":0.103},{"card":"B7","act":"discard","draw":"deck","prob":0.076},{"card":"R7","act":"discard","draw":"deck","prob":0.019},{"card":"Yx","act":"discard","draw":"deck","prob":0.018},{"card":"B7","act":"play","draw":"deck","prob":0.000},{"card":"G3","act":"discard","draw":"Y","prob":0.000}],"search":[{"card":"G3","act":"discard","draw":"deck","q":30.9,"visits":128,"chosen":true},{"card":"W4","act":"discard","draw":"deck","q":30.9,"visits":128,"chosen":false},{"card":"R5","act":"discard","draw":"deck","q":30.9,"visits":128,"chosen":false},{"card":"Rx","act":"discard","draw":"deck","q":30.9,"visits":128,"chosen":false},{"card":"W8","act":"discard","draw":"deck","q":30.9,"visits":128,"chosen":false},{"card":"B7","act":"discard","draw":"deck","q":30.9,"visits":128,"chosen":false}],"move":{"card":"G3","act":"discard","draw":"deck","drawn":"R10"}},{"n":47,"player":0,"deck_left":1,"hands":[["Yx","Y8","Y9","B9","W3","G5","Rx","R3"],["Yx","B7","W4","W8","Rx","R5","R7","R10"]],"exps":[[[],["B2","B6","B8","B10"],["Wx","Wx","W2","W5","W10"],["G6","G7"],["Rx","R2","R4","R6","R8","R9"]],[["Y2","Y3","Y4","Y6","Y7","Y10"],[],["Wx","W6","W7","W9"],["Gx","Gx","G2","G4","G8","G9","G10"],[]]],"piles":[["Yx"],["B4","Bx","Bx","Bx","B3","B5"],[],["Gx","G3"],[]],"values":[-49.9,48.8],"nlegal":39,"policy":[{"card":"B9","act":"discard","draw":"deck","prob":0.623},{"card":"Y8","act":"discard","draw":"deck","prob":0.177},{"card":"Y9","act":"discard","draw":"deck","prob":0.154},{"card":"Yx","act":"discard","draw":"deck","prob":0.012},{"card":"W3","act":"discard","draw":"deck","prob":0.010},{"card":"R3","act":"discard","draw":"deck","prob":0.008},{"card":"B9","act":"discard","draw":"Y","prob":0.006},{"card":"G5","act":"discard","draw":"deck","prob":0.003},{"card":"Y8","act":"play","draw":"deck","prob":0.002},{"card":"Rx","act":"discard","draw":"deck","prob":0.002}],"search":[{"card":"B9","act":"discard","draw":"deck","q":-47.0,"visits":128,"chosen":true},{"card":"Y8","act":"discard","draw":"deck","q":-47.0,"visits":128,"chosen":false},{"card":"Y9","act":"discard","draw":"deck","q":-47.0,"visits":128,"chosen":false}],"move":{"card":"B9","act":"discard","draw":"deck","drawn":"Y5"}}]}</script>
+<script>
+"use strict";
+const SUITS = ["Y","B","W","G","R"];
+const SUIT_NAMES = {Y:"Yellow",B:"Blue",W:"White",G:"Green",R:"Red"};
+const $ = id => document.getElementById(id);
+
+let game = null, cur = 0;
+
+function loadGame(g){
+  if (!g || !g.meta || !Array.isArray(g.plies) || !g.plies.length)
+    throw new Error("bad schema: need meta + plies");
+  game = g; cur = 0;
+  buildStatic(); render();
+}
+
+/* ---------- scoring ---------- */
+function expScore(cards){
+  if (!cards.length) return 0;
+  let sum = 0, wagers = 0;
+  for (const c of cards){
+    if (c[1] === "x") wagers++;
+    else sum += parseInt(c.slice(1), 10);
+  }
+  return (sum - 20) * (1 + wagers) + (cards.length >= 8 ? 20 : 0);
+}
+function sgn(v, dp){ return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(dp); }
+function moveLabel(m){
+  return `${m.act === "play" ? "play" : "disc"} ${m.card} → ${m.draw === "deck" ? "deck" : m.draw + " pile"}`;
+}
+function cardEl(name, cls){
+  const d = document.createElement("span");
+  d.className = "card " + name[0] + (cls ? " " + cls : "");
+  d.textContent = name;
+  return d;
+}
+
+/* ---------- static builds ---------- */
+function buildStatic(){
+  const m = game.meta;
+  $("m-agent").textContent = m.agent || "";
+  $("m-seed").textContent = "seed " + m.seed;
+  $("m-final").textContent = `P1 ${m.final[0]} : ${m.final[1]} P2`;
+  const ol = $("movelist"); ol.textContent = "";
+  game.plies.forEach((p, i) => {
+    const li = document.createElement("li");
+    li.tabIndex = 0;
+    li.innerHTML = `<span class="pn">${p.n}</span>P${p.player + 1} ${moveLabel(p.move)}`;
+    li.addEventListener("click", () => go(i));
+    li.addEventListener("keydown", e => { if (e.key === "Enter") go(i); });
+    ol.appendChild(li);
+  });
+}
+
+/* ---------- board ---------- */
+function renderBoard(p){
+  $("m-ply").textContent = `ply ${p.n} / ${game.plies.length}`;
+  $("b-state").textContent = `state before move · P${p.player + 1} to move`;
+  $("b-deck").textContent = `deck ${p.deck_left}`;
+
+  for (const side of [0, 1]){
+    const exp = $("exp" + side); exp.textContent = "";
+    SUITS.forEach((s, si) => {
+      const cards = p.exps[side][si];
+      const col = document.createElement("div"); col.className = "suitcol";
+      const head = document.createElement("div"); head.className = "colhead";
+      head.innerHTML = `<span class="sname" style="color:var(--suit-${s})">${SUIT_NAMES[s]}</span>` +
+                       `<span class="score">${cards.length ? sgn(expScore(cards), 0) : "·"}</span>`;
+      col.appendChild(head);
+      const st = document.createElement("div"); st.className = "stack";
+      cards.forEach(c => st.appendChild(cardEl(c)));
+      col.appendChild(st);
+      exp.appendChild(col);
+    });
+
+    const hand = $("hand" + side);
+    hand.textContent = "";
+    const lab = document.createElement("span"); lab.className = "hlabel";
+    lab.textContent = `P${side + 1} hand`;
+    hand.appendChild(lab);
+    hand.classList.toggle("mover", p.player === side);
+    let marked = false;
+    p.hands[side].forEach(c => {
+      let cls = p.player === side ? "" : "dim";
+      if (p.player === side && !marked && c === p.move.card){ cls = "about"; marked = true; }
+      hand.appendChild(cardEl(c, cls));
+    });
+  }
+
+  const piles = $("piles"); piles.textContent = "";
+  SUITS.forEach((s, si) => {
+    const pl = p.piles[si];
+    const d = document.createElement("div"); d.className = "pile";
+    const top = document.createElement("div"); top.className = "top";
+    if (pl.length){
+      top.appendChild(cardEl(pl[pl.length - 1]));
+      const n = document.createElement("span"); n.className = "num";
+      n.textContent = pl.length > 1 ? `+${pl.length - 1}` : "";
+      top.appendChild(n);
+    } else {
+      top.textContent = "empty";
+    }
+    d.appendChild(top);
+    if (pl.length > 1){
+      const rest = document.createElement("div"); rest.className = "rest";
+      pl.slice(0, -1).forEach(c => rest.appendChild(cardEl(c)));
+      d.appendChild(rest);
+    }
+    piles.appendChild(d);
+  });
+
+  const mv = p.move;
+  const src = mv.draw === "deck" ? "from deck" : `from ${SUIT_NAMES[mv.draw]} pile`;
+  $("caption").innerHTML =
+    `P${p.player + 1} ${mv.act === "play" ? "plays" : "discards"} <b>${mv.card}</b>, ` +
+    `draws ${src} (<b>${mv.drawn}</b>) · ` +
+    `value P1 <b>${sgn(p.values[0], 1)}</b> / P2 <b>${sgn(p.values[1], 1)}</b> · ` +
+    `${p.nlegal} legal moves`;
+}
+
+/* ---------- decision panel ---------- */
+function renderDecision(p){
+  const se = $("search"); se.textContent = "";
+  const h = document.createElement("h2");
+  h.style.cssText = "border:none;padding:0 0 4px"; h.textContent = "Search (rollout Q)";
+  se.appendChild(h);
+  const maxQ = Math.max(...p.search.map(c => Math.abs(c.q)), 0.1);
+  p.search.forEach(c => {
+    const row = document.createElement("div");
+    row.className = "cand" + (c.chosen ? " chosen" : "");
+    const bar = `<span class="bar ${c.q >= 0 ? "pos" : "neg"}" style="width:${(Math.abs(c.q) / maxQ * 100).toFixed(1)}%"></span>`;
+    row.innerHTML = `<span>${c.act === "play" ? "play" : "disc"} ${c.card}→${c.draw === "deck" ? "deck" : c.draw}</span>` +
+      `<span class="q">${sgn(c.q, 1)}</span><span style="display:flex;align-items:center;gap:6px">${bar}` +
+      (c.chosen ? `<span class="tag">chosen</span>` : `<span class="visits" style="font-size:10px">${c.visits}v</span>`) + `</span>`;
+    se.appendChild(row);
+  });
+
+  const pe = $("policy"); pe.textContent = "";
+  const h2 = document.createElement("h2");
+  h2.style.cssText = "border:none;padding:0 0 4px"; h2.textContent = "Policy prior";
+  pe.appendChild(h2);
+  p.policy.slice(0, 6).forEach(c => {
+    const row = document.createElement("div"); row.className = "cand";
+    row.innerHTML = `<span>${c.act === "play" ? "play" : "disc"} ${c.card}→${c.draw === "deck" ? "deck" : c.draw}</span>` +
+      `<span class="q">${(c.prob * 100).toFixed(1)}%</span>` +
+      `<span class="bar" style="width:${(c.prob * 100).toFixed(1)}%"></span>`;
+    pe.appendChild(row);
+  });
+  const top = p.policy[0], ch = p.search.find(c => c.chosen);
+  if (top && ch && (top.card !== ch.card || top.act !== ch.act || top.draw !== ch.draw)){
+    const n = document.createElement("div"); n.className = "note";
+    n.textContent = "search overrode the policy's first choice";
+    pe.appendChild(n);
+  }
+}
+
+/* ---------- trajectory chart ---------- */
+const CW = 316, CH = 150, ML = 34, MR = 8, MT = 10, MB = 18;
+function chartXY(){
+  const vals = game.plies.map(p => p.values[0]);
+  const fm = game.meta.final[0] - game.meta.final[1];
+  let lo = Math.min(...vals, fm, 0), hi = Math.max(...vals, fm, 0);
+  const pad = (hi - lo) * 0.08 || 1; lo -= pad; hi += pad;
+  const x = i => ML + (game.plies.length === 1 ? 0 : i / (game.plies.length - 1)) * (CW - ML - MR);
+  const y = v => MT + (hi - v) / (hi - lo) * (CH - MT - MB);
+  return { vals, fm, lo, hi, x, y };
+}
+function renderChart(){
+  const svg = $("chart"); const { vals, fm, lo, hi, x, y } = chartXY();
+  const N = vals.length;
+  let s = "";
+  // gridlines
+  const step = niceStep(hi - lo);
+  for (let g = Math.ceil(lo / step) * step; g <= hi; g += step){
+    if (Math.abs(g) < 1e-9) continue;
+    s += `<line x1="${ML}" x2="${CW - MR}" y1="${y(g).toFixed(1)}" y2="${y(g).toFixed(1)}" stroke="var(--line)" stroke-width="0.6"/>`;
+  }
+  // zero axis
+  if (lo < 0 && hi > 0)
+    s += `<line x1="${ML}" x2="${CW - MR}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--muted)" stroke-width="1"/>`;
+  // final margin reference
+  s += `<line x1="${ML}" x2="${CW - MR}" y1="${y(fm).toFixed(1)}" y2="${y(fm).toFixed(1)}" stroke="var(--accent)" stroke-width="1" stroke-dasharray="4 3" opacity="0.7"/>`;
+  s += `<text x="${CW - MR}" y="${(y(fm) - 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--accent)" font-family="var(--mono)">final ${sgn(fm, 0)}</text>`;
+  // endpoint labels
+  s += `<text x="${ML - 4}" y="${y(vals[0]).toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="9" fill="var(--muted)" font-family="var(--mono)">${sgn(vals[0], 0)}</text>`;
+  s += `<text x="${ML - 4}" y="${y(vals[N - 1]).toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="9" fill="var(--muted)" font-family="var(--mono)">${sgn(vals[N - 1], 0)}</text>`;
+  // x endpoints
+  s += `<text x="${ML}" y="${CH - 4}" font-size="9" fill="var(--muted)" font-family="var(--mono)">1</text>`;
+  s += `<text x="${CW - MR}" y="${CH - 4}" text-anchor="end" font-size="9" fill="var(--muted)" font-family="var(--mono)">${N}</text>`;
+  // line
+  const pts = vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  s += `<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>`;
+  // crosshair placeholder + current dot
+  s += `<line id="xh" x1="0" x2="0" y1="${MT}" y2="${CH - MB}" stroke="var(--muted)" stroke-width="0.7" stroke-dasharray="2 2" visibility="hidden"/>`;
+  s += `<circle cx="${x(cur).toFixed(1)}" cy="${y(vals[cur]).toFixed(1)}" r="4" fill="var(--accent)" stroke="var(--panel)" stroke-width="1.5"/>`;
+  svg.innerHTML = s;
+}
+function niceStep(range){
+  const raw = range / 5, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  for (const m of [1, 2, 5, 10]) if (raw / mag <= m) return m * mag;
+  return 10 * mag;
+}
+function chartPlyFromEvent(e){
+  const svg = $("chart"), r = svg.getBoundingClientRect();
+  const px = (e.clientX - r.left) / r.width * CW;
+  const N = game.plies.length;
+  const i = Math.round((px - ML) / ((CW - ML - MR) / Math.max(N - 1, 1)));
+  return Math.max(0, Math.min(N - 1, i));
+}
+function bindChart(){
+  const svg = $("chart"), tip = $("tip"), wrap = $("chartwrap");
+  svg.addEventListener("mousemove", e => {
+    const i = chartPlyFromEvent(e), { vals, x } = chartXY();
+    const xh = $("xh"); if (!xh) return;
+    const r = svg.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+    xh.setAttribute("x1", x(i)); xh.setAttribute("x2", x(i));
+    xh.setAttribute("visibility", "visible");
+    tip.style.display = "block";
+    tip.textContent = `ply ${i + 1}: ${sgn(vals[i], 1)}`;
+    const left = (x(i) / CW) * r.width + (r.left - wr.left);
+    tip.style.left = Math.min(left + 8, wr.width - 90) + "px";
+    tip.style.top = "4px";
+  });
+  svg.addEventListener("mouseleave", () => {
+    const xh = $("xh"); if (xh) xh.setAttribute("visibility", "hidden");
+    tip.style.display = "none";
+  });
+  svg.addEventListener("click", e => go(chartPlyFromEvent(e)));
+}
+
+/* ---------- navigation ---------- */
+function go(i){
+  cur = Math.max(0, Math.min(game.plies.length - 1, i));
+  render();
+}
+function render(){
+  const p = game.plies[cur];
+  renderBoard(p); renderDecision(p); renderChart();
+  const ol = $("movelist");
+  [...ol.children].forEach((li, i) => li.classList.toggle("cur", i === cur));
+  const li = ol.children[cur];
+  if (li) li.scrollIntoView({ block: "nearest" });
+}
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowLeft"){ go(cur - 1); e.preventDefault(); }
+  else if (e.key === "ArrowRight"){ go(cur + 1); e.preventDefault(); }
+  else if (e.key === "Home"){ go(0); e.preventDefault(); }
+  else if (e.key === "End"){ go(game.plies.length - 1); e.preventDefault(); }
+});
+$("btn-prev").addEventListener("click", () => go(cur - 1));
+$("btn-next").addEventListener("click", () => go(cur + 1));
+
+/* ---------- file load ---------- */
+function loadFile(f){
+  const r = new FileReader();
+  r.onload = () => {
+    try { loadGame(JSON.parse(r.result)); }
+    catch (err){ alert("Could not load JSON: " + err.message); }
+  };
+  r.readAsText(f);
+}
+$("file").addEventListener("change", e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+let dragDepth = 0;
+document.addEventListener("dragenter", e => { e.preventDefault(); dragDepth++; document.body.classList.add("dragging"); });
+document.addEventListener("dragleave", e => { if (--dragDepth <= 0){ dragDepth = 0; document.body.classList.remove("dragging"); } });
+document.addEventListener("dragover", e => e.preventDefault());
+document.addEventListener("drop", e => {
+  e.preventDefault(); dragDepth = 0; document.body.classList.remove("dragging");
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+
+/* ---------- boot ---------- */
+bindChart();
+loadGame(JSON.parse($("game-data").textContent));
+</script>

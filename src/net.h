@@ -23,8 +23,8 @@
 
 #include "features.h"
 
-#define NET_H1 256
-#define NET_H2 128
+#define NET_H1 512
+#define NET_H2 256
 #define NET_NPLAY (NCARD * 2)   /* card x (play|discard) */
 #define NET_NDRAW (NSUIT + 1)   /* deck or one of five piles */
 #define VAL_SCALE 50.0f
