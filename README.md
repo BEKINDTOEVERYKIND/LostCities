@@ -201,9 +201,11 @@ were worth at zero strength cost.
 | only plies < 14, forced 3 candidates (200 pairs) | -4.7 ± 3.1 | 50.1% ± 2.5% |
 
 Restricting the search to the mid/late round loses nothing -- it matches or
-beats searching everywhere while skipping ~30% of the searched plies. Early
-search contributes little, and *aggressive* early search (forced candidates)
-contributes nothing at all. The mechanism shows up clearly at the opening
+beats searching everywhere while skipping ~30% of the searched plies, and
+the direct head-to-head confirms it: late-only vs full search is a dead
+heat, +0.6 ± 3.0/match, 49.7% ± 2.9% (150 pairs). Early search contributes
+little, and *aggressive* early search (forced candidates) contributes
+nothing at all. The mechanism shows up clearly at the opening
 ply of the embedded game: three different first moves measure within ±0.5
 points of each other at 8000 worlds under three different estimators.
 Early-round moves are often near-equivalent in true value, so there is
