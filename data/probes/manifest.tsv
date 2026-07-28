@@ -1,0 +1,8 @@
+# name	moves_file	seed	ply	better	worse	note
+wager_open_w2	game_w2_seed11.moves	11	5	W4 p deck	Y2 d deck	open White with W4+W8 behind it beats the dead-yellow discard (w2-era leak, +2.9)
+wager_open_w3	game_w3_seed11.moves	11	5	W4 p deck	Yx d deck	same leak family in the current champion (+0.6..1.0)
+skip_cost_B8	game_w3_seed11.moves	11	26	B8 p deck	W7 p deck	B8 skips nothing (B7 is on opp expedition); W7 kills unseen W6 under x3 (+0.9)
+skip_cost_B10	game_w3_seed11.moves	11	30	B10 p deck	W7 p deck	policy had 94% on W7; B10 better by +1.36 at 15 sigma
+dead_discard	game_w3_seed11.moves	11	32	Wx d deck	W7 p deck	the provably dead wager discard beats the 99.5%-prior W7 (+1.64)
+gift_discard	game_w3_seed11.moves	11	36	Bx d deck	Y8 d deck	dominated discard: dead Bx in hand, Y8 could open Yellow for opponent
+stall_habit	game_w3_seed11.moves	11	39	G6 p deck	G6 p Y	pointless stall: nothing to deny, W10 22% in deck under x3, plays fit in remaining turns (habit-masked in same-policy playouts)
