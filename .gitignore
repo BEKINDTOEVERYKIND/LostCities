@@ -5,3 +5,6 @@ data/*.log
 data/*.smp
 data/ignore.bin
 *.o
+data/w2.bin
+data/ref_w2.bin
+data/w2_selection.txt
