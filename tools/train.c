@@ -230,6 +230,9 @@ typedef struct {
     const size_t *idx;
     int from, to;
     float pw;
+    float bw;            /* belief BCE weight (rl.c trains this head too;
+                            without it a fine-tune drifts the shared trunk
+                            out from under the belief head) */
     double vloss, ploss;
     int pn;
 } TrainJob;
@@ -245,6 +248,8 @@ static void *train_worker(void *arg)
     Move mv[MAX_MOVES];
     uint16_t pk[MAX_MOVES];
     float logit[MAX_MOVES], prob[MAX_MOVES], dlog[MAX_MOVES], tgt[MAX_MOVES];
+    uint8_t bcard[NCARD];
+    float blogit[NCARD], dbel[NCARD];
 
     for (int i = t->from; i < t->to; i++) {
         const Sample *s = &t->rp->buf[t->idx[i]];
@@ -276,7 +281,32 @@ static void *train_worker(void *arg)
             }
             pn++;
         }
-        net_backward(t->net, &f, &act, 2.0f * e, pk, s->npi > 0 ? dlog : NULL, n, NULL, NULL, 0, t->grad);
+        /* belief head, exactly as rl.c trains it: the sample's state stores
+         * the true opponent hand, a free supervised label */
+        int nb = 0;
+        if (t->bw > 0.0f) {
+            const State *st = &s->st;
+            int p = s->persp, o = p ^ 1;
+            uint64_t vis = st->hand[p] | st->played[0] | st->played[1] | st->discarded;
+            uint64_t cands = ~vis & ((1ULL << NCARD) - 1);
+            while (cands) {
+                int cc = __builtin_ctzll(cands);
+                cands &= cands - 1;
+                bcard[nb++] = (uint8_t)cc;
+            }
+            net_belief_act(t->net, &act, bcard, nb, blogit);
+            float scale = t->bw / (float)(nb > 0 ? nb : 1);
+            for (int k = 0; k < nb; k++) {
+                float lab = ((st->hand[o] >> bcard[k]) & 1ULL) ? 1.0f : 0.0f;
+                float l = blogit[k];
+                if (l > 15.0f) l = 15.0f;
+                if (l < -15.0f) l = -15.0f;
+                float pr2 = 1.0f / (1.0f + expf(-l));
+                dbel[k] = scale * (pr2 - lab);
+            }
+        }
+        net_backward(t->net, &f, &act, 2.0f * e, pk, s->npi > 0 ? dlog : NULL, n,
+                     nb > 0 ? bcard : NULL, nb > 0 ? dbel : NULL, nb, t->grad);
     }
     t->vloss = vloss; t->ploss = ploss; t->pn = pn;
     return NULL;
@@ -302,7 +332,7 @@ int main(int argc, char **argv)
     int iters = 10, games = 2000, nthread = 4, batch = 256, steps = 6000;
     int eval_pairs = 300;
     size_t bufcap = 800000;
-    float lr = 1e-3f, wd = 1e-7f, tau = 1.0f, pw = 1.0f, lambda = 0.75f;
+    float lr = 1e-3f, wd = 1e-7f, tau = 1.0f, pw = 1.0f, lambda = 0.75f, bw = 1.0f;
     float winbonus = 15.0f;
     int rounds = MATCH_ROUNDS;
     int sample_plies = 24;
@@ -344,6 +374,7 @@ int main(int argc, char **argv)
         else if (ARG("--gen-nw")) gen_nw = atoi(argv[++i]);
         else if (ARG("--dump")) dump_path = argv[++i];
         else if (ARG("--data")) data_path = argv[++i];
+        else if (ARG("--bw")) bw = (float)atof(argv[++i]);
         else if (!strcmp(k, "--flat-lr")) keep_lr_flat = 1;
         else { fprintf(stderr, "unknown option %s\n", k); return 1; }
         #undef ARG
@@ -426,6 +457,12 @@ int main(int argc, char **argv)
         } else if (!strcmp(gen_spec, "selfpolicy")) {
             agent_default(&gen, AG_POLICY, net);
         } else if (!strncmp(gen_spec, "selfrollout", 11)) {
+            /* live-net rollout generator, same parameter tail as the rollout
+             * spec: dets:cands:floor:gate:minc:plylo:plyhi:evalc.  evalc
+             * matters for expert iteration: advisory candidates enter the
+             * Q-softmax target, so the trainer can pull probability toward
+             * moves the policy has written off while the generated games
+             * still play the selection rule. */
             agent_default(&gen, AG_ROLLOUT, net);
             char tmp[128];
             snprintf(tmp, sizeof tmp, "%s", gen_spec);
@@ -434,6 +471,12 @@ int main(int argc, char **argv)
             char *v;
             if ((v = strtok_r(NULL, ":", &save))) gen.dets = atoi(v);
             if ((v = strtok_r(NULL, ":", &save))) gen.root_width = atoi(v);
+            if ((v = strtok_r(NULL, ":", &save))) gen.cand_floor = (float)atof(v);
+            if ((v = strtok_r(NULL, ":", &save))) gen.gate = (float)atof(v);
+            if ((v = strtok_r(NULL, ":", &save))) gen.min_cand = atoi(v);
+            if ((v = strtok_r(NULL, ":", &save))) gen.ply_lo = atoi(v);
+            if ((v = strtok_r(NULL, ":", &save))) gen.ply_hi = atoi(v);
+            if ((v = strtok_r(NULL, ":", &save))) gen.eval_cand = atoi(v);
         } else {
             spec_parse(gen_spec, &gen);
             gen.net = net;
@@ -501,6 +544,7 @@ int main(int argc, char **argv)
                 tj[i].from = i * chunk > batch ? batch : i * chunk;
                 tj[i].to = (i + 1) * chunk > batch ? batch : (i + 1) * chunk;
                 tj[i].pw = pw;
+                tj[i].bw = bw;
             }
             for (int i = 0; i < nt; i++) pthread_create(&tt[i], NULL, train_worker, &tj[i]);
             for (int i = 0; i < nt; i++) pthread_join(tt[i], NULL);
