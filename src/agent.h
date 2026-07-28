@@ -49,9 +49,15 @@ typedef struct Agent {
                            overrule a near-certain policy (0 = off) */
     int win_q;          /* AG_ROLLOUT: in the final round, select by match
                            wins over the playouts (margin as tiebreak)
-                           instead of by margin -- winning is the objective
-                           and the last round's playouts decide it exactly
-                           (default on; 0 reverts to margin everywhere) */
+                           instead of by margin.  Principled -- the last
+                           round's playouts decide the match exactly -- but
+                           measured NO BETTER than margin selection (48.0%
+                           +- 2.0% head-to-head, 300 pairs): decided finals
+                           tie on win%, close finals make a 96-world win
+                           fraction a noisy binomial, and the win-trained
+                           policy already carries the clutch behaviour.
+                           Default off; the win fraction is still computed
+                           and reported (SearchStats.qw) either way. */
     float gate;         /* AG_ROLLOUT: skip the search entirely when the
                            policy's top move already has >= this probability
                            (0 = always search) */

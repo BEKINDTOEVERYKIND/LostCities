@@ -219,16 +219,20 @@ positions diverge sharply and have short, accurately-evaluated horizons.
 run-to-run spread between that and the 150-pair number above is itself a
 caution about small evaluation batches.)
 
-**The search reports its own noise, and optimises the right thing at the
-end.** Every reported Q now carries the standard error of its paired
-difference against the chosen move -- a gap under ~2 of those is sampling
-noise, which at 96 worlds means most gaps under ~4-8 points; the analysis
-dump uses 512 worlds to make the displayed numbers meaningful. And because
-the final round's playouts decide the match exactly, the rollout there
-selects by *match wins* over the sampled worlds (margin only as tiebreak,
-`win_q`, on by default): down 30 in round three it takes the line that
-steals some matches over the one that loses by less, which is the
-tournament objective and cannot be expressed in point EV.
+**The search reports its own noise.** Every reported Q carries the standard
+error of its paired difference against the chosen move -- a gap under ~2 of
+those is sampling noise, which at 96 worlds means most gaps under ~4-8
+points; the analysis dump uses 512 worlds to make the displayed numbers
+meaningful. In the final round the dump also reports each candidate's match
+win fraction over the playouts (the last round decides the match exactly,
+so point EV stops being the objective there). Selecting by that win
+fraction is available (`win_q`) but off by default, because it measured no
+better than margin selection -- 48.0% ± 2.0% head-to-head over 300 pairs:
+decided finals tie on win%, close finals make a 96-world win fraction a
+noisy binomial estimate, and the win-trained policy already carries the
+clutch behaviour into every playout. The same lesson as the candidate
+floor, from the other direction: at fixed compute, the statistically
+efficient objective beats the theoretically right one.
 
 Recommended settings: **search from ply 14 with no gate for maximum
 strength** (`rollout:NET:96:5:0.02:0:1:14`); **add gate 0.85 for real-time

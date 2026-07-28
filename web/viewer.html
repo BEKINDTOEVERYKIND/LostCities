@@ -374,7 +374,7 @@ function renderDecision(p){
   if (p.search.some(c => c.qw !== undefined)){
     const n = document.createElement("div"); n.className = "note";
     n.style.color = "var(--muted)";
-    n.textContent = "final round: chosen by match win % (bold), margin as tiebreak; ± is the paired error vs the chosen move";
+    n.textContent = "final round: match win % over the playouts in bold; ± is the paired margin error vs the chosen move";
     se.appendChild(n);
   } else if (p.search.some(c => c.se)){
     const n = document.createElement("div"); n.className = "note";
