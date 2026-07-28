@@ -227,7 +227,9 @@ meaningful. In the final round the dump also reports each candidate's match
 win fraction over the playouts (the last round decides the match exactly,
 so point EV stops being the objective there). Selecting by that win
 fraction is available (`win_q`) but off by default, because it measured no
-better than margin selection -- 48.0% ± 2.0% head-to-head over 300 pairs:
+better than margin selection -- 50.4% ± 0.8% match wins pooled over 2,000
+head-to-head pairs (a 300-pair run at 48.0% ± 2.0% and a 1,700-pair
+confirmation at 50.8% ± 0.9%), while costing 1.3 ± 0.6 points of margin:
 decided finals tie on win%, close finals make a 96-world win fraction a
 noisy binomial estimate, and the win-trained policy already carries the
 clutch behaviour into every playout. The same lesson as the candidate
