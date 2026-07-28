@@ -78,6 +78,22 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         return mv[0];
     }
 
+    /* ply window: outside it the raw policy plays (see agent.h) */
+    if ((a->ply_lo > 0 && st->nply < a->ply_lo) ||
+        (a->ply_hi > 0 && st->nply >= a->ply_hi)) {
+        int top = 0;
+        for (int i = 1; i < n; i++) if (prob[i] > prob[top]) top = i;
+        if (out_value) *out_value = value;
+        if (stats) {
+            stats->n = 1;
+            stats->mv[0] = mv[top];
+            stats->visits[0] = 0;
+            stats->q[0] = value;
+            stats->value = value;
+        }
+        return mv[top];
+    }
+
     /* confidence gate: when the policy is already near-certain, searching can
      * only confirm it or override it with noise -- return the policy move and
      * spend the compute where decisions are actually contested */
@@ -107,22 +123,31 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         for (int j = i + 1; j < n; j++) if (prob[order[j]] > prob[order[best]]) best = j;
         int t = order[i]; order[i] = order[best]; order[best] = t;
     }
+    int nsorted = ncand;                     /* prefix of order[] that is sorted */
     if (a->net) {
         float floor_p = a->cand_floor > 0.0f ? a->cand_floor : 0.02f;
         int keep = a->min_cand > 1 ? a->min_cand : 1;
         if (keep > ncand) keep = ncand;
         while (ncand > keep && prob[order[ncand - 1]] < floor_p) ncand--;
     }
+    /* advisory candidates: evaluated and reported but never selected, so an
+     * analysis dump can show what the search thinks of moves the policy has
+     * written off without letting that opinion change the game (forcing the
+     * floor open for *selection* measured 42.8% vs the baseline) */
+    int neval = ncand;
+    if (a->eval_cand > neval) {
+        neval = a->eval_cand < nsorted ? a->eval_cand : nsorted;
+    }
 
     double sum[MAX_CAND];
-    for (int i = 0; i < ncand; i++) sum[i] = 0.0;
+    for (int i = 0; i < neval; i++) sum[i] = 0.0;
     const int p = st->turn;
     int reps = a->dets > 0 ? a->dets : 1;
 
     for (int d = 0; d < reps; d++) {
         State world;
         determinize_b(st, p, rng, a->no_belief ? NULL : a->net, &world);
-        for (int c = 0; c < ncand; c++) {
+        for (int c = 0; c < neval; c++) {
             State s = world;                 /* same world for every candidate */
             lc_apply(&s, mv[order[c]]);
             sum[c] += playout(a->net, &s, p);
@@ -133,8 +158,8 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
     for (int c = 1; c < ncand; c++) if (sum[c] > sum[best]) best = c;
     float bestq = (float)(sum[best] / reps);
     if (stats) {
-        stats->n = ncand;
-        for (int c = 0; c < ncand; c++) {
+        stats->n = neval;
+        for (int c = 0; c < neval; c++) {
             stats->mv[c] = mv[order[c]];
             stats->visits[c] = reps;
             stats->q[c] = sum[c] / reps;

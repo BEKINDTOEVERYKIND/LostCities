@@ -36,6 +36,17 @@ typedef struct Agent {
                            a sharp prior otherwise leaves the search a single
                            candidate, able to confirm the policy but never to
                            correct it (0/1 = floor applies unconditionally) */
+    int ply_lo, ply_hi; /* AG_ROLLOUT: search only when
+                           ply_lo <= nply (< ply_hi if ply_hi > 0); outside
+                           the window the raw policy plays.  For measuring
+                           WHERE in a round the search actually earns its
+                           keep (0,0 = search everywhere) */
+    int eval_cand;      /* AG_ROLLOUT: evaluate (and report in stats) at
+                           least this many candidates, but selection stays
+                           restricted to the floor-passing set -- analysis
+                           gets Q values for written-off moves without the
+                           measured strength cost of letting 96-world noise
+                           overrule a near-certain policy (0 = off) */
     float gate;         /* AG_ROLLOUT: skip the search entirely when the
                            policy's top move already has >= this probability
                            (0 = always search) */

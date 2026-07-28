@@ -21,6 +21,7 @@
 #include "../src/lc.h"
 #include "../src/agent.h"
 #include "../src/net.h"
+#include "../src/spec.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -64,26 +65,48 @@ static int parse_move(const State *st, int p, const char *cs, const char *as,
     return 0;
 }
 
-/* identical to the playout in rollout.c: argmax policy to the end of round */
-static int playout(const Net *net, State *s, int p)
+/* Continuation to the end of the round, three flavours.  Default is the
+ * argmax-policy playout of rollout.c.  temp > 0 samples the policy instead
+ * (p^(1/T)), which probes whether a Q difference is an artifact of the
+ * deterministic playout lines rather than a property of the position.  A
+ * continuation agent (-A) replaces the policy entirely -- e.g. the gated
+ * rollout agent, so both sides keep *searching* inside the playout; slow,
+ * but the least biased estimate this codebase can produce.  The rng is
+ * seeded per world, identically for every candidate, so all three stay
+ * paired comparisons. */
+static int playout(const Net *net, const Agent *cont, float temp,
+                   State *s, int p, uint64_t wseed)
 {
+    Rng prng;
+    rng_seed(&prng, wseed);
     Move mv[MAX_MOVES];
     float score[MAX_MOVES];
     while (!s->over) {
+        if (cont) {
+            lc_apply(s, agent_move(cont, s, &prng));
+            continue;
+        }
         int n = policy_probs(net, s, mv, score, NULL);
         if (n <= 0) break;
-        int best = 0;
-        for (int i = 1; i < n; i++) if (score[i] > score[best]) best = i;
-        lc_apply(s, mv[best]);
+        int pick = 0;
+        if (temp > 0.0f) {
+            float w[MAX_MOVES];
+            for (int i = 0; i < n; i++) w[i] = powf(score[i], 1.0f / temp);
+            pick = sample_index(w, n, &prng);
+        } else {
+            for (int i = 1; i < n; i++) if (score[i] > score[pick]) pick = i;
+        }
+        lc_apply(s, mv[pick]);
     }
     return lc_score(s, p) - lc_score(s, p ^ 1);
 }
 
 int main(int argc, char **argv)
 {
-    const char *netpath = NULL, *movespath = NULL;
+    const char *netpath = NULL, *movespath = NULL, *contspec = NULL;
     uint64_t seed = 1;
     int target = 1, worlds = 2000;
+    float temp = 0.0f;
     const char *cand_str[MAXC];
     int ncand = 0;
     for (int i = 1; i < argc; i++) {
@@ -92,9 +115,11 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "-f") && i + 1 < argc) movespath = argv[++i];
         else if (!strcmp(argv[i], "-p") && i + 1 < argc) target = atoi(argv[++i]);
         else if (!strcmp(argv[i], "-w") && i + 1 < argc) worlds = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "-T") && i + 1 < argc) temp = (float)atof(argv[++i]);
+        else if (!strcmp(argv[i], "-A") && i + 1 < argc) contspec = argv[++i];
         else if (!strcmp(argv[i], "-c") && i + 1 < argc && ncand < MAXC) cand_str[ncand++] = argv[++i];
         else {
-            fprintf(stderr, "usage: %s -n NET -s SEED -f MOVES -p PLY [-w WORLDS] -c \"CARD p|d DRAW\" [-c ...]\n", argv[0]);
+            fprintf(stderr, "usage: %s -n NET -s SEED -f MOVES -p PLY [-w WORLDS] [-T temp] [-A contspec] -c \"CARD p|d DRAW\" [-c ...]\n", argv[0]);
             return 1;
         }
     }
@@ -168,14 +193,23 @@ int main(int argc, char **argv)
     }
     printf("\n");
 
+    Agent cont;
+    if (contspec) {
+        spec_parse(contspec, &cont);
+        printf("continuations: %s%s\n", contspec, temp > 0 ? " (temp ignored)" : "");
+    } else if (temp > 0.0f) {
+        printf("continuations: policy sampled at temp %.2f\n", temp);
+    }
+
     double *val = (double *)malloc(sizeof(double) * (size_t)ncand * (size_t)worlds);
     for (int d = 0; d < worlds; d++) {
         State world;
         determinize_b(&st, p, &rng, net, &world);
+        uint64_t wseed = seed ^ (0x9E3779B97F4A7C15ULL * (uint64_t)(d + 1));
         for (int c = 0; c < ncand; c++) {
             State s = world;               /* same world for every candidate */
             lc_apply(&s, cand[c]);
-            val[c * worlds + d] = playout(net, &s, p);
+            val[c * worlds + d] = playout(net, contspec ? &cont : NULL, temp, &s, p, wseed);
         }
     }
 
