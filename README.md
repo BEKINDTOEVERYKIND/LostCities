@@ -172,23 +172,52 @@ high-confidence searches look worthless, but there are ~40 of them per match
 per side and their 0.15-point slivers add up to most of the gap -- so gating
 is a compute trade, not a free lunch.
 
-**The candidate floor is a blind spot.** Candidates come from the policy, and
+**The candidate floor cuts both ways.** Candidates come from the policy, and
 moves below a 2% prior are pruned -- so when the policy is *certain*, the
 "search" has one candidate and can only confirm it, never overrule it. A
-replayed position from an analysed game made this concrete: the policy put
-100% on a discard, the search therefore never looked elsewhere, and a paired
-re-evaluation (tools/qpair.c, 4000 shared worlds) showed a wager the policy
-had written off was genuinely better -- +2.9 ± 0.6 points with the net that
-played the game, +1.2 ± 0.5 with its successor. The `min_cand` spec field
-(`rollout:NET:worlds:cands:floor:gate:minc`) forces the search to keep at
-least that many candidates regardless of prior, which also means the
-disagreement numbers above *understate* what searching sharp plies is worth:
-they were measured with the floor on.
+replayed position made this concrete: the policy put 100% on a discard, and a
+paired re-evaluation (tools/qpair.c, 4000 shared worlds) showed a wager it
+had written off was better -- +2.9 ± 0.6 with the net that played the game
+(robust to sampled playouts and to search-driven continuations; the current
+champion has since closed that particular leak to +0.4 ± 0.5). But *forcing*
+the floor open is worse than the disease: full rollout with `min_cand` 3
+scored only **42.8% ± 3.5%** (-10.8 ± 4.2/match, 100 pairs) against the
+baseline. A 96-world Q difference carries ±2-4 points of paired noise, most
+true gaps between a near-certain policy move and its alternatives are
+smaller than that, and taking the argmax of several noisy estimates
+systematically flatters the winner. So `min_cand` selects among noise, while
+`eval_cand` (the analysis setting) evaluates and *reports* extra candidates
+without letting them be selected -- the viewer shows what written-off moves
+were worth at zero strength cost.
 
-Recommended settings: **full rollout for maximum strength** (analysis,
-important matches); **gate 0.85 for real-time play** -- 2.4x faster and the
-best strength per unit of compute; raw policy for bulk generation. play.c
-defaults to the gated agent.
+**Where the search earns its keep: late, not early** (all vs the raw policy,
+3-round paired matches):
+
+| search window (plies of each round) | margin/match | match wins |
+| --- | ---: | ---: |
+| everywhere (150 pairs) | +10.6 ± 3.0 | 51.5% ± 2.9% |
+| only plies >= 14 (150 pairs) | **+11.4 ± 2.4** | **56.2% ± 2.9%** |
+| only plies < 14 (200 pairs) | +4.6 ± 2.4 | 53.4% ± 2.5% |
+| only plies < 14, forced 3 candidates (200 pairs) | -4.7 ± 3.1 | 50.1% ± 2.5% |
+
+Restricting the search to the mid/late round loses nothing -- it matches or
+beats searching everywhere while skipping ~30% of the searched plies. Early
+search contributes little, and *aggressive* early search (forced candidates)
+contributes nothing at all. The mechanism shows up clearly at the opening
+ply of the embedded game: three different first moves measure within ±0.5
+points of each other at 8000 worlds under three different estimators.
+Early-round moves are often near-equivalent in true value, so there is
+little for a rollout to find, and its noise can only hurt; late-round
+positions diverge sharply and have short, accurately-evaluated horizons.
+(An earlier 50-pair run put full search at +30.0 ± 5.1 / 69.5%; the
+run-to-run spread between that and the 150-pair number above is itself a
+caution about small evaluation batches.)
+
+Recommended settings: **search from ply 14 with no gate for maximum
+strength** (`rollout:NET:96:5:0.02:0:1:14`); **add gate 0.85 for real-time
+play**; raw policy for bulk generation. Analysis uses
+`rollout:NET:96:5:0.02:0:1:0:0:4` -- champion moves, four candidates
+evaluated per ply for display.
 
 ## Reproducing
 
@@ -214,7 +243,7 @@ defaults to the gated agent.
 ./bin/play -a rollout:data/best.bin:128:4          # play against the agent
 ./bin/showgame -a policy:data/best.bin -r 3        # full match transcript
 python3 tools/verify_transcript.py <transcript>    # independent rules audit
-./bin/analyze -a rollout:data/best.bin:96:5:0.02:0:4 -r 3 > data/analysis.json
+./bin/analyze -a rollout:data/best.bin:96:5:0.02:0:1:0:0:4 -r 3 > data/analysis.json
 ./bin/arena -a policy:data/best.bin -b heur -n 300 -r 3
 python3 tools/referee.py match NETA NETB --pairs 400 --rounds 3
 # what was move X worth at ply N of an analysed game? (paired, with SE)
@@ -229,8 +258,8 @@ opponent's hidden hand next to the omniscient truth, and the value trajectory
 across all three rounds.
 
 Agent specs: `random`, `heur`, `policy:PATH[:temp]`,
-`rollout:PATH[:worlds[:cands[:floor[:gate[:minc]]]]]` (strongest),
-`rolloutu:...` (uniform-world
+`rollout:PATH[:worlds[:cands[:floor[:gate[:minc[:plylo[:plyhi[:evalc]]]]]]]]`
+(strongest), `rolloutu:...` (uniform-world
 ablation of the belief sampler), `mcts:PATH[...]`, `net:PATH` (kept as the
 negative result it is).
 
