@@ -59,6 +59,7 @@ void spec_parse(const char *spec, Agent *a)
             if ((v = strtok_r(NULL, ":", &save))) a->eval_cand = atoi(v);
             if ((v = strtok_r(NULL, ":", &save))) a->win_q = atoi(v);
             if ((v = strtok_r(NULL, ":", &save))) a->prune_dom = atoi(v);
+            if ((v = strtok_r(NULL, ":", &save))) a->override_k = (float)atof(v);
         } else if (is_policy) {
             if ((v = strtok_r(NULL, ":", &save))) a->temp = (float)atof(v);
         } else if (is_mcts) {

@@ -23,6 +23,7 @@ void agent_default(Agent *a, AgentKind k, const Net *net)
     a->eval_cand = 0;
     a->win_q = 0;
     a->prune_dom = 0;
+    a->override_k = 0.0f;
     switch (k) {
     case AG_RANDOM: a->name = "random"; break;
     case AG_HEUR:   a->name = "heuristic"; break;

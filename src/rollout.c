@@ -208,6 +208,24 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                     (sumw[c] == sumw[best] && sum[c] > sum[best]))
                  : (sum[c] > sum[best])) best = c;
     }
+    /* significance-gated override: an advisory candidate may take the move
+     * only when its lead over the eligible best exceeds override_k paired
+     * standard errors.  This is what blanket forcing (min_cand) lacked --
+     * it overrode on any gap and lost 42.8%; this acts only when the gap is
+     * statistically real, the profile of a confidently-wrong prior. */
+    if (a->override_k > 0.0f && val && reps > 1) {
+        for (int c = ncand; c < neval; c++) {
+            double dm = (sum[c] - sum[best]) / reps;
+            if (dm <= 0.0) continue;
+            double v2 = 0.0;
+            for (int d = 0; d < reps; d++) {
+                double x = val[(size_t)c * reps + d] - val[(size_t)best * reps + d] - dm;
+                v2 += x * x;
+            }
+            double sed = sqrt(v2 / (reps - 1) / reps);
+            if (dm > a->override_k * sed) best = c;
+        }
+    }
     float bestq = (float)(sum[best] / reps);
     if (stats) {
         stats->n = neval;

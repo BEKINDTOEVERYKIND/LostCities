@@ -63,6 +63,10 @@ typedef struct Agent {
                            playout argmax -- frees candidate slots and stops
                            playouts gifting live cards when a dead one is in
                            hand */
+    float override_k;   /* AG_ROLLOUT: let an advisory (eval_cand) candidate
+                           take the move when it beats the eligible best by
+                           more than this many paired standard errors
+                           (0 = advisory candidates never selected) */
     float gate;         /* AG_ROLLOUT: skip the search entirely when the
                            policy's top move already has >= this probability
                            (0 = always search) */
