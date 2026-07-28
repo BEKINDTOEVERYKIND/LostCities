@@ -258,6 +258,47 @@ static void test_match_context(void)
     CHECK(st.round == 2 && st.cum[0] == 88 && st.cum[1] == -17, "context survives apply");
 }
 
+static void test_dead_and_dominated(void)
+{
+    State st; memset(&st, 0, sizeof st);
+    /* nobody has played: nothing is dead */
+    st.hand[0] = (1ULL << CARD_MAKE(1, 4)) | (1ULL << CARD_MAKE(4, 0));
+    CHECK(lc_dead_cards(&st) == 0, "empty boards have no dead cards");
+
+    /* Blue tops 5 (p0) and 6 (p1): B2..B5 dead (<= both tops is <=5), B6 not
+     * (p0 could still play it); one Blue number each: Blue wagers dead */
+    st.exp_top[0][1] = 5; st.exp_top[1][1] = 6;
+    uint64_t dead = lc_dead_cards(&st);
+    CHECK((dead >> CARD_MAKE(1, 3)) & 1, "B2 dead below both tops");
+    CHECK((dead >> CARD_MAKE(1, 6)) & 1, "B5 dead below both tops");
+    CHECK(!((dead >> CARD_MAKE(1, 7)) & 1), "B6 alive: p0 top is 5");
+    CHECK((dead >> CARD_MAKE(1, 0)) & 1, "Blue wager dead once both sides run numbers");
+    CHECK(!((dead >> CARD_MAKE(4, 0)) & 1), "Red wager alive");
+
+    /* hand: dead B4 and live Rx; discarding Rx is dominated except when the
+     * draw comes from the Blue pile (B4 cannot go there and be drawn over) */
+    st.hand[0] = (1ULL << CARD_MAKE(1, 5)) | (1ULL << CARD_MAKE(4, 0));
+    st.turn = 0;
+    Move m;
+    m.card = CARD_MAKE(4, 0); m.discard = 1; m.draw = 0;
+    CHECK(lc_discard_dominated(&st, m, dead), "disc live Rx (deck draw) dominated by dead B4");
+    m.draw = 2; /* draw from the Blue pile */
+    CHECK(!lc_discard_dominated(&st, m, dead), "disc Rx drawing Blue pile not dominated: B4 cannot replace it");
+    m.card = CARD_MAKE(1, 5); m.draw = 0;
+    CHECK(!lc_discard_dominated(&st, m, dead), "the dead discard itself survives");
+    m.discard = 0;
+    CHECK(!lc_discard_dominated(&st, m, dead), "plays are never pruned");
+
+    /* two dead cards: only the lowest id survives */
+    st.exp_top[0][4] = 9; st.exp_top[1][4] = 9;
+    dead = lc_dead_cards(&st);
+    st.hand[0] = (1ULL << CARD_MAKE(1, 5)) | (1ULL << CARD_MAKE(4, 6));
+    m.card = CARD_MAKE(4, 6); m.discard = 1; m.draw = 0;
+    CHECK(lc_discard_dominated(&st, m, dead), "dead R5 deduped against lower-id dead B4");
+    m.card = CARD_MAKE(1, 5);
+    CHECK(!lc_discard_dominated(&st, m, dead), "canonical dead discard kept");
+}
+
 int main(void)
 {
     test_cards();
@@ -265,6 +306,7 @@ int main(void)
     test_rules_detail();
     test_known_lifecycle();
     test_match_context();
+    test_dead_and_dominated();
     test_playouts();
     if (failures == 0) { printf("all engine tests passed\n"); return 0; }
     printf("%d failures\n", failures);

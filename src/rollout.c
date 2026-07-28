@@ -43,15 +43,20 @@ static int rank_moves(const Net *net, const State *s, Move *mv, float *score)
  * *winpts gets the match result (1 win, 0.5 draw, 0 loss) from the carried
  * cumulative totals; in earlier rounds it gets -1 (margin is the only
  * available objective there, and it doubles as the natural proxy). */
-static int playout(const Net *net, State *s, int p, double *winpts)
+static int playout(const Net *net, State *s, int p, int prune, double *winpts)
 {
     Move mv[MAX_MOVES];
     float score[MAX_MOVES];
     while (!s->over) {
         int n = rank_moves(net, s, mv, score);
         if (n <= 0) break;
-        int best = 0;
-        for (int i = 1; i < n; i++) if (score[i] > score[best]) best = i;
+        uint64_t dead = prune ? (lc_dead_cards(s) & s->hand[s->turn]) : 0;
+        int best = -1;
+        for (int i = 0; i < n; i++) {
+            if (dead && lc_discard_dominated(s, mv[i], dead)) continue;
+            if (best < 0 || score[i] > score[best]) best = i;
+        }
+        if (best < 0) best = 0;
         lc_apply(s, mv[best]);
     }
     int sp = lc_score(s, p), so = lc_score(s, p ^ 1);
@@ -78,6 +83,22 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         draw_samples_init(st, st->turn, rng, 6, &ds);
         n = lc_moves(st, mv);
         for (int i = 0; i < n; i++) prob[i] = move_value_heur(st, mv[i], &ds);
+    }
+    /* dominated-discard pruning: with a dead card in hand, gifting any live
+     * card (same draw) is a strictly worse class of move -- drop those before
+     * they cost candidate slots or playout gifts */
+    if (a->prune_dom && n > 1) {
+        uint64_t dead = lc_dead_cards(st);
+        if (dead & st->hand[st->turn]) {
+            int k = 0;
+            for (int i = 0; i < n; i++) {
+                if (lc_discard_dominated(st, mv[i], dead)) continue;
+                mv[k] = mv[i];
+                prob[k] = prob[i];
+                k++;
+            }
+            if (k > 0) n = k;
+        }
     }
     if (n <= 1) {
         if (out_value) *out_value = value;
@@ -169,7 +190,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             State s = world;                 /* same world for every candidate */
             lc_apply(&s, mv[order[c]]);
             double w;
-            int m = playout(a->net, &s, p, &w);
+            int m = playout(a->net, &s, p, a->prune_dom, &w);
             if (val) val[(size_t)c * reps + d] = m;
             sum[c] += m;
             if (w >= 0.0) sumw[c] += w;

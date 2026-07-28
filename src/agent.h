@@ -58,6 +58,11 @@ typedef struct Agent {
                            policy already carries the clutch behaviour.
                            Default off; the win fraction is still computed
                            and reported (SearchStats.qw) either way. */
+    int prune_dom;      /* AG_ROLLOUT: drop discards dominated by a dead-card
+                           discard (lc_discard_dominated) from candidates and
+                           playout argmax -- frees candidate slots and stops
+                           playouts gifting live cards when a dead one is in
+                           hand */
     float gate;         /* AG_ROLLOUT: skip the search entirely when the
                            policy's top move already has >= this probability
                            (0 = always search) */

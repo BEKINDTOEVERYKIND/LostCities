@@ -132,6 +132,50 @@ void lc_apply(State *st, Move m)
     lc_apply_draw(st, m, -1);
 }
 
+/* Cards that can never legally enter play again, for EITHER player, provable
+ * from public information alone: expedition tops only ascend, so a number at
+ * or below both tops is dead, and a wager of a suit where both sides have
+ * started numbers is dead.  (A dead card can still be drawn from a pile as a
+ * stall, like any card -- dead means unplayable, not untouchable.) */
+uint64_t lc_dead_cards(const State *st)
+{
+    uint64_t dead = 0;
+    for (int s = 0; s < NSUIT; s++) {
+        int t0 = st->exp_top[0][s], t1 = st->exp_top[1][s];
+        int base = s * NRANK;
+        if (t0 > 0 && t1 > 0)
+            dead |= (uint64_t)((1 << WAGERS_PER_SUIT) - 1) << base;
+        int lo = t0 < t1 ? t0 : t1;      /* dead iff value <= BOTH tops */
+        for (int v = 2; v <= lo; v++)
+            dead |= 1ULL << (base + v + 1);
+    }
+    return dead;
+}
+
+/* True if discard move m is dominated by discarding a dead card instead: a
+ * both-ways-dead card is the safest possible gift, so with one in hand any
+ * other discard (same draw source) only adds risk.  Guards that keep this
+ * honest: the dead card must be discardable while preserving m's draw (a
+ * card cannot go onto the pile that is drawn from in the same turn), and
+ * among equally dead cards only the lowest id survives (they differ only in
+ * which pile they cover).  Deliberately NOT strict dominance -- discarding a
+ * live card as bait, or preferring which pile top gets buried, are real but
+ * marginal lines this trades away for search focus. */
+int lc_discard_dominated(const State *st, Move m, uint64_t dead)
+{
+    if (!m.discard) return 0;
+    uint64_t h = st->hand[st->turn] & dead;
+    int mdead = (int)((dead >> m.card) & 1ULL);
+    while (h) {
+        int d = __builtin_ctzll(h);
+        h &= h - 1;
+        if (d == m.card) continue;
+        if (m.draw != 0 && m.draw - 1 == CARD_SUIT(d)) continue;
+        if (!mdead || d < m.card) return 1;
+    }
+    return 0;
+}
+
 int lc_exp_score(const State *st, int p, int suit)
 {
     if (st->exp_n[p][suit] == 0) return 0;

@@ -147,6 +147,8 @@ void lc_apply(State *st, Move m);
 void lc_apply_play(State *st, Move m);
 void lc_apply_draw(State *st, Move m, int card);
 int  lc_exp_score(const State *st, int p, int suit);
+uint64_t lc_dead_cards(const State *st);            /* unplayable by anyone  */
+int  lc_discard_dominated(const State *st, Move m, uint64_t dead);
 int  lc_score(const State *st, int p);
 int  lc_hand_cards(const State *st, int p, uint8_t *out);
 /* Cards whose location p cannot pin down: not in p's hand, not public, and
