@@ -145,6 +145,37 @@ the diagonal (predicted 29% -> observed 28%, predicted 88% -> observed 93%).
 In the analysis console you can watch it work: mid-game, most of its top-ranked
 cards really are in the opponent's hand.
 
+## When to search, and when the policy alone is enough
+
+Instrumented over 6,697 self-play decisions (tools/searchcmp.c): when the
+policy's top move already carries >= 0.95 probability -- 59% of all decisions
+-- rollout search disagrees with it only 3-7% of the time, for a mean gain of
+0.1-0.2 points; below 0.95 confidence, disagreement is 39-81% and the mean
+gain per decision is 1-5 points. Confidence is the dominant variable: the
+pattern barely moves across rounds, deck phase, or match closeness (low-
+confidence late-deck decisions have the largest tail, up to ~5 points).
+
+The rollout agent therefore takes a gate parameter -- skip the search when the
+policy's confidence is already >= the gate (`rollout:NET:worlds:cands:floor:gate`).
+Measured (3-round paired matches vs the raw policy):
+
+| configuration | margin/match | match wins | speed |
+| --- | ---: | ---: | ---: |
+| full rollout, 96 worlds | **+30.0 ± 5.1** | **69.5%** (50 pairs) | 0.8 matches-games/s |
+| gate 0.85 (searches ~23% of plies) | +17.1 ± 3.9 | 57.5% (50 pairs) | 1.9 |
+| gate 0.95 (searches ~41% of plies) | +14.3 ± 4.6 | 60.5% (50 pairs) | 1.4 |
+
+Head-to-head, the 0.95 gate loses -3.6 ± 4.2 per match to the ungated search
+(43.8% over 40 pairs). The lesson cuts both ways: per *decision* the
+high-confidence searches look worthless, but there are ~40 of them per match
+per side and their 0.15-point slivers add up to most of the gap -- so gating
+is a compute trade, not a free lunch.
+
+Recommended settings: **full rollout for maximum strength** (analysis,
+important matches); **gate 0.85 for real-time play** -- 2.4x faster and the
+best strength per unit of compute; raw policy for bulk generation. play.c
+defaults to the gated agent.
+
 ## Reproducing
 
 ```

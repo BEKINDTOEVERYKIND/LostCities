@@ -32,6 +32,9 @@ typedef struct Agent {
     int node_width;     /* interior moves kept                             */
     float cpuct;
     float cand_floor;   /* AG_ROLLOUT: ignore candidates below this policy  */
+    float gate;         /* AG_ROLLOUT: skip the search entirely when the
+                           policy's top move already has >= this probability
+                           (0 = always search) */
     int no_belief;      /* AG_ROLLOUT ablation: sample worlds uniformly      */
     const char *name;
 } Agent;

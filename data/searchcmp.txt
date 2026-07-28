@@ -1,0 +1,58 @@
+searchcmp: 48 matches, rollout 96 worlds x 5 candidates, 6697 plies
+overall: 6697 decisions, disagree 24.8%, mean dQ 0.68 pts
+
+phase: early deck
+  confidence     plies   disagree    mean dQ
+  <0.40             16      75.0%      2.41
+  0.40-0.60        175      60.6%      1.73
+  0.60-0.80        293      56.0%      1.41
+  0.80-0.95        407      49.4%      1.39
+  >=0.95          1203       7.0%      0.16
+
+phase: mid deck
+  confidence     plies   disagree    mean dQ
+  <0.40             21      81.0%      3.23
+  0.40-0.60        235      61.3%      1.85
+  0.60-0.80        416      56.0%      1.57
+  0.80-0.95        548      49.5%      1.10
+  >=0.95          1829       6.9%      0.17
+
+phase: late deck
+  confidence     plies   disagree    mean dQ
+  <0.40             13      53.8%      5.32
+  0.40-0.60        148      45.9%      1.81
+  0.60-0.80        217      40.1%      1.34
+  0.80-0.95        279      38.7%      1.01
+  >=0.95           897       3.3%      0.09
+
+round 1
+  confidence     plies   disagree    mean dQ
+  <0.40             23      73.9%      2.23
+  0.40-0.60        191      61.3%      1.93
+  0.60-0.80        314      50.3%      1.54
+  0.80-0.95        437      50.6%      1.24
+  >=0.95          1294       6.3%      0.14
+
+round 2
+  confidence     plies   disagree    mean dQ
+  <0.40             12      66.7%      5.67
+  0.40-0.60        180      53.9%      1.97
+  0.60-0.80        305      50.5%      1.54
+  0.80-0.95        410      45.9%      1.33
+  >=0.95          1322       5.7%      0.16
+
+round 3
+  confidence     plies   disagree    mean dQ
+  <0.40             15      73.3%      3.74
+  0.40-0.60        187      55.6%      1.50
+  0.60-0.80        307      56.0%      1.33
+  0.80-0.95        387      44.2%      0.95
+  >=0.95          1313       6.3%      0.13
+
+clutch (round 3, match within 25)
+  confidence     plies   disagree    mean dQ
+  <0.40              7      57.1%      3.81
+  0.40-0.60         74      51.4%      1.32
+  0.60-0.80        120      51.7%      1.35
+  0.80-0.95        165      46.7%      0.96
+  >=0.95           512       6.8%      0.09

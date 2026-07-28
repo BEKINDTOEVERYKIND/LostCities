@@ -78,6 +78,25 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         return mv[0];
     }
 
+    /* confidence gate: when the policy is already near-certain, searching can
+     * only confirm it or override it with noise -- return the policy move and
+     * spend the compute where decisions are actually contested */
+    if (a->gate > 0.0f) {
+        int top = 0;
+        for (int i = 1; i < n; i++) if (prob[i] > prob[top]) top = i;
+        if (prob[top] >= a->gate) {
+            if (out_value) *out_value = value;
+            if (stats) {
+                stats->n = 1;
+                stats->mv[0] = mv[top];
+                stats->visits[0] = 0;
+                stats->q[0] = value;
+                stats->value = value;
+            }
+            return mv[top];
+        }
+    }
+
     /* candidates: the most likely moves, cut off once the policy stops caring */
     int order[MAX_MOVES];
     for (int i = 0; i < n; i++) order[i] = i;

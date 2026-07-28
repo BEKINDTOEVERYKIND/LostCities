@@ -12,12 +12,12 @@ policy:data/best.bin  vs  heuristic  (3-round matches)
   W/L/D 573/27/0   score 95.5% +- 0.8%
   points/game 304.3 vs 144.5   plies/game 303.0
 
-=== rollout search on top (60 paired matches) ===
-rollout:data/best.bin:96:5  vs  policy:data/best.bin  (3-round matches)
-  120 games (60 paired deals) in 1705.8s (0.1 games/s)
-  margin/game +26.45 +- 4.81
-  W/L/D 76/44/0   score 63.3% +- 4.4%
-  points/game 123.5 vs 97.1   plies/game 209.5
+=== rollout search on top (60 paired matches) ===rollout:data/best.bin:96:5  vs  policy:data/best.bin  (3-round matches)
+  120 games (60 paired deals) in 7366.5s (0.0 games/s)
+  margin/game +35.97 +- 4.83
+  W/L/D 84/36/0   score 70.0% +- 4.2%
+  points/game 92.5 vs 56.5   plies/game 634.9
+5
 
 === belief worlds vs uniform worlds (60 paired matches) ===
 rollout:data/best.bin:96:5  vs  rolloutu:data/best.bin:96:5  (3-round matches)

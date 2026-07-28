@@ -52,6 +52,7 @@ void spec_parse(const char *spec, Agent *a)
             if ((v = strtok_r(NULL, ":", &save))) a->dets = atoi(v);
             if ((v = strtok_r(NULL, ":", &save))) a->root_width = atoi(v);
             if ((v = strtok_r(NULL, ":", &save))) a->cand_floor = (float)atof(v);
+            if ((v = strtok_r(NULL, ":", &save))) a->gate = (float)atof(v);
         } else if (is_policy) {
             if ((v = strtok_r(NULL, ":", &save))) a->temp = (float)atof(v);
         } else if (is_mcts) {
