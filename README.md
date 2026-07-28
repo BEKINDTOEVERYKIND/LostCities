@@ -219,11 +219,22 @@ positions diverge sharply and have short, accurately-evaluated horizons.
 run-to-run spread between that and the 150-pair number above is itself a
 caution about small evaluation batches.)
 
+**The search reports its own noise, and optimises the right thing at the
+end.** Every reported Q now carries the standard error of its paired
+difference against the chosen move -- a gap under ~2 of those is sampling
+noise, which at 96 worlds means most gaps under ~4-8 points; the analysis
+dump uses 512 worlds to make the displayed numbers meaningful. And because
+the final round's playouts decide the match exactly, the rollout there
+selects by *match wins* over the sampled worlds (margin only as tiebreak,
+`win_q`, on by default): down 30 in round three it takes the line that
+steals some matches over the one that loses by less, which is the
+tournament objective and cannot be expressed in point EV.
+
 Recommended settings: **search from ply 14 with no gate for maximum
 strength** (`rollout:NET:96:5:0.02:0:1:14`); **add gate 0.85 for real-time
 play**; raw policy for bulk generation. Analysis uses
-`rollout:NET:96:5:0.02:0:1:0:0:4` -- champion moves, four candidates
-evaluated per ply for display.
+`rollout:NET:512:5:0.02:0:1:0:0:4` -- champion moves, four candidates
+evaluated per ply, 512 worlds for display-grade error bars.
 
 ## Reproducing
 
@@ -249,7 +260,7 @@ evaluated per ply for display.
 ./bin/play -a rollout:data/best.bin:128:4          # play against the agent
 ./bin/showgame -a policy:data/best.bin -r 3        # full match transcript
 python3 tools/verify_transcript.py <transcript>    # independent rules audit
-./bin/analyze -a rollout:data/best.bin:96:5:0.02:0:1:0:0:4 -r 3 > data/analysis.json
+./bin/analyze -a rollout:data/best.bin:512:5:0.02:0:1:0:0:4 -r 3 > data/analysis.json
 ./bin/arena -a policy:data/best.bin -b heur -n 300 -r 3
 python3 tools/referee.py match NETA NETB --pairs 400 --rounds 3
 # what was move X worth at ply N of an analysed game? (paired, with SE)
@@ -264,7 +275,7 @@ opponent's hidden hand next to the omniscient truth, and the value trajectory
 across all three rounds.
 
 Agent specs: `random`, `heur`, `policy:PATH[:temp]`,
-`rollout:PATH[:worlds[:cands[:floor[:gate[:minc[:plylo[:plyhi[:evalc]]]]]]]]`
+`rollout:PATH[:worlds[:cands[:floor[:gate[:minc[:plylo[:plyhi[:evalc[:winq]]]]]]]]]`
 (strongest), `rolloutu:...` (uniform-world
 ablation of the belief sampler), `mcts:PATH[...]`, `net:PATH` (kept as the
 negative result it is).

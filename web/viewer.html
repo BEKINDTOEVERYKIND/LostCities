@@ -106,7 +106,7 @@ button:focus-visible, .movelist li:focus-visible, a:focus-visible{
 .decision{display:flex;flex-direction:column;max-height:calc(100vh - 130px);overflow-y:auto}
 .dsec{padding:8px 12px;display:flex;flex-direction:column;gap:4px}
 .dsec + .dsec{border-top:1px solid var(--line)}
-.cand{display:grid;grid-template-columns:11ch 6ch 1fr;gap:8px;align-items:center;
+.cand{display:grid;grid-template-columns:11ch minmax(6ch,max-content) 1fr;gap:8px;align-items:center;
   font-family:var(--mono);font-size:12px;padding:2px 4px;border-radius:6px}
 .cand.chosen{outline:1.5px solid var(--accent);outline-offset:0}
 .cand .q{text-align:right}
@@ -364,11 +364,24 @@ function renderDecision(p){
     const row = document.createElement("div");
     row.className = "cand" + (c.chosen ? " chosen" : "");
     const bar = `<span class="bar ${c.q >= 0 ? "pos" : "neg"}" style="width:${(Math.abs(c.q) / maxQ * 100).toFixed(1)}%"></span>`;
+    const qtxt = (c.qw !== undefined ? `<b>${(c.qw * 100).toFixed(0)}%</b> · ` : "") + sgn(c.q, 1) +
+      (c.se ? `<span style="color:var(--muted);font-size:10px">±${c.se.toFixed(1)}</span>` : "");
     row.innerHTML = `<span>${c.act === "play" ? "play" : "disc"} ${c.card}→${c.draw === "deck" ? "deck" : c.draw}</span>` +
-      `<span class="q">${sgn(c.q, 1)}</span><span style="display:flex;align-items:center;gap:6px">${bar}` +
+      `<span class="q">${qtxt}</span><span style="display:flex;align-items:center;gap:6px">${bar}` +
       (c.chosen ? `<span class="tag">chosen</span>` : `<span class="visits" style="font-size:10px">${c.visits}v</span>`) + `</span>`;
     se.appendChild(row);
   });
+  if (p.search.some(c => c.qw !== undefined)){
+    const n = document.createElement("div"); n.className = "note";
+    n.style.color = "var(--muted)";
+    n.textContent = "final round: chosen by match win % (bold), margin as tiebreak; ± is the paired error vs the chosen move";
+    se.appendChild(n);
+  } else if (p.search.some(c => c.se)){
+    const n = document.createElement("div"); n.className = "note";
+    n.style.color = "var(--muted)";
+    n.textContent = "± is the paired error vs the chosen move: gaps under ~2× it are sampling noise";
+    se.appendChild(n);
+  }
 
   const pe = $("policy"); pe.textContent = "";
   const h2 = document.createElement("h2");
@@ -398,10 +411,13 @@ function renderDecision(p){
     p.belief.cards.slice(0, 10).forEach(c => {
       const row = document.createElement("div"); row.className = "cand";
       const suit = c.card[0];
+      const dup = c.card.endsWith("x") && p.known && p.known[p.belief.persp ^ 1] &&
+        p.known[p.belief.persp ^ 1].includes(c.card);
       row.innerHTML =
         `<span><span class="card mini" style="border-color:var(--suit-${suit});` +
         `background:color-mix(in srgb, var(--suit-${suit}) 14%, transparent)">${c.card}</span>` +
-        (c.held ? ` <span class="tag" title="actually in the opponent's hand">held</span>` : "") + `</span>` +
+        (c.held ? ` <span class="tag" title="actually in the opponent's hand">held</span>` : "") +
+        (dup ? ` <span class="visits" style="font-size:9px" title="a ${c.card} is already provably in their hand (drawn face-up, marked there); wagers have three copies and this is a different one">2nd copy</span>` : "") + `</span>` +
         `<span class="q">${(c.p * 100).toFixed(0)}%</span>` +
         `<span class="bar" style="width:${(c.p * 100).toFixed(1)}%"></span>`;
       be.appendChild(row);

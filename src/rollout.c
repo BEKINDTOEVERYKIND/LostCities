@@ -38,8 +38,12 @@ static int rank_moves(const Net *net, const State *s, Move *mv, float *score)
     return n;
 }
 
-/* Play s out to the end, returning the margin for player p. */
-static int playout(const Net *net, State *s, int p)
+/* Play s out to the end of the round, returning the round margin for player
+ * p.  In the final round of a match the round's end decides the match, so
+ * *winpts gets the match result (1 win, 0.5 draw, 0 loss) from the carried
+ * cumulative totals; in earlier rounds it gets -1 (margin is the only
+ * available objective there, and it doubles as the natural proxy). */
+static int playout(const Net *net, State *s, int p, double *winpts)
 {
     Move mv[MAX_MOVES];
     float score[MAX_MOVES];
@@ -50,7 +54,14 @@ static int playout(const Net *net, State *s, int p)
         for (int i = 1; i < n; i++) if (score[i] > score[best]) best = i;
         lc_apply(s, mv[best]);
     }
-    return lc_score(s, p) - lc_score(s, p ^ 1);
+    int sp = lc_score(s, p), so = lc_score(s, p ^ 1);
+    if (winpts) {
+        if (s->round == MATCH_ROUNDS - 1) {
+            int tp = s->cum[p] + sp, to = s->cum[p ^ 1] + so;
+            *winpts = tp > to ? 1.0 : (tp == to ? 0.5 : 0.0);
+        } else *winpts = -1.0;
+    }
+    return sp - so;
 }
 
 Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
@@ -72,7 +83,10 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         if (out_value) *out_value = value;
         if (stats) {
             stats->n = n;
-            if (n == 1) { stats->mv[0] = mv[0]; stats->visits[0] = 1; stats->q[0] = value; }
+            if (n == 1) {
+                stats->mv[0] = mv[0]; stats->visits[0] = 1; stats->q[0] = value;
+                stats->se[0] = 0.0; stats->qw[0] = -1.0;
+            }
             stats->value = value;
         }
         return mv[0];
@@ -89,6 +103,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             stats->mv[0] = mv[top];
             stats->visits[0] = 0;
             stats->q[0] = value;
+            stats->se[0] = 0.0; stats->qw[0] = -1.0;
             stats->value = value;
         }
         return mv[top];
@@ -107,6 +122,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                 stats->mv[0] = mv[top];
                 stats->visits[0] = 0;
                 stats->q[0] = value;
+                stats->se[0] = 0.0; stats->qw[0] = -1.0;
                 stats->value = value;
             }
             return mv[top];
@@ -139,10 +155,12 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         neval = a->eval_cand < nsorted ? a->eval_cand : nsorted;
     }
 
-    double sum[MAX_CAND];
-    for (int i = 0; i < neval; i++) sum[i] = 0.0;
+    double sum[MAX_CAND], sumw[MAX_CAND];
+    for (int i = 0; i < neval; i++) { sum[i] = 0.0; sumw[i] = 0.0; }
     const int p = st->turn;
     int reps = a->dets > 0 ? a->dets : 1;
+    int lastround = st->round == MATCH_ROUNDS - 1;
+    double *val = (double *)malloc(sizeof(double) * (size_t)neval * (size_t)reps);
 
     for (int d = 0; d < reps; d++) {
         State world;
@@ -150,12 +168,25 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         for (int c = 0; c < neval; c++) {
             State s = world;                 /* same world for every candidate */
             lc_apply(&s, mv[order[c]]);
-            sum[c] += playout(a->net, &s, p);
+            double w;
+            int m = playout(a->net, &s, p, &w);
+            if (val) val[(size_t)c * reps + d] = m;
+            sum[c] += m;
+            if (w >= 0.0) sumw[c] += w;
         }
     }
 
+    /* In the final round the playouts decide the match, so pick by match
+     * wins with margin as the tiebreak -- a 5% shot at stealing the match
+     * outranks a certain narrow loss regardless of expected points.  In
+     * earlier rounds margin is all a round-end playout can know. */
+    int usew = lastround && a->win_q;
     int best = 0;
-    for (int c = 1; c < ncand; c++) if (sum[c] > sum[best]) best = c;
+    for (int c = 1; c < ncand; c++) {
+        if (usew ? (sumw[c] > sumw[best] ||
+                    (sumw[c] == sumw[best] && sum[c] > sum[best]))
+                 : (sum[c] > sum[best])) best = c;
+    }
     float bestq = (float)(sum[best] / reps);
     if (stats) {
         stats->n = neval;
@@ -163,9 +194,22 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             stats->mv[c] = mv[order[c]];
             stats->visits[c] = reps;
             stats->q[c] = sum[c] / reps;
+            stats->qw[c] = lastround ? sumw[c] / reps : -1.0;
+            double v = 0.0;
+            if (val && reps > 1) {
+                double mean = (sum[c] - (c == best ? 0.0 : sum[best])) / reps;
+                for (int d = 0; d < reps; d++) {
+                    double x = val[(size_t)c * reps + d]
+                             - (c == best ? 0.0 : val[(size_t)best * reps + d]);
+                    v += (x - mean) * (x - mean);
+                }
+                v = sqrt(v / (reps - 1) / reps);
+            }
+            stats->se[c] = v;
         }
         stats->value = bestq;
     }
+    free(val);
     if (out_value) *out_value = bestq;
     return mv[order[best]];
 }

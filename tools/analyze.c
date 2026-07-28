@@ -274,8 +274,10 @@ int main(int argc, char **argv)
             if (i) fputc(',', pf);
             int k = sord[i];
             j_move_open(pf, ss.mv[k]);
-            fprintf(pf, ",\"q\":%.1f,\"visits\":%.0f,\"chosen\":%s}",
-                    ss.q[k], ss.visits[k], move_eq(ss.mv[k], m) ? "true" : "false");
+            fprintf(pf, ",\"q\":%.1f,\"se\":%.1f,\"visits\":%.0f,\"chosen\":%s",
+                    ss.q[k], ss.se[k], ss.visits[k], move_eq(ss.mv[k], m) ? "true" : "false");
+            if (ss.qw[k] >= 0.0) fprintf(pf, ",\"qw\":%.3f", ss.qw[k]);
+            fputc('}', pf);
         }
         fputc(']', pf);
 

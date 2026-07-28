@@ -47,6 +47,11 @@ typedef struct Agent {
                            gets Q values for written-off moves without the
                            measured strength cost of letting 96-world noise
                            overrule a near-certain policy (0 = off) */
+    int win_q;          /* AG_ROLLOUT: in the final round, select by match
+                           wins over the playouts (margin as tiebreak)
+                           instead of by margin -- winning is the objective
+                           and the last round's playouts decide it exactly
+                           (default on; 0 reverts to margin everywhere) */
     float gate;         /* AG_ROLLOUT: skip the search entirely when the
                            policy's top move already has >= this probability
                            (0 = always search) */
