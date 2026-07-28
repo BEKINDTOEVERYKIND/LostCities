@@ -178,8 +178,12 @@ moves below a 2% prior are pruned -- so when the policy is *certain*, the
 replayed position made this concrete: the policy put 100% on a discard, and a
 paired re-evaluation (tools/qpair.c, 4000 shared worlds) showed a wager it
 had written off was better -- +2.9 ± 0.6 with the net that played the game
-(robust to sampled playouts and to search-driven continuations; the current
-champion has since closed that particular leak to +0.4 ± 0.5). But *forcing*
+(robust to sampled playouts and to search-driven continuations). The leak
+family recurs, smaller, in the current champion: in the analogous position
+of the embedded game its written-off wager play measures +0.6 to +1.0 over
+the 100%-prior discard under three estimators -- real, but below what a
+96-world play-time search can resolve, which makes it a training target,
+not a search target. But *forcing*
 the floor open is worse than the disease: full rollout with `min_cand` 3
 scored only **42.8% ± 3.5%** (-10.8 ± 4.2/match, 100 pairs) against the
 baseline. A 96-world Q difference carries ±2-4 points of paired noise, most
