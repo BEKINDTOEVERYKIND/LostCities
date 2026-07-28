@@ -109,9 +109,8 @@ wins with draws counting half.
 
 | comparison | margin/match | match wins |
 | --- | ---: | ---: |
-| continued win-training vs its own predecessor | +17.1 ± 2.5 | **61.5%** (400 pairs) |
-| win-trained policy vs margin-trained champion | +22.2 ± 2.7 | 63.6% (500 pairs) |
-| shipped champion vs heuristic | **+158.5 ± 3.7** | **96.8%** (300 pairs) |
+| win-training continuations vs each predecessor | 63.6% / 61.5% / 57.9% | (500/400/400 pairs) |
+| shipped champion vs heuristic | **+173.7 ± 3.6** | **98.0%** (300 pairs) |
 | margin-trained champion vs imitation start | +204.8 ± 4.0 | 96.6% (400 pairs) |
 | rollout search vs raw policy (margin-trained) | +26.5 ± 4.8 | 63.3% (60 pairs) |
 | belief-sampled vs uniform worlds | −3.7 ± 5.4 | 45.8% (60 pairs) |
