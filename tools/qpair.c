@@ -65,6 +65,97 @@ static int parse_move(const State *st, int p, const char *cs, const char *as,
     return 0;
 }
 
+/* ---- state-file loading (-S): direct position reconstruction ----------- */
+
+/* lowest unused card id with this display name (wagers have three copies) */
+static int name_id_free(const char *nm, uint64_t used)
+{
+    char b[8];
+    for (int c = 0; c < NCARD; c++) {
+        lc_card_name(c, b);
+        if (!strcasecmp(b, nm) && !((used >> c) & 1ULL)) return c;
+    }
+    return -1;
+}
+
+/* Rebuild a State from tools/statedump.py output.  Only the mover's
+ * information set has to be faithful: the belief determinizer resamples the
+ * opponent hand and the whole deck from it anyway. */
+static int load_state(const char *path, State *st)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) return 0;
+    memset(st, 0, sizeof *st);
+    uint64_t used = 0;
+    char line[512];
+    while (fgets(line, sizeof line, f)) {
+        char *tok = strtok(line, " \t\n");
+        if (!tok) continue;
+        if (!strcmp(tok, "turn")) st->turn = (uint8_t)atoi(strtok(NULL, " \n"));
+        else if (!strcmp(tok, "round")) st->round = (uint8_t)atoi(strtok(NULL, " \n"));
+        else if (!strcmp(tok, "nply")) st->nply = (uint16_t)atoi(strtok(NULL, " \n"));
+        else if (!strcmp(tok, "deck_left")) st->deck_left = (uint8_t)atoi(strtok(NULL, " \n"));
+        else if (!strcmp(tok, "cum")) {
+            int a = atoi(strtok(NULL, " \n")), b = atoi(strtok(NULL, " \n"));
+            st->cum[0] = (int16_t)(a > 320 ? 320 : (a < -320 ? -320 : a));
+            st->cum[1] = (int16_t)(b > 320 ? 320 : (b < -320 ? -320 : b));
+        } else if (!strncmp(tok, "hand", 4) && tok[4] >= '0' && tok[4] <= '1') {
+            int pl = tok[4] - '0';
+            char *w;
+            while ((w = strtok(NULL, " \n"))) {
+                int c = name_id_free(w, used);
+                if (c < 0) { fclose(f); return 0; }
+                used |= 1ULL << c;
+                st->hand[pl] |= 1ULL << c;
+                st->hand_n[pl]++;
+            }
+        } else if (!strncmp(tok, "known", 5) && tok[5] >= '0' && tok[5] <= '1') {
+            int pl = tok[5] - '0';
+            char *w;
+            while ((w = strtok(NULL, " \n"))) {
+                char b[8];
+                for (int c = 0; c < NCARD; c++) {
+                    lc_card_name(c, b);
+                    if (!strcasecmp(b, w) && ((st->hand[pl] >> c) & 1ULL) &&
+                        !((st->known[pl] >> c) & 1ULL)) {
+                        st->known[pl] |= 1ULL << c;
+                        break;
+                    }
+                }
+            }
+        } else if (!strcmp(tok, "exp")) {
+            int pl = atoi(strtok(NULL, " \n"));
+            int s = atoi(strtok(NULL, " \n"));
+            char *w;
+            while ((w = strtok(NULL, " \n"))) {
+                int c = name_id_free(w, used);
+                if (c < 0) { fclose(f); return 0; }
+                used |= 1ULL << c;
+                st->played[pl] |= 1ULL << c;
+                st->exp_n[pl][s]++;
+                if (CARD_IS_WAGER(c)) st->exp_wager[pl][s]++;
+                else {
+                    int v = CARD_VALUE(c);
+                    if (v > st->exp_top[pl][s]) st->exp_top[pl][s] = (uint8_t)v;
+                    st->exp_sum[pl][s] = (uint8_t)(st->exp_sum[pl][s] + v);
+                }
+            }
+        } else if (!strcmp(tok, "pile")) {
+            int s = atoi(strtok(NULL, " \n"));
+            char *w;
+            while ((w = strtok(NULL, " \n"))) {
+                int c = name_id_free(w, used);
+                if (c < 0) { fclose(f); return 0; }
+                used |= 1ULL << c;
+                st->pile[s][st->pile_n[s]++] = (uint8_t)c;
+                st->discarded |= 1ULL << c;
+            }
+        }
+    }
+    fclose(f);
+    return 1;
+}
+
 /* Continuation to the end of the round, three flavours.  Default is the
  * argmax-policy playout of rollout.c.  temp > 0 samples the policy instead
  * (p^(1/T)), which probes whether a Q difference is an artifact of the
@@ -103,7 +194,8 @@ static int playout(const Net *net, const Agent *cont, float temp,
 
 int main(int argc, char **argv)
 {
-    const char *netpath = NULL, *movespath = NULL, *contspec = NULL;
+    const char *netpath = NULL, *movespath = NULL, *contspec = NULL, *holdcard = NULL;
+    const char *statepath = NULL;
     uint64_t seed = 1;
     int target = 1, worlds = 2000;
     float temp = 0.0f;
@@ -113,33 +205,41 @@ int main(int argc, char **argv)
         if (!strcmp(argv[i], "-n") && i + 1 < argc) netpath = argv[++i];
         else if (!strcmp(argv[i], "-s") && i + 1 < argc) seed = strtoull(argv[++i], NULL, 10);
         else if (!strcmp(argv[i], "-f") && i + 1 < argc) movespath = argv[++i];
+        else if (!strcmp(argv[i], "-S") && i + 1 < argc) statepath = argv[++i];
         else if (!strcmp(argv[i], "-p") && i + 1 < argc) target = atoi(argv[++i]);
         else if (!strcmp(argv[i], "-w") && i + 1 < argc) worlds = atoi(argv[++i]);
         else if (!strcmp(argv[i], "-T") && i + 1 < argc) temp = (float)atof(argv[++i]);
         else if (!strcmp(argv[i], "-A") && i + 1 < argc) contspec = argv[++i];
+        else if (!strcmp(argv[i], "-H") && i + 1 < argc) holdcard = argv[++i];
         else if (!strcmp(argv[i], "-c") && i + 1 < argc && ncand < MAXC) cand_str[ncand++] = argv[++i];
         else {
             fprintf(stderr, "usage: %s -n NET -s SEED -f MOVES -p PLY [-w WORLDS] [-T temp] [-A contspec] -c \"CARD p|d DRAW\" [-c ...]\n", argv[0]);
             return 1;
         }
     }
-    if (!netpath || !movespath || ncand == 0) { fprintf(stderr, "qpair: need -n, -f and at least one -c\n"); return 1; }
+    if (!netpath || (!movespath && !statepath) || ncand == 0) { fprintf(stderr, "qpair: need -n, -f or -S, and at least one -c\n"); return 1; }
 
     Net *net = (Net *)malloc(sizeof(Net));
     if (!net || net_load(net, netpath)) { fprintf(stderr, "qpair: cannot load %s\n", netpath); return 1; }
 
+    Rng rng;
+    rng_seed(&rng, seed);
+    State st;
+    char cs[16], as[16], ws[16];
+    if (statepath) {
+        /* direct reconstruction: the only way to reach rounds 1-2, whose
+         * deals depend on RNG the generating search consumed */
+        if (!load_state(statepath, &st)) { fprintf(stderr, "qpair: bad state file %s\n", statepath); return 1; }
+    } else {
     FILE *mf = fopen(movespath, "r");
     if (!mf) { fprintf(stderr, "qpair: cannot open %s\n", movespath); return 1; }
 
     /* replay, following the match loop of analyze.c / match.c */
-    Rng rng;
-    rng_seed(&rng, seed);
     int cum[2] = { 0, 0 }, rd = 0;
-    State st;
     lc_deal(&st, &rng);
     st.round = 0;
     st.turn = 0;
-    char line[64], cs[16], as[16], ws[16];
+    char line[64];
     for (int ply = 1; ply < target; ply++) {
         if (st.over) {
             cum[0] += lc_score(&st, 0);
@@ -161,10 +261,13 @@ int main(int argc, char **argv)
     }
     fclose(mf);
     if (st.over) { fprintf(stderr, "qpair: round already over at ply %d\n", target); return 1; }
+    }
 
     const int p = st.turn;
     char b[8];
-    printf("position: ply %d, round %d, player %d to move, deck %d, cum [%d,%d]\nhand:", target, st.round, p, st.deck_left, cum[0], cum[1]);
+    printf("position: %s%s, round %d, player %d to move, deck %d, cum [%d,%d]\nhand:",
+           statepath ? "state " : "ply ", statepath ? statepath : (sprintf(b, "%d", target), b),
+           st.round, p, st.deck_left, st.cum[0], st.cum[1]);
     uint8_t hc[HAND_SIZE];
     int hn = lc_hand_cards(&st, p, hc);
     for (int i = 0; i < hn; i++) { lc_card_name(hc[i], b); printf(" %s", b); }
@@ -201,10 +304,24 @@ int main(int argc, char **argv)
         printf("continuations: policy sampled at temp %.2f\n", temp);
     }
 
+    /* -H CARD: split the report by whether the sampled world put CARD in the
+     * opponent's hand -- a direct test of "this move is about what THEY hold" */
+    int hold_id = -1;
+    if (holdcard) {
+        char hb[8];
+        for (int c = 0; c < NCARD; c++) {
+            lc_card_name(c, hb);
+            if (!strcasecmp(hb, holdcard) && !((st.hand[p] >> c) & 1ULL)) { hold_id = c; break; }
+        }
+        if (hold_id < 0) { fprintf(stderr, "qpair: -H card '%s' not found\n", holdcard); return 1; }
+    }
+
     double *val = (double *)malloc(sizeof(double) * (size_t)ncand * (size_t)worlds);
+    uint8_t *held = (uint8_t *)calloc((size_t)worlds, 1);
     for (int d = 0; d < worlds; d++) {
         State world;
         determinize_b(&st, p, &rng, net, &world);
+        if (hold_id >= 0) held[d] = (uint8_t)((world.hand[p ^ 1] >> hold_id) & 1ULL);
         uint64_t wseed = seed ^ (0x9E3779B97F4A7C15ULL * (uint64_t)(d + 1));
         for (int c = 0; c < ncand; c++) {
             State s = world;               /* same world for every candidate */
@@ -234,6 +351,30 @@ int main(int argc, char **argv)
         if (c > 0) printf("     %+.2f +- %.2f", dmean, sqrt(dvar / worlds));
         printf("\n");
     }
+    if (hold_id >= 0) {
+        for (int g = 1; g >= 0; g--) {
+            int ng = 0;
+            for (int d = 0; d < worlds; d++) if (held[d] == g) ng++;
+            printf("\nworlds where opponent %s %s: %d (%.0f%%)\n",
+                   g ? "HOLDS" : "does NOT hold", holdcard, ng,
+                   100.0 * ng / worlds);
+            if (ng < 2) continue;
+            for (int c = 1; c < ncand; c++) {
+                double dm = 0.0, dv = 0.0;
+                for (int d = 0; d < worlds; d++)
+                    if (held[d] == g) dm += val[c * worlds + d] - val[0 * worlds + d];
+                dm /= ng;
+                for (int d = 0; d < worlds; d++)
+                    if (held[d] == g) {
+                        double x = val[c * worlds + d] - val[0 * worlds + d] - dm;
+                        dv += x * x;
+                    }
+                printf("  [%s] vs [%s]: %+.2f +- %.2f\n",
+                       cand_str[c], cand_str[0], dm, sqrt(dv / (ng - 1) / ng));
+            }
+        }
+    }
+    free(held);
     free(val);
     free(net);
     return 0;

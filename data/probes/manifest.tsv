@@ -6,3 +6,6 @@ skip_cost_B10	game_w3_seed11.moves	11	30	B10 p deck	W7 p deck	policy had 94% on 
 dead_discard	game_w3_seed11.moves	11	32	Wx d deck	W7 p deck	the provably dead wager discard beats the 99.5%-prior W7 (+1.64)
 gift_discard	game_w3_seed11.moves	11	36	Bx d deck	Y8 d deck	dominated discard: dead Bx in hand, Y8 could open Yellow for opponent
 stall_habit	game_w3_seed11.moves	11	39	G6 p deck	G6 p Y	pointless stall: nothing to deny, W10 22% in deck under x3, plays fit in remaining turns (habit-masked in same-policy playouts)
+suit_order_72	ply72.state	11	72	W4 p deck	B8 p deck	W4-first beats B8-first +1.8 (NOT B9 info-denial: edge same in no-B9 worlds; likely avoids own premature-B10 habit)
+premature_B10	ply74.state	11	74	W4 p deck	B10 p deck	banking B10 kills 27%-B9 equity under x2; policy had 97.5% on it (+2.7 at 10 sigma)
+bank_vs_wait_75	ply75.state	11	75	G10 p deck	B9 p deck	WATCH: search banks G10 (+0.6..1.1) pricing its own endgame execution risk; human+policy prefer waiting for G9 -- should flip if training fixes sequencing
