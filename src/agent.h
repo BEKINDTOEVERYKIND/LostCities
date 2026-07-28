@@ -32,6 +32,10 @@ typedef struct Agent {
     int node_width;     /* interior moves kept                             */
     float cpuct;
     float cand_floor;   /* AG_ROLLOUT: ignore candidates below this policy  */
+    int min_cand;       /* AG_ROLLOUT: but always keep at least this many --
+                           a sharp prior otherwise leaves the search a single
+                           candidate, able to confirm the policy but never to
+                           correct it (0/1 = floor applies unconditionally) */
     float gate;         /* AG_ROLLOUT: skip the search entirely when the
                            policy's top move already has >= this probability
                            (0 = always search) */

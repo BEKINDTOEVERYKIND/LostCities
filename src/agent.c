@@ -17,6 +17,7 @@ void agent_default(Agent *a, AgentKind k, const Net *net)
     a->node_width = 8;
     a->cpuct = 1.4f;
     a->cand_floor = 0.02f;
+    a->min_cand = 1;
     switch (k) {
     case AG_RANDOM: a->name = "random"; break;
     case AG_HEUR:   a->name = "heuristic"; break;

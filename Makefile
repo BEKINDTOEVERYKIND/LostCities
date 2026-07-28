@@ -57,3 +57,6 @@ $(BIN)/analyze: tools/analyze.c $(CORE) $(HDRS) | $(BIN)
 
 $(BIN)/searchcmp: tools/searchcmp.c $(CORE) $(HDRS) | $(BIN)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
+
+$(BIN)/qpair: tools/qpair.c $(CORE) $(HDRS) | $(BIN)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)

@@ -109,7 +109,9 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
     }
     if (a->net) {
         float floor_p = a->cand_floor > 0.0f ? a->cand_floor : 0.02f;
-        while (ncand > 1 && prob[order[ncand - 1]] < floor_p) ncand--;
+        int keep = a->min_cand > 1 ? a->min_cand : 1;
+        if (keep > ncand) keep = ncand;
+        while (ncand > keep && prob[order[ncand - 1]] < floor_p) ncand--;
     }
 
     double sum[MAX_CAND];

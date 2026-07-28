@@ -31,6 +31,7 @@ tools/train.c       imitation / expert-iteration trainer (+ dataset dump/load)
 tools/arena.c       head-to-head matches with error bars (-r 3 for full matches)
 tools/ladder.c      round robin with fitted Elo
 tools/analyze.c     per-ply JSON dump: state, values, policy, search, beliefs
+tools/qpair.c       paired rollout Q for any named moves at a replayed position
 tools/referee.py    numpy port of engine+net, verified to ~1e-6 against the C
 tools/dumpfeat.c    parity reference dumper for the referee
 tools/verify_transcript.py  independent replay/audit of printed transcripts
@@ -171,6 +172,19 @@ high-confidence searches look worthless, but there are ~40 of them per match
 per side and their 0.15-point slivers add up to most of the gap -- so gating
 is a compute trade, not a free lunch.
 
+**The candidate floor is a blind spot.** Candidates come from the policy, and
+moves below a 2% prior are pruned -- so when the policy is *certain*, the
+"search" has one candidate and can only confirm it, never overrule it. A
+replayed position from an analysed game made this concrete: the policy put
+100% on a discard, the search therefore never looked elsewhere, and a paired
+re-evaluation (tools/qpair.c, 4000 shared worlds) showed a wager the policy
+had written off was genuinely better -- +2.9 ± 0.6 points with the net that
+played the game, +1.2 ± 0.5 with its successor. The `min_cand` spec field
+(`rollout:NET:worlds:cands:floor:gate:minc`) forces the search to keep at
+least that many candidates regardless of prior, which also means the
+disagreement numbers above *understate* what searching sharp plies is worth:
+they were measured with the floor on.
+
 Recommended settings: **full rollout for maximum strength** (analysis,
 important matches); **gate 0.85 for real-time play** -- 2.4x faster and the
 best strength per unit of compute; raw policy for bulk generation. play.c
@@ -200,9 +214,12 @@ defaults to the gated agent.
 ./bin/play -a rollout:data/best.bin:128:4          # play against the agent
 ./bin/showgame -a policy:data/best.bin -r 3        # full match transcript
 python3 tools/verify_transcript.py <transcript>    # independent rules audit
-./bin/analyze -a rollout:data/best.bin:96:5 -r 3 > data/analysis.json
+./bin/analyze -a rollout:data/best.bin:96:5:0.02:0:4 -r 3 > data/analysis.json
 ./bin/arena -a policy:data/best.bin -b heur -n 300 -r 3
 python3 tools/referee.py match NETA NETB --pairs 400 --rounds 3
+# what was move X worth at ply N of an analysed game? (paired, with SE)
+./bin/qpair -n data/best.bin -s SEED -f moves.txt -p N -w 4000 \
+            -c "Y2 d deck" -c "W4 p deck"
 ```
 
 The analysis console (`web/viewer.html`, embedded game included) replays a
@@ -212,7 +229,8 @@ opponent's hidden hand next to the omniscient truth, and the value trajectory
 across all three rounds.
 
 Agent specs: `random`, `heur`, `policy:PATH[:temp]`,
-`rollout:PATH[:worlds[:cands]]` (strongest), `rolloutu:...` (uniform-world
+`rollout:PATH[:worlds[:cands[:floor[:gate[:minc]]]]]` (strongest),
+`rolloutu:...` (uniform-world
 ablation of the belief sampler), `mcts:PATH[...]`, `net:PATH` (kept as the
 negative result it is).
 
@@ -230,9 +248,17 @@ played twice with the seats swapped, so deal luck cancels.
 * Training is pure self-play after the imitation start; margins over
   qualitatively different opponents argue against self-overfitting, but a
   genuinely alien style could still find something.
-* Measured blunder rates (tools/blunders.py, 40 self-play matches): the agent
-  rarely gifts the opponent a usable discard (2.5/match vs the heuristic's
-  17.9) but still opens an occasional expedition it cannot fund
-  (1.5/match, unchanged by search or by win-focused training -- these plays
-  cluster in already-decided endgames where they cost almost no win
-  probability, which is precisely why no training signal removes them).
+* tools/blunders.py tallies outcome-level events -- expeditions that finished
+  negative, wagered expeditions that finished deep negative, discards the
+  opponent took at once. These are *style statistics*, not error rates: under
+  optimal play every one of them is non-zero (a good gamble that fails still
+  shows up in the tally), and with no optimal-play reference there is no
+  "correct" value to compare against. They are only useful for watching style
+  drift between versions (e.g. the agent hands the opponent far fewer
+  immediately-useful discards than the heuristic, 2.5 vs 17.9 per match), and
+  say nothing about whether any individual count is too high.
+* Win-focused continuation training converged after three rounds: a fourth
+  continuation stayed flat at 50-52% against its predecessor through 63
+  iterations and was abandoned. Further gains likely need a bigger change
+  (deeper search at training time, a larger trunk, or an opponent pool)
+  rather than more of the same recipe.
