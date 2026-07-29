@@ -60,3 +60,6 @@ $(BIN)/searchcmp: tools/searchcmp.c $(CORE) $(HDRS) | $(BIN)
 
 $(BIN)/qpair: tools/qpair.c $(CORE) $(HDRS) | $(BIN)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
+
+$(BIN)/mine: tools/mine.c $(CORE) $(HDRS) | $(BIN)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)

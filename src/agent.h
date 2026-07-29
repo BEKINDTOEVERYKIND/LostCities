@@ -67,6 +67,13 @@ typedef struct Agent {
                            take the move when it beats the eligible best by
                            more than this many paired standard errors
                            (0 = advisory candidates never selected) */
+    int playout_sample; /* AG_ROLLOUT: sample the policy in playouts instead
+                           of argmaxing it (common per-world seeds keep the
+                           candidate comparison paired).  Argmax repeats
+                           every knife-edge downstream decision across all
+                           worlds, which can manufacture large fake Q gaps
+                           with tiny paired errors; sampling trades a
+                           little variance for unbiasedness. */
     float override_min; /* AG_ROLLOUT: ...AND by at least this many points.
                            The SE gate alone is world-count-dependent in the
                            wrong direction: more worlds shrink the noise but

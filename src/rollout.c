@@ -217,11 +217,15 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
     for (int d = 0; d < reps; d++) {
         State world;
         determinize_b(st, p, rng, a->no_belief ? NULL : a->net, &world);
+        uint64_t wseed = 0x9E3779B97F4A7C15ULL * (uint64_t)(d + 1) ^ rng->s[0];
         for (int c = 0; c < neval; c++) {
             State s = world;                 /* same world for every candidate */
             lc_apply(&s, mv[order[c]]);
             double w;
-            int m = playout(a->net, &s, p, a->prune_dom, NULL, &w);
+            Rng pr;
+            if (a->playout_sample) rng_seed(&pr, wseed);   /* same seed per world */
+            int m = playout(a->net, &s, p, a->prune_dom,
+                            a->playout_sample ? &pr : NULL, &w);
             if (val) val[(size_t)c * reps + d] = m;
             sum[c] += m;
             if (w >= 0.0) sumw[c] += w;
