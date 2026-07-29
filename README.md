@@ -267,6 +267,21 @@ candidates: **+6.35 ± 1.88 per match, 52.5% ± 2.0%** over 300 pairs
 against the previous maximum-strength config -- the first strength
 improvement since the shipped champion, at ~1.7x search compute.
 
+Expert review of an override-enabled game then exposed two further gates
+the SE test needs. (1) `override_min` points (default 4): the SE gate is
+world-count-dependent in the wrong direction -- more worlds shrink noise
+but sharpen *bias*, so at 512 worlds a 3-SE gate fired on ~1-point stall-
+and discard-flavoured playout bias; in the reviewed game every override
+gap over 4 points was one the reviewer endorsed and every graded blunder
+was under 2.5. (2) Sampled confirmation: the surviving gap must also hold
+at half the floor under stochastically-sampled continuations, because
+deterministic playouts repeat knife-edge downstream decisions across all
+paired worlds -- one position produced a +5.0 ± 0.14 argmax gap for
+discarding over a free scoring play that sampling collapsed to +0.6.
+Regenerating the reviewed game under the full gates removed every
+reviewer-graded blunder while keeping the overrides the reviewer agreed
+with.
+
 Recommended settings: **maximum strength**
 `rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3` (search from ply 14, four
 candidates evaluated, dominated discards pruned, 3-SE advisory override);
