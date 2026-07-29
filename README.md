@@ -236,6 +236,28 @@ clutch behaviour into every playout. The same lesson as the candidate
 floor, from the other direction: at fixed compute, the statistically
 efficient objective beats the theoretically right one.
 
+**Dominated discards are pruned by rule** (on by default): with a card in
+hand that neither player can ever legally play -- provable from public
+expedition tops alone -- discarding any live card with the same draw is a
+strictly riskier gift, so those moves leave the candidate set and the
+playout argmax. Guards: draw legality (a card cannot go onto the pile
+drawn from this turn) and dedup among equally dead cards. Exposure
+analysis over an analysed game found the rule could fire on 40% of plies
+with zero cases where the dead discard buried a live pile top; the A/B
+measured strength-neutral, 50.5% ± 2.0% over 300 pairs, while skipping
+work and never gifting a usable card for no reason.
+
+**Expert iteration** (tools/train.c --gen selfrollout, Q-softmax targets
+over searched-plus-advisory candidates): twelve iterations from the
+champion moved every targeted confidently-wrong prior -- four probe
+positions went from 0% prior on the better move to 25-36% -- and flipped
+the sequencing watch-probe toward optimal ordering. It did not, however,
+produce a stronger agent: 48.2% ± 2.9% search-vs-search against the
+champion; the blanket soft targets give up more sharpness than the fixed
+leaks return. The refined recipe (corrections only at statistically
+significant search-policy disagreements, KL-anchored elsewhere) is the
+open training direction.
+
 Recommended settings: **search from ply 14 with no gate for maximum
 strength** (`rollout:NET:96:5:0.02:0:1:14`); **add gate 0.85 for real-time
 play**; raw policy for bulk generation. Analysis uses

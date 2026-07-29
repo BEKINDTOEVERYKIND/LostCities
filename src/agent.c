@@ -22,7 +22,10 @@ void agent_default(Agent *a, AgentKind k, const Net *net)
     a->ply_hi = 0;
     a->eval_cand = 0;
     a->win_q = 0;
-    a->prune_dom = 0;
+    a->prune_dom = 1;   /* measured strength-neutral (50.5% +- 2.0%, 300
+                           pairs) and provably near-dominant; cheaper
+                           searches, no free gifts.  Spec field 11 = 0
+                           reverts. */
     a->override_k = 0.0f;
     switch (k) {
     case AG_RANDOM: a->name = "random"; break;
