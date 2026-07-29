@@ -196,18 +196,17 @@ static void *worker(void *arg)
                         s.persp = st.turn;
                         feat_extract(&st, st.turn, &f);
                         s.target = net_value(j->net, &f) * VAL_SCALE; /* zero value grad */
-                        /* sharp softmax over the labeler's Q values */
-                        double mx = -1e30;
-                        for (int i = 0; i < ss.n; i++) if (ss.q[i] > mx) mx = ss.q[i];
-                        double tot = 0.0;
-                        int k = ss.n < PI_K ? ss.n : PI_K;
-                        for (int i = 0; i < k; i++) {
-                            s.pmv[i] = MOVE_PACK(ss.mv[i]);
-                            s.ppr[i] = (float)exp((ss.q[i] - mx) / 2.0);
-                            tot += s.ppr[i];
-                        }
-                        for (int i = 0; i < k; i++) s.ppr[i] /= (float)tot;
-                        s.npi = (uint8_t)k;
+                        /* the target is the GATED choice -- the move the
+                         * validated selection rule actually plays.  The
+                         * first corpus generation softmaxed raw Q over all
+                         * evaluated candidates, whose argmax is the ungated
+                         * Q-maximum: exactly the estimator measured harmful
+                         * (min_cand, 42.8%), and the reason five fine-tune
+                         * variants collapsed while self-target and no-data
+                         * controls sat at parity. */
+                        s.pmv[0] = MOVE_PACK(lm);
+                        s.ppr[0] = 1.0f;
+                        s.npi = 1;
                         pthread_mutex_lock(j->lk);
                         int reps = agree ? 1 : j->dup;
                         for (int r = 0; r < reps; r++)
