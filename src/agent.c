@@ -27,6 +27,7 @@ void agent_default(Agent *a, AgentKind k, const Net *net)
                            searches, no free gifts.  Spec field 11 = 0
                            reverts. */
     a->override_k = 0.0f;
+    a->override_min = 4.0f;
     switch (k) {
     case AG_RANDOM: a->name = "random"; break;
     case AG_HEUR:   a->name = "heuristic"; break;

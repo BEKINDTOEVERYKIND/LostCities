@@ -67,6 +67,14 @@ typedef struct Agent {
                            take the move when it beats the eligible best by
                            more than this many paired standard errors
                            (0 = advisory candidates never selected) */
+    float override_min; /* AG_ROLLOUT: ...AND by at least this many points.
+                           The SE gate alone is world-count-dependent in the
+                           wrong direction: more worlds shrink the noise but
+                           not the playout BIAS, so at 512 worlds a 3-SE
+                           gate fires on ~1-point bias artifacts (measured:
+                           stall- and discard-flavoured overrides an expert
+                           reviewer graded as blunders).  Points are the
+                           bias's own units.  Default 4. */
     float gate;         /* AG_ROLLOUT: skip the search entirely when the
                            policy's top move already has >= this probability
                            (0 = always search) */

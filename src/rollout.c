@@ -175,6 +175,21 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
     if (a->eval_cand > neval) {
         neval = a->eval_cand < nsorted ? a->eval_cand : nsorted;
     }
+    /* draw-variant expansion: "same action, another draw" shares every
+     * sampled world and costs almost nothing extra, yet those variants are
+     * the alternatives an analyst asks about most -- make sure the two
+     * top-prior actions have all their legal draw sources on the board */
+    if (a->eval_cand > 0) {
+        for (int t = 0; t < 2 && t < neval; t++) {
+            Move top = mv[order[t]];
+            for (int i = 0; i < n && neval < MAX_CAND; i++) {
+                if (mv[i].card != top.card || mv[i].discard != top.discard) continue;
+                int seen = 0;
+                for (int c = 0; c < neval; c++) if (order[c] == i) { seen = 1; break; }
+                if (!seen) order[neval++] = i;
+            }
+        }
+    }
 
     double sum[MAX_CAND], sumw[MAX_CAND];
     for (int i = 0; i < neval; i++) { sum[i] = 0.0; sumw[i] = 0.0; }
@@ -210,20 +225,25 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
     }
     /* significance-gated override: an advisory candidate may take the move
      * only when its lead over the eligible best exceeds override_k paired
-     * standard errors.  This is what blanket forcing (min_cand) lacked --
-     * it overrode on any gap and lost 42.8%; this acts only when the gap is
-     * statistically real, the profile of a confidently-wrong prior. */
+     * standard errors AND override_min points.  The SE gate rejects noise
+     * (what blanket forcing lacked: it overrode on any gap and lost 42.8%);
+     * the points gate rejects playout bias, which more worlds sharpen
+     * rather than shrink.  The reference is the eligible best, fixed, and
+     * the highest-Q qualifier wins -- chaining comparisons through interim
+     * winners made the outcome depend on candidate order. */
     if (a->override_k > 0.0f && val && reps > 1) {
+        int elig = best;
         for (int c = ncand; c < neval; c++) {
-            double dm = (sum[c] - sum[best]) / reps;
+            double dm = (sum[c] - sum[elig]) / reps;
             if (dm <= 0.0) continue;
             double v2 = 0.0;
             for (int d = 0; d < reps; d++) {
-                double x = val[(size_t)c * reps + d] - val[(size_t)best * reps + d] - dm;
+                double x = val[(size_t)c * reps + d] - val[(size_t)elig * reps + d] - dm;
                 v2 += x * x;
             }
             double sed = sqrt(v2 / (reps - 1) / reps);
-            if (dm > a->override_k * sed) best = c;
+            if (dm > a->override_k * sed && dm > a->override_min &&
+                sum[c] > sum[best]) best = c;
         }
     }
     float bestq = (float)(sum[best] / reps);
