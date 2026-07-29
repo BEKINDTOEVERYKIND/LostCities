@@ -129,7 +129,7 @@ typedef struct {
     uint64_t seed;
     FILE *out;
     pthread_mutex_t *lk;
-    long flagged, corrected, plies;
+    long flagged, corrected, plies, written;
     long bycls[5];
 } Job;
 
@@ -166,6 +166,11 @@ static void *worker(void *arg)
                 j->plies++;
 
                 int cls = detect(&st, mv, pr, n);
+                /* the dominant class must not monopolize the corpus: a
+                 * corpus that only ever says "take the pile" teaches the
+                 * draw head a direction, not a judgment (measured: ply
+                 * inflation 143->161 and a 15-point h2h collapse) */
+                if (cls == 2 && (rng_next(&rng) & 1)) cls = 0;
                 if (cls) {
                     j->flagged++;
                     SearchStats ss;
@@ -174,10 +179,17 @@ static void *worker(void *arg)
                     Move lm = rollout_move(&lab, &st, &rng, &sval, &ss);
                     int top = 0;
                     for (int i = 1; i < n; i++) if (pr[i] > pr[top]) top = i;
-                    if (lm.card != mv[top].card || lm.discard != mv[top].discard ||
-                        lm.draw != mv[top].draw) {
-                        j->corrected++;
-                        for (int b = 0; b < 5; b++) if (cls & (1 << b)) j->bycls[b]++;
+                    int agree = lm.card == mv[top].card && lm.discard == mv[top].discard &&
+                                lm.draw == mv[top].draw;
+                    /* corrections AND confirmations: the same flagged state
+                     * where the search agrees with the policy is the
+                     * counterweight that keeps a class from becoming a
+                     * direction */
+                    {
+                        if (!agree) {
+                            j->corrected++;
+                            for (int b = 0; b < 5; b++) if (cls & (1 << b)) j->bycls[b]++;
+                        }
                         Sample s;
                         memset(&s, 0, sizeof s);
                         s.st = st;
@@ -197,8 +209,10 @@ static void *worker(void *arg)
                         for (int i = 0; i < k; i++) s.ppr[i] /= (float)tot;
                         s.npi = (uint8_t)k;
                         pthread_mutex_lock(j->lk);
-                        for (int r = 0; r < j->dup; r++)
+                        int reps = agree ? 1 : j->dup;
+                        for (int r = 0; r < reps; r++)
                             fwrite(&s, sizeof s, 1, j->out);
+                        j->written += reps;
                         pthread_mutex_unlock(j->lk);
                     }
                 }
@@ -258,7 +272,9 @@ int main(int argc, char **argv)
         fl += jobs[i].flagged; co += jobs[i].corrected; pl += jobs[i].plies;
         for (int b = 0; b < 5; b++) bc[b] += jobs[i].bycls[b];
     }
-    count = (uint64_t)co * (uint64_t)dup;
+    long wr = 0;
+    for (int i = 0; i < nthread; i++) wr += jobs[i].written;
+    count = (uint64_t)wr;
     fseek(out, sizeof h, SEEK_SET);
     fwrite(&count, sizeof count, 1, out);
     fclose(out);
