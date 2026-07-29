@@ -258,11 +258,21 @@ leaks return. The refined recipe (corrections only at statistically
 significant search-policy disagreements, KL-anchored elsewhere) is the
 open training direction.
 
-Recommended settings: **search from ply 14 with no gate for maximum
-strength** (`rollout:NET:96:5:0.02:0:1:14`); **add gate 0.85 for real-time
-play**; raw policy for bulk generation. Analysis uses
-`rollout:NET:512:5:0.02:0:1:0:0:4` -- champion moves, four candidates
-evaluated per ply, 512 worlds for display-grade error bars.
+**The significance-gated override is a measured gain** -- the discipline
+blanket forcing lacked. Advisory candidates (eval_cand) may take the move
+only when they lead the best policy-plausible candidate by more than
+`override_k` paired standard errors, the statistical signature of a
+confidently-wrong prior rather than noise. A/B at k=3 with four evaluated
+candidates: **+6.35 ± 1.88 per match, 52.5% ± 2.0%** over 300 pairs
+against the previous maximum-strength config -- the first strength
+improvement since the shipped champion, at ~1.7x search compute.
+
+Recommended settings: **maximum strength**
+`rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3` (search from ply 14, four
+candidates evaluated, dominated discards pruned, 3-SE advisory override);
+**gate 0.85 for real-time play**; raw policy for bulk generation.
+Analysis uses `rollout:NET:512:5:0.02:0:1:0:0:4:0:1:3` -- the same
+selection rules at 512 worlds, searched at every ply for display.
 
 ## Reproducing
 
