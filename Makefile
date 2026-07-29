@@ -7,14 +7,14 @@ SRC     := src
 
 HDRS    := $(wildcard $(SRC)/*.h)
 CORE    := $(SRC)/lc.c $(SRC)/features.c $(SRC)/net.c $(SRC)/heuristic.c \
-           $(SRC)/search.c $(SRC)/rollout.c $(SRC)/agent.c $(SRC)/match.c $(SRC)/spec.c
+           $(SRC)/search.c $(SRC)/rollout.c $(SRC)/solver.c $(SRC)/agent.c $(SRC)/match.c $(SRC)/spec.c
 
 all: $(BIN)/test_engine $(BIN)/arena $(BIN)/train $(BIN)/bench $(BIN)/probe $(BIN)/rl $(BIN)/ladder $(BIN)/play $(BIN)/showgame
 
 $(BIN):
 	mkdir -p $(BIN)
 
-$(BIN)/test_engine: tests/test_engine.c $(SRC)/lc.c $(HDRS) | $(BIN)
+$(BIN)/test_engine: tests/test_engine.c $(SRC)/lc.c $(SRC)/solver.c $(HDRS) | $(BIN)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
 
 $(BIN)/arena: tools/arena.c $(CORE) $(HDRS) | $(BIN)

@@ -469,6 +469,74 @@ function playoutSampled(net,s,p,rand){
   return s.score(p)-s.score(p^1);
 }
 
+/* ---- exact endgame solver (port of src/solver.c) ----------------------- */
+function solveAB(st,p,alpha,beta,cap,budget,s0,s1){
+  if(st.over||st.nply>=cap||budget.n--<=0)
+    return st.score(p)-st.score(p^1);
+  const mv=st.moves();
+  if(!mv.length)return st.score(p)-st.score(p^1);
+  const ordKey=m=>m[1]*1000+(m[2]!==0?100:0)-cardValue(m[0])*(1+st.expWager[st.turn][cardSuit(m[0])]);
+  mv.sort((a,b)=>ordKey(a)-ordKey(b));
+  const maxing=st.turn===p,mover=st.turn;
+  let best=maxing?-32000:32000,any=false;
+  for(const m of mv){
+    let ns0=s0,ns1=s1;
+    if(m[2]>0){
+      const pile=st.pile[m[2]-1],top=pile[pile.length-1];
+      const playable=cardIsWager(top)?st.expTop[mover][cardSuit(top)]===0
+                                     :cardValue(top)>st.expTop[mover][cardSuit(top)];
+      if(!playable){
+        if(mover===0){if(ns0<=0)continue;ns0--;}
+        else{if(ns1<=0)continue;ns1--;}
+      }
+    }
+    any=true;
+    const s=st.clone();
+    s.apply(m);
+    const v=solveAB(s,p,alpha,beta,cap,budget,ns0,ns1);
+    if(maxing){if(v>best)best=v;if(best>alpha)alpha=best;}
+    else{if(v<best)best=v;if(best<beta)beta=best;}
+    if(alpha>=beta)break;
+  }
+  if(!any){
+    const s=st.clone();
+    s.apply(mv[0]);
+    return solveAB(s,p,alpha,beta,cap,budget,s0,s1);
+  }
+  return best;
+}
+function lcSolve(st,p,budget){
+  const cap=Math.min(st.nply+st.deckLeft+6,LC_MAX_PLIES);
+  return solveAB(st.clone(),p,-32000,32000,cap,budget,1,1);
+}
+const SOLVE_DECK=1,SOLVE_WORLDS=6,SOLVE_SLICE=8000,SOLVE_MS=1200;
+/* exact endgame decision: average exact per-world values over belief-sampled
+ * worlds; null if the node budget blows (fall back to the policy) */
+function solveBestMove(st){
+  const p=st.turn,mv=st.moves();
+  if(!mv.length)return null;
+  const sums=new Float64Array(mv.length);
+  const t0=performance.now();
+  let worlds=0;
+  for(let w=0;w<SOLVE_WORLDS;w++){
+    const world=determinize(net,st,p,rand);
+    for(let i=0;i<mv.length;i++){
+      const s=world.clone();
+      s.apply(mv[i]);
+      /* per-slice budget: a monster subtree degrades to its truncated
+         bound for this world; terminal lines (the round ends on the deck
+         draw) are always exact, which is the class that matters here */
+      sums[i]+=lcSolve(s,p,{n:SOLVE_SLICE});
+    }
+    worlds++;
+    if(performance.now()-t0>SOLVE_MS)break;  /* equal world counts per move */
+  }
+  if(!worlds)return null;
+  let best=0;
+  for(let i=1;i<mv.length;i++)if(sums[i]>sums[best])best=i;
+  return mv[best];
+}
+
 /* ===================== game controller ================================== */
 const $=id=>document.getElementById(id);
 let net=null,st=null,rand=rng32((Date.now()^0x9E37)>>>0);
@@ -529,13 +597,20 @@ function humanCommit(m){
   afterMove();
 }
 function aiMove(){
-  const[mv,pr]=net.policyProbs(st);
-  if(!mv.length)return;
-  let best=0;
-  for(let i=0;i<mv.length;i++)if(pr[i]>pr[best])best=i;
-  const m=mv[best];
+  let m=null,solved=false;
+  if(st.deckLeft<=SOLVE_DECK){
+    m=solveBestMove(st);
+    solved=m!==null;
+  }
+  if(!m){
+    const[mv,pr]=net.policyProbs(st);
+    if(!mv.length)return;
+    let best=0;
+    for(let i=0;i<mv.length;i++)if(pr[i]>pr[best])best=i;
+    m=mv[best];
+  }
   const drawn=st.apply(m);
-  logLine('AI: '+moveText(m)+(m[2]===0?'':' (took '+cardName(drawn)+')'));
+  logLine('AI'+(solved?' (solved)':'')+': '+moveText(m)+(m[2]===0?'':' (took '+cardName(drawn)+')'));
   afterMove();
 }
 function afterMove(){
@@ -724,10 +799,12 @@ async function startDebrief(){
     for(let w=0;w<WORLDS;w++){
       const world=determinize(net,d.state,HUMAN,rand);
       const seed=(rand()*0xFFFFFFFF)>>>0;
+      const exact=d.state.deckLeft<=SOLVE_DECK;
       for(let c=0;c<cands.length;c++){
         const s=world.clone();
         s.apply(cands[c]);
-        vals[c][w]=playoutSampled(net,s,HUMAN,rng32(seed));
+        vals[c][w]=exact?lcSolve(s,HUMAN,{n:SOLVE_SLICE})
+                        :playoutSampled(net,s,HUMAN,rng32(seed));
       }
       if((w&3)===3)await new Promise(r=>setTimeout(r,0)); /* keep the page alive */
     }

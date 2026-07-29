@@ -129,6 +129,43 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         return mv[0];
     }
 
+    /* exact endgame: with few deck cards the whole tree is solvable, so
+     * every legal move gets an exact value inside each sampled world and
+     * the argmax of the averages plays -- no priors, no playout noise, and
+     * no way for a confidently-wrong policy to forfeit terminal points */
+    if (a->solve_deck > 0 && st->deck_left <= a->solve_deck) {
+        double ssum[MAX_MOVES];
+        for (int i = 0; i < n; i++) ssum[i] = 0.0;
+        const int sp = st->turn;
+        int sreps = a->dets > 0 ? a->dets : 1;
+        if (sreps > 32) sreps = 32;
+        for (int d = 0; d < sreps; d++) {
+            State world;
+            determinize_b(st, sp, rng, a->no_belief ? NULL : a->net, &world);
+            for (int i = 0; i < n; i++) {
+                State s = world;
+                lc_apply(&s, mv[i]);
+                ssum[i] += lc_solve(&s, sp);
+            }
+        }
+        int sbest = 0;
+        for (int i = 1; i < n; i++) if (ssum[i] > ssum[sbest]) sbest = i;
+        if (stats) {
+            int keep = n < MAX_MOVES ? n : MAX_MOVES;
+            stats->n = keep;
+            for (int i = 0; i < keep; i++) {
+                stats->mv[i] = mv[i];
+                stats->visits[i] = sreps;
+                stats->q[i] = ssum[i] / sreps;
+                stats->se[i] = 0.0;
+                stats->qw[i] = -1.0;
+            }
+            stats->value = (float)(ssum[sbest] / sreps);
+        }
+        if (out_value) *out_value = (float)(ssum[sbest] / sreps);
+        return mv[sbest];
+    }
+
     /* ply window: outside it the raw policy plays (see agent.h) */
     if ((a->ply_lo > 0 && st->nply < a->ply_lo) ||
         (a->ply_hi > 0 && st->nply >= a->ply_hi)) {

@@ -299,6 +299,42 @@ static void test_dead_and_dominated(void)
     CHECK(!lc_discard_dominated(&st, m, dead), "canonical dead discard kept");
 }
 
+static void test_endgame_solver(void)
+{
+    /* the reviewer's reported browser blunder in miniature: one card left,
+     * holding Y10 and W10 with a Yellow wager down.  Y10 turns the wagered
+     * -40 into -20 (+20); W10 opens a fresh White for -10.  The exact
+     * solver must never take the W10 line. */
+    State st; memset(&st, 0, sizeof st);
+    st.hand[0] = (1ULL << CARD_MAKE(0, 11)) | (1ULL << CARD_MAKE(2, 11));
+    st.hand_n[0] = 2;
+    st.hand[1] = (1ULL << CARD_MAKE(1, 5));
+    st.hand_n[1] = 1;
+    st.exp_wager[0][0] = 1;
+    st.exp_n[0][0] = 1;
+    st.played[0] = 1ULL << CARD_MAKE(0, 0);
+    st.deck[0] = CARD_MAKE(4, 5);
+    st.deck_left = 1;
+    st.turn = 0;
+    CHECK(lc_score(&st, 0) == -40, "wagered empty yellow is -40");
+    Move mv[MAX_MOVES];
+    int n = lc_moves(&st, mv);
+    int besti = -1;
+    int bestv = -32000;
+    for (int i = 0; i < n; i++) {
+        State s = st;
+        lc_apply(&s, mv[i]);
+        int v = lc_solve(&s, 0);
+        if (v > bestv) { bestv = v; besti = i; }
+    }
+    CHECK(besti >= 0 && mv[besti].card == CARD_MAKE(0, 11) && !mv[besti].discard,
+          "solver plays Y10 on the wagered expedition");
+    State s2 = st;
+    Move w10 = { CARD_MAKE(2, 11), 0, 0 };
+    lc_apply(&s2, w10);
+    CHECK(bestv - lc_solve(&s2, 0) == 30, "Y10 line beats the W10 line by exactly 30");
+}
+
 int main(void)
 {
     test_cards();
@@ -307,6 +343,7 @@ int main(void)
     test_known_lifecycle();
     test_match_context();
     test_dead_and_dominated();
+    test_endgame_solver();
     test_playouts();
     if (failures == 0) { printf("all engine tests passed\n"); return 0; }
     printf("%d failures\n", failures);

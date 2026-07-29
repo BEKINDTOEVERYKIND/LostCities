@@ -67,6 +67,12 @@ typedef struct Agent {
                            take the move when it beats the eligible best by
                            more than this many paired standard errors
                            (0 = advisory candidates never selected) */
+    int solve_deck;     /* AG_ROLLOUT: when deck_left <= this, replace the
+                           whole candidate machinery with exact play: solve
+                           every legal move to round end inside each
+                           belief-sampled world (alpha-beta, no net calls)
+                           and take the argmax of the exact averages.
+                           0 = off. */
     int playout_sample; /* AG_ROLLOUT: sample the policy in playouts instead
                            of argmaxing it (common per-world seeds keep the
                            candidate comparison paired).  Argmax repeats

@@ -62,6 +62,7 @@ void spec_parse(const char *spec, Agent *a)
             if ((v = strtok_r(NULL, ":", &save))) a->override_k = (float)atof(v);
             if ((v = strtok_r(NULL, ":", &save))) a->override_min = (float)atof(v);
             if ((v = strtok_r(NULL, ":", &save))) a->playout_sample = atoi(v);
+            if ((v = strtok_r(NULL, ":", &save))) a->solve_deck = atoi(v);
         } else if (is_policy) {
             if ((v = strtok_r(NULL, ":", &save))) a->temp = (float)atof(v);
         } else if (is_mcts) {
