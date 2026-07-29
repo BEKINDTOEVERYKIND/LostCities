@@ -270,10 +270,47 @@ static int filter_mode(const Net *net, const char *inp, const char *outp)
     return 0;
 }
 
+/* --selftarget IN OUT: same states, targets replaced by the net's own
+ * policy top-k.  A structurally identical but semantically null corpus:
+ * if training on THIS collapses, the sample pipeline is broken; if it is
+ * inert, the labels are the poison. */
+static int selftarget_mode(const Net *net, const char *inp, const char *outp)
+{
+    FILE *fi = fopen(inp, "rb");
+    FILE *fo = fopen(outp, "wb");
+    if (!fi || !fo) { fprintf(stderr, "mine: open failed\n"); return 1; }
+    uint32_t h[4]; uint64_t cnt;
+    if (fread(h, sizeof h, 1, fi) != 1 || fread(&cnt, sizeof cnt, 1, fi) != 1) return 1;
+    fwrite(h, sizeof h, 1, fo); fwrite(&cnt, sizeof cnt, 1, fo);
+    Sample s;
+    while (fread(&s, sizeof s, 1, fi) == 1) {
+        Move mv[MAX_MOVES]; float pr[MAX_MOVES];
+        int n = policy_probs(net, &s.st, mv, pr, NULL);
+        int idx[MAX_MOVES];
+        for (int i = 0; i < n; i++) idx[i] = i;
+        int k = n < PI_K ? n : PI_K;
+        for (int i = 0; i < k; i++) {
+            int b = i;
+            for (int j2 = i + 1; j2 < n; j2++) if (pr[idx[j2]] > pr[idx[b]]) b = j2;
+            int t = idx[i]; idx[i] = idx[b]; idx[b] = t;
+        }
+        float tot = 0.0f;
+        for (int i = 0; i < k; i++) tot += pr[idx[i]];
+        if (tot <= 0.0f) tot = 1.0f;
+        for (int i = 0; i < k; i++) { s.pmv[i] = MOVE_PACK(mv[idx[i]]); s.ppr[i] = pr[idx[i]] / tot; }
+        for (int i = k; i < PI_K; i++) { s.pmv[i] = 0; s.ppr[i] = 0.0f; }
+        s.npi = (uint8_t)k;
+        fwrite(&s, sizeof s, 1, fo);
+    }
+    fclose(fi); fclose(fo);
+    printf("mine --selftarget: rewrote %llu samples\n", (unsigned long long)cnt);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     const char *netpath = "data/best.bin", *outpath = "data/corr.smp";
-    const char *filter_in = NULL, *filter_out = NULL;
+    const char *filter_in = NULL, *filter_out = NULL, *self_in = NULL, *self_out = NULL;
     int games = 200, nthread = 4, dets = 256, dup = 4;
     uint64_t seed = 20260729;
     for (int i = 1; i < argc; i++) {
@@ -285,11 +322,13 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--dup") && i + 1 < argc) dup = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], NULL, 10);
         else if (!strcmp(argv[i], "--filter") && i + 2 < argc) { filter_in = argv[++i]; filter_out = argv[++i]; }
+        else if (!strcmp(argv[i], "--selftarget") && i + 2 < argc) { self_in = argv[++i]; self_out = argv[++i]; }
         else { fprintf(stderr, "usage: %s [--net N] [--out F] [--games G] [--threads T] [--dets D] [--dup K]\n", argv[0]); return 1; }
     }
     Net *net = (Net *)malloc(sizeof(Net));
     if (!net || net_load(net, netpath)) { fprintf(stderr, "mine: cannot load %s\n", netpath); return 1; }
     if (filter_in) return filter_mode(net, filter_in, filter_out);
+    if (self_in) return selftarget_mode(net, self_in, self_out);
 
     FILE *out = fopen(outpath, "wb");
     if (!out) { fprintf(stderr, "mine: cannot open %s\n", outpath); return 1; }
