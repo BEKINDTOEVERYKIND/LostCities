@@ -282,6 +282,15 @@ Regenerating the reviewed game under the full gates removed every
 reviewer-graded blunder while keeping the overrides the reviewer agreed
 with.
 
+The corrections loop (mine -> gate-respecting labels -> anchored fine-tune,
+tools/mine.c) produced its first net gain: c9 beats the champion 52-55%
+policy-vs-policy with every reviewer-flagged prior improved on the held-out
+probe suite, while search-vs-search pools to exact parity (49.6% ± 1.8%,
+400 pairs) -- the search already extracts what the policy fix supplies.  So
+the nets split by surface: data/best.bin stays the search champion;
+data/policy_best.bin (= c9) is the strongest RAW policy and powers the
+browser opponent, which has no search to lean on.
+
 Sampled playouts (playout_sample, spec field 14) A/B'd against argmax at
 the full config: 49.4% ± 2.0% over 300 pairs -- a tie.  Unbiased
 continuations cost nothing in strength, so analysis and training labels
