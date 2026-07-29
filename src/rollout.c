@@ -42,8 +42,13 @@ static int rank_moves(const Net *net, const State *s, Move *mv, float *score)
  * p.  In the final round of a match the round's end decides the match, so
  * *winpts gets the match result (1 win, 0.5 draw, 0 loss) from the carried
  * cumulative totals; in earlier rounds it gets -1 (margin is the only
- * available objective there, and it doubles as the natural proxy). */
-static int playout(const Net *net, State *s, int p, int prune, double *winpts)
+ * available objective there, and it doubles as the natural proxy).
+ * srng != NULL samples the policy instead of argmaxing it: deterministic
+ * playouts repeat every knife-edge downstream decision identically across
+ * paired worlds, which can manufacture large fake Q gaps with tiny paired
+ * errors; sampling breaks that correlation. */
+static int playout(const Net *net, State *s, int p, int prune, Rng *srng,
+                   double *winpts)
 {
     Move mv[MAX_MOVES];
     float score[MAX_MOVES];
@@ -52,9 +57,20 @@ static int playout(const Net *net, State *s, int p, int prune, double *winpts)
         if (n <= 0) break;
         uint64_t dead = prune ? (lc_dead_cards(s) & s->hand[s->turn]) : 0;
         int best = -1;
-        for (int i = 0; i < n; i++) {
-            if (dead && lc_discard_dominated(s, mv[i], dead)) continue;
-            if (best < 0 || score[i] > score[best]) best = i;
+        if (srng && net) {
+            float w[MAX_MOVES];
+            float tot = 0.0f;
+            for (int i = 0; i < n; i++) {
+                w[i] = (dead && lc_discard_dominated(s, mv[i], dead)) ? 0.0f : score[i];
+                tot += w[i];
+            }
+            if (tot > 0.0f) best = sample_index(w, n, srng);
+        }
+        if (best < 0) {
+            for (int i = 0; i < n; i++) {
+                if (dead && lc_discard_dominated(s, mv[i], dead)) continue;
+                if (best < 0 || score[i] > score[best]) best = i;
+            }
         }
         if (best < 0) best = 0;
         lc_apply(s, mv[best]);
@@ -205,7 +221,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             State s = world;                 /* same world for every candidate */
             lc_apply(&s, mv[order[c]]);
             double w;
-            int m = playout(a->net, &s, p, a->prune_dom, &w);
+            int m = playout(a->net, &s, p, a->prune_dom, NULL, &w);
             if (val) val[(size_t)c * reps + d] = m;
             sum[c] += m;
             if (w >= 0.0) sumw[c] += w;
@@ -244,6 +260,28 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             double sed = sqrt(v2 / (reps - 1) / reps);
             if (dm > a->override_k * sed && dm > a->override_min &&
                 sum[c] > sum[best]) best = c;
+        }
+        /* sampled confirmation: a qualifying gap must survive stochastic
+         * continuations at half the floor, or it was determinism bias --
+         * measured concretely: a +5.0 +- 0.14 argmax gap that collapsed to
+         * +0.6 under sampling, from one knife-edge downstream decision
+         * repeating across every paired world */
+        if (best != elig) {
+            double ds = 0.0;
+            for (int d = 0; d < reps; d++) {
+                State world;
+                determinize_b(st, p, rng, a->no_belief ? NULL : a->net, &world);
+                uint64_t wseed = 0x9E3779B97F4A7C15ULL * (uint64_t)(d + 1) ^ rng->s[0];
+                Rng r1, r2;
+                rng_seed(&r1, wseed);
+                rng_seed(&r2, wseed);
+                State sa = world, sb = world;
+                lc_apply(&sa, mv[order[best]]);
+                lc_apply(&sb, mv[order[elig]]);
+                ds += playout(a->net, &sa, p, a->prune_dom, &r1, NULL)
+                    - playout(a->net, &sb, p, a->prune_dom, &r2, NULL);
+            }
+            if (ds / reps < 0.5 * a->override_min) best = elig;
         }
     }
     float bestq = (float)(sum[best] / reps);
