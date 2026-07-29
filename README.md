@@ -102,6 +102,23 @@ Training is: imitate the heuristic for a sane start (it knows nothing about
 match context or beliefs), then PPO over full three-round matches with the
 belief head learning on the side. The trunk is 556 -> 512 -> 256.
 
+**Symmetry.** Nothing in the rules distinguishes the five colors, and the
+three wager copies of a suit are identical cards — the state space is 600x
+redundant (5! suit relabelings x 3! wager relabelings per suit). This is
+exploited at two levels. At decision time, moves that differ only in which
+held wager copy they use are compacted everywhere it matters: the rollout
+candidate stage folds duplicate wager moves into one (summing their policy
+priors, so "play a wager" keeps its full mass in candidate selection and the
+duplicates stop wasting candidate slots), and the endgame solver skips the
+isomorphic subtrees outright (C and browser both). At training time,
+`train --aug 1` presents every sample under a fresh random relabeling of
+suits and wager copies (`lc_permute`), forcing the net toward color-invariant
+strategy instead of learning each suit slot separately — on small
+corrections datasets this multiplies effective coverage by orders of
+magnitude. The feature planes themselves remain per-card-id (a relabel-
+invariant encoding would invalidate every trained net); augmentation makes
+the net invariant to the labels rather than making the labels disappear.
+
 ## Results
 
 All numbers are 3-round paired matches (each triple of deals played twice with

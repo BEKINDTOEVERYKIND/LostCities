@@ -100,6 +100,12 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         n = lc_moves(st, mv);
         for (int i = 0; i < n; i++) prob[i] = move_value_heur(st, mv[i], &ds);
     }
+    /* identical wager copies generate isomorphic moves: keep the lowest held
+     * copy per (suit, disposition, draw) and give it the siblings' policy
+     * mass, so duplicates neither waste candidate slots nor split priors
+     * (heuristic scores are values, not mass -- those are not summed) */
+    if (n > 1)
+        n = lc_dedup_wagers(st, mv, prob, n, a->net != NULL);
     /* dominated-discard pruning: with a dead card in hand, gifting any live
      * card (same draw) is a strictly worse class of move -- drop those before
      * they cost candidate slots or playout gifts */

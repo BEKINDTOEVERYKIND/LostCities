@@ -480,6 +480,14 @@ function solveAB(st,p,alpha,beta,cap,budget,s0,s1){
   const maxing=st.turn===p,mover=st.turn;
   let best=maxing?-32000:32000,any=false;
   for(const m of mv){
+    /* identical wager copies span isomorphic subtrees: search only the
+     * lowest held copy */
+    if(cardIsWager(m[0])&&m[0]%NRANK>0){
+      let dup=false;
+      for(let r=0;r<m[0]%NRANK;r++)
+        if(maskHas(st.hand[mover],cardSuit(m[0])*NRANK+r)){dup=true;break;}
+      if(dup)continue;
+    }
     let ns0=s0,ns1=s1;
     if(m[2]>0){
       const pile=st.pile[m[2]-1],top=pile[pile.length-1];

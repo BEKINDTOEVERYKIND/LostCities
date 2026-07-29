@@ -238,6 +238,10 @@ typedef struct {
     float bw;            /* belief BCE weight (rl.c trains this head too;
                             without it a fine-tune drifts the shared trunk
                             out from under the belief head) */
+    int aug;             /* symmetry augmentation: present each sample under
+                            a random relabeling of the 5 interchangeable
+                            suits and 3 identical wager copies per suit */
+    Rng rng;
     double vloss, ploss;
     int pn;
 } TrainJob;
@@ -256,8 +260,31 @@ static void *train_worker(void *arg)
     uint8_t bcard[NCARD];
     float blogit[NCARD], dbel[NCARD];
 
+    Sample augs;
     for (int i = t->from; i < t->to; i++) {
         const Sample *s = &t->rp->buf[t->idx[i]];
+        if (t->aug) {
+            augs = *s;
+            int sperm[NSUIT], wperm[NSUIT][WAGERS_PER_SUIT];
+            for (int a = 0; a < NSUIT; a++) sperm[a] = a;
+            for (int a = NSUIT - 1; a > 0; a--) {
+                int b = (int)(rng_next(&t->rng) % (uint64_t)(a + 1));
+                int tm = sperm[a]; sperm[a] = sperm[b]; sperm[b] = tm;
+            }
+            for (int su = 0; su < NSUIT; su++) {
+                for (int a = 0; a < WAGERS_PER_SUIT; a++) wperm[su][a] = a;
+                for (int a = WAGERS_PER_SUIT - 1; a > 0; a--) {
+                    int b = (int)(rng_next(&t->rng) % (uint64_t)(a + 1));
+                    int tm = wperm[su][a]; wperm[su][a] = wperm[su][b]; wperm[su][b] = tm;
+                }
+            }
+            uint8_t map[NCARD];
+            lc_perm_map(sperm, wperm, map);
+            lc_permute(&augs.st, map);
+            for (int a = 0; a < augs.npi; a++)
+                augs.pmv[a] = lc_permute_pack(augs.pmv[a], map);
+            s = &augs;
+        }
         feat_extract(&s->st, s->persp, &f);
         net_trunk(t->net, &f, &act);
 
@@ -338,6 +365,7 @@ int main(int argc, char **argv)
     int eval_pairs = 300;
     size_t bufcap = 800000;
     float lr = 1e-3f, wd = 1e-7f, tau = 1.0f, pw = 1.0f, lambda = 0.75f, bw = 1.0f, vw = 1.0f;
+    int aug = 0;
     float winbonus = 15.0f;
     int rounds = MATCH_ROUNDS;
     int sample_plies = 24;
@@ -381,6 +409,7 @@ int main(int argc, char **argv)
         else if (ARG("--dump")) dump_path = argv[++i];
         else if (ARG("--data")) data_path = argv[++i];
         else if (ARG("--bw")) bw = (float)atof(argv[++i]);
+        else if (ARG("--aug")) aug = atoi(argv[++i]);
         else if (!strcmp(k, "--flat-lr")) keep_lr_flat = 1;
         else { fprintf(stderr, "unknown option %s\n", k); return 1; }
         #undef ARG
@@ -552,6 +581,8 @@ int main(int argc, char **argv)
                 tj[i].pw = pw;
                 tj[i].bw = bw;
                 tj[i].vw = vw;
+                tj[i].aug = aug;
+                for (int q = 0; q < 4; q++) tj[i].rng.s[q] = rng_next(&r) | 1ULL;
             }
             for (int i = 0; i < nt; i++) pthread_create(&tt[i], NULL, train_worker, &tj[i]);
             for (int i = 0; i < nt; i++) pthread_join(tt[i], NULL);

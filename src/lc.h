@@ -150,6 +150,22 @@ int  lc_exp_score(const State *st, int p, int suit);
 uint64_t lc_dead_cards(const State *st);            /* unplayable by anyone  */
 int  lc_solve(const State *st, int p);              /* exact endgame margin (solver.c) */
 int  lc_discard_dominated(const State *st, Move m, uint64_t dead);
+
+/* ---- symmetry ---------------------------------------------------------
+ * The five suits are interchangeable colors and the three wager copies of
+ * a suit are identical cards; nothing in the rules distinguishes them.
+ * lc_perm_map builds a card relabeling from a suit permutation plus
+ * per-suit wager-copy permutations, lc_permute applies it to a whole state
+ * (training augmentation), lc_permute_pack to a packed move.
+ * lc_dedup_wagers compacts a move list by dropping moves that differ only
+ * in which held wager copy they use; with fold!=0 the dropped move's prob
+ * mass is added to its kept twin (policy priors), with fold==0 prob is
+ * left untouched (heuristic scores, which are values rather than mass). */
+void lc_perm_map(const int suit_perm[NSUIT],
+                 int wag_perm[NSUIT][WAGERS_PER_SUIT], uint8_t map[NCARD]);
+void lc_permute(State *st, const uint8_t map[NCARD]);
+uint16_t lc_permute_pack(uint16_t pk, const uint8_t map[NCARD]);
+int  lc_dedup_wagers(const State *st, Move *mv, float *prob, int n, int fold);
 int  lc_score(const State *st, int p);
 int  lc_hand_cards(const State *st, int p, uint8_t *out);
 /* Cards whose location p cannot pin down: not in p's hand, not public, and

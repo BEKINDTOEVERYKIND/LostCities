@@ -224,3 +224,83 @@ void lc_move_name(const State *st, Move m, char *buf)
     if (m.draw == 0) sprintf(buf, "%s %s, draw deck", m.discard ? "disc" : "play", cn);
     else sprintf(buf, "%s %s, take %c", m.discard ? "disc" : "play", cn, suits[m.draw - 1]);
 }
+
+/* ---- symmetry --------------------------------------------------------- */
+
+void lc_perm_map(const int suit_perm[NSUIT],
+                 int wag_perm[NSUIT][WAGERS_PER_SUIT], uint8_t map[NCARD])
+{
+    for (int s = 0; s < NSUIT; s++)
+        for (int r = 0; r < NRANK; r++)
+            map[s * NRANK + r] = (uint8_t)(suit_perm[s] * NRANK
+                                 + (r < WAGERS_PER_SUIT ? wag_perm[s][r] : r));
+}
+
+static uint64_t perm_mask(uint64_t m, const uint8_t map[NCARD])
+{
+    uint64_t out = 0;
+    while (m) {
+        int c = __builtin_ctzll(m);
+        m &= m - 1;
+        out |= 1ULL << map[c];
+    }
+    return out;
+}
+
+void lc_permute(State *st, const uint8_t map[NCARD])
+{
+    State old = *st;
+    for (int p = 0; p < 2; p++) {
+        st->hand[p]   = perm_mask(old.hand[p], map);
+        st->played[p] = perm_mask(old.played[p], map);
+        st->known[p]  = perm_mask(old.known[p], map);
+    }
+    st->discarded = perm_mask(old.discarded, map);
+    for (int i = 0; i < NCARD; i++) st->deck[i] = map[old.deck[i]];
+    for (int s = 0; s < NSUIT; s++) {
+        int sp = map[s * NRANK] / NRANK;
+        st->pile_n[sp] = old.pile_n[s];
+        for (int i = 0; i < old.pile_n[s]; i++)
+            st->pile[sp][i] = map[old.pile[s][i]];
+        for (int p = 0; p < 2; p++) {
+            st->exp_wager[p][sp] = old.exp_wager[p][s];
+            st->exp_top[p][sp]   = old.exp_top[p][s];
+            st->exp_n[p][sp]     = old.exp_n[p][s];
+            st->exp_sum[p][sp]   = old.exp_sum[p][s];
+        }
+    }
+}
+
+uint16_t lc_permute_pack(uint16_t pk, const uint8_t map[NCARD])
+{
+    Move m = { map[MOVE_CARD(pk)], MOVE_DISC(pk), MOVE_DRAW(pk) };
+    if (m.draw > 0) m.draw = (uint8_t)(map[(m.draw - 1) * NRANK] / NRANK + 1);
+    return MOVE_PACK(m);
+}
+
+int lc_dedup_wagers(const State *st, Move *mv, float *prob, int n, int fold)
+{
+    uint64_t hand = st->hand[st->turn];
+    int k = 0;
+    for (int i = 0; i < n; i++) {
+        int c = mv[i].card;
+        if (CARD_IS_WAGER(c) && CARD_RANK(c) > 0 &&
+            (hand & (((1ULL << CARD_RANK(c)) - 1) << (CARD_SUIT(c) * NRANK)))) {
+            int folded = 0;
+            for (int j = 0; j < k; j++)
+                if (CARD_IS_WAGER(mv[j].card)
+                    && CARD_SUIT(mv[j].card) == CARD_SUIT(c)
+                    && mv[j].discard == mv[i].discard
+                    && mv[j].draw == mv[i].draw) {
+                    if (fold && prob) prob[j] += prob[i];
+                    folded = 1;
+                    break;
+                }
+            if (folded) continue;
+        }
+        mv[k] = mv[i];
+        if (prob) prob[k] = prob[i];
+        k++;
+    }
+    return k;
+}

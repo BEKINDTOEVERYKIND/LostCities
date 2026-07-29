@@ -335,6 +335,91 @@ static void test_endgame_solver(void)
     CHECK(bestv - lc_solve(&s2, 0) == 30, "Y10 line beats the W10 line by exactly 30");
 }
 
+static void test_symmetry(void)
+{
+    /* suits are interchangeable colors and wager copies identical cards:
+     * any relabeling must leave scores, move counts, and exact solver
+     * values unchanged */
+    int sperm[NSUIT] = { 3, 0, 4, 1, 2 };
+    int wperm[NSUIT][WAGERS_PER_SUIT] = {
+        { 2, 0, 1 }, { 1, 2, 0 }, { 0, 2, 1 }, { 2, 1, 0 }, { 1, 0, 2 } };
+    uint8_t map[NCARD];
+    lc_perm_map(sperm, wperm, map);
+
+    /* mid-round state reached by real play */
+    Rng rng; rng_seed(&rng, 777);
+    State st; lc_deal(&st, &rng);
+    for (int k = 0; k < 40 && !st.over; k++) {
+        Move mv[MAX_MOVES];
+        int n = lc_moves(&st, mv);
+        lc_apply(&st, mv[rng_next(&rng) % (uint64_t)n]);
+    }
+    State pm = st;
+    lc_permute(&pm, map);
+    CHECK(lc_score(&pm, 0) == lc_score(&st, 0) &&
+          lc_score(&pm, 1) == lc_score(&st, 1), "scores invariant under relabeling");
+    Move ma[MAX_MOVES], mb[MAX_MOVES];
+    CHECK(lc_moves(&pm, mb) == lc_moves(&st, ma), "move count invariant under relabeling");
+    CHECK(pm.hand_n[0] == st.hand_n[0] && pm.deck_left == st.deck_left,
+          "hand and deck sizes invariant");
+
+    /* endgame: exact value must not depend on the labels either */
+    memset(&st, 0, sizeof st);
+    st.hand[0] = (1ULL << CARD_MAKE(0, 11)) | (1ULL << CARD_MAKE(2, 11));
+    st.hand_n[0] = 2;
+    st.hand[1] = (1ULL << CARD_MAKE(1, 5));
+    st.hand_n[1] = 1;
+    st.exp_wager[0][0] = 1;
+    st.exp_n[0][0] = 1;
+    st.played[0] = 1ULL << CARD_MAKE(0, 0);
+    st.deck[0] = CARD_MAKE(4, 5);
+    st.deck_left = 1;
+    st.turn = 0;
+    pm = st;
+    lc_permute(&pm, map);
+    CHECK(lc_solve(&pm, 0) == lc_solve(&st, 0), "solver value invariant under relabeling");
+
+    /* which copy of a wager sits where must not matter: swap held Y wager
+     * copy 0 for copy 2 via a pure wager permutation */
+    int idp[NSUIT] = { 0, 1, 2, 3, 4 };
+    int wswap[NSUIT][WAGERS_PER_SUIT] = {
+        { 2, 1, 0 }, { 0, 1, 2 }, { 0, 1, 2 }, { 0, 1, 2 }, { 0, 1, 2 } };
+    uint8_t map2[NCARD];
+    lc_perm_map(idp, wswap, map2);
+    State st2; memset(&st2, 0, sizeof st2);
+    st2.hand[0] = (1ULL << CARD_MAKE(0, 0)) | (1ULL << CARD_MAKE(0, 1))
+                | (1ULL << CARD_MAKE(2, 11));
+    st2.hand_n[0] = 3;
+    st2.hand[1] = 1ULL << CARD_MAKE(1, 5);
+    st2.hand_n[1] = 1;
+    st2.deck[0] = CARD_MAKE(4, 5);
+    st2.deck[1] = CARD_MAKE(4, 6);
+    st2.deck_left = 2;
+    st2.turn = 0;
+    State st3 = st2;
+    lc_permute(&st3, map2);
+    CHECK(st3.hand[0] != st2.hand[0], "copy swap changes the raw mask");
+    CHECK(lc_solve(&st3, 0) == lc_solve(&st2, 0), "solver blind to which wager copy is held");
+
+    /* dedup: two held Y wagers -> one play and one discard move per draw
+     * source survive, with folded prob mass */
+    Move mv[MAX_MOVES];
+    float pr[MAX_MOVES];
+    int n = lc_moves(&st2, mv);
+    for (int i = 0; i < n; i++) pr[i] = 1.0f;
+    int k = lc_dedup_wagers(&st2, mv, pr, n, 1);
+    CHECK(k < n, "duplicate wager moves compacted");
+    int wager_plays = 0;
+    float wager_mass = 0.0f;
+    for (int i = 0; i < k; i++)
+        if (CARD_IS_WAGER(mv[i].card) && !mv[i].discard && mv[i].draw == 0) {
+            wager_plays++;
+            wager_mass = pr[i];
+        }
+    CHECK(wager_plays == 1, "one deck-draw wager play survives");
+    CHECK(wager_mass == 2.0f, "kept twin carries both copies' mass");
+}
+
 int main(void)
 {
     test_cards();
@@ -344,6 +429,7 @@ int main(void)
     test_match_context();
     test_dead_and_dominated();
     test_endgame_solver();
+    test_symmetry();
     test_playouts();
     if (failures == 0) { printf("all engine tests passed\n"); return 0; }
     printf("%d failures\n", failures);

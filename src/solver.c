@@ -49,9 +49,16 @@ static int solve_ab(State *st, int p, int alpha, int beta, int cap,
 
     const int maxing = st->turn == p;
     const int mover = st->turn;
+    const uint64_t hand = st->hand[mover];
     int best = maxing ? -32000 : 32000;
     int any = 0;
     for (int i = 0; i < n; i++) {
+        /* identical wager copies span isomorphic subtrees: only the lowest
+         * held copy is searched */
+        int c = mv[i].card;
+        if (CARD_IS_WAGER(c) && CARD_RANK(c) > 0 &&
+            (hand & (((1ULL << CARD_RANK(c)) - 1) << (CARD_SUIT(c) * NRANK))))
+            continue;
         int ns0 = stalls0, ns1 = stalls1;
         if (mv[i].draw > 0) {
             int s2 = mv[i].draw - 1;
