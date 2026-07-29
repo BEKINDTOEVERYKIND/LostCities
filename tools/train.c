@@ -230,6 +230,11 @@ typedef struct {
     const size_t *idx;
     int from, to;
     float pw;
+    float vw;            /* value-loss weight: 0 for policy/belief-only
+                            fine-tunes -- a win-trained value head predicts
+                            on a return scale far from margin targets, and
+                            the resulting gradients deform the shared trunk
+                            (the c1/c2 collapse mechanism) */
     float bw;            /* belief BCE weight (rl.c trains this head too;
                             without it a fine-tune drifts the shared trunk
                             out from under the belief head) */
@@ -305,7 +310,7 @@ static void *train_worker(void *arg)
                 dbel[k] = scale * (pr2 - lab);
             }
         }
-        net_backward(t->net, &f, &act, 2.0f * e, pk, s->npi > 0 ? dlog : NULL, n,
+        net_backward(t->net, &f, &act, 2.0f * e * t->vw, pk, s->npi > 0 ? dlog : NULL, n,
                      nb > 0 ? bcard : NULL, nb > 0 ? dbel : NULL, nb, t->grad);
     }
     t->vloss = vloss; t->ploss = ploss; t->pn = pn;
@@ -332,7 +337,7 @@ int main(int argc, char **argv)
     int iters = 10, games = 2000, nthread = 4, batch = 256, steps = 6000;
     int eval_pairs = 300;
     size_t bufcap = 800000;
-    float lr = 1e-3f, wd = 1e-7f, tau = 1.0f, pw = 1.0f, lambda = 0.75f, bw = 1.0f;
+    float lr = 1e-3f, wd = 1e-7f, tau = 1.0f, pw = 1.0f, lambda = 0.75f, bw = 1.0f, vw = 1.0f;
     float winbonus = 15.0f;
     int rounds = MATCH_ROUNDS;
     int sample_plies = 24;
@@ -360,6 +365,7 @@ int main(int argc, char **argv)
         else if (ARG("--lr")) lr = (float)atof(argv[++i]);
         else if (ARG("--tau")) tau = (float)atof(argv[++i]);
         else if (ARG("--pw")) pw = (float)atof(argv[++i]);
+        else if (ARG("--vw")) vw = (float)atof(argv[++i]);
         else if (ARG("--wd")) wd = (float)atof(argv[++i]);
         else if (ARG("--lambda")) lambda = (float)atof(argv[++i]);
         else if (ARG("--sample-plies")) sample_plies = atoi(argv[++i]);
@@ -545,6 +551,7 @@ int main(int argc, char **argv)
                 tj[i].to = (i + 1) * chunk > batch ? batch : (i + 1) * chunk;
                 tj[i].pw = pw;
                 tj[i].bw = bw;
+                tj[i].vw = vw;
             }
             for (int i = 0; i < nt; i++) pthread_create(&tt[i], NULL, train_worker, &tj[i]);
             for (int i = 0; i < nt; i++) pthread_join(tt[i], NULL);
