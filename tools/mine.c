@@ -230,9 +230,50 @@ static void *worker(void *arg)
     return NULL;
 }
 
+/* --filter IN OUT: keep only samples whose labeled action (card + play/
+ * discard) differs from the net's argmax action.  Draw-only corrections are
+ * dropped: the 6-logit factored draw head turns any net draw-direction
+ * pressure into a global reweighting (measured as ply inflation and a
+ * 17-point collapse), while action corrections are state-specific. */
+static int filter_mode(const Net *net, const char *inp, const char *outp)
+{
+    FILE *fi = fopen(inp, "rb");
+    if (!fi) { fprintf(stderr, "mine: cannot open %s\n", inp); return 1; }
+    uint32_t h[4];
+    uint64_t cnt;
+    if (fread(h, sizeof h, 1, fi) != 1 || fread(&cnt, sizeof cnt, 1, fi) != 1 ||
+        h[0] != SMP_MAGIC || h[1] != sizeof(Sample)) { fprintf(stderr, "mine: bad file\n"); return 1; }
+    FILE *fo = fopen(outp, "wb");
+    uint64_t kept = 0;
+    fwrite(h, sizeof h, 1, fo);
+    fwrite(&kept, sizeof kept, 1, fo);
+    Sample s;
+    while (fread(&s, sizeof s, 1, fi) == 1) {
+        Move mv[MAX_MOVES];
+        float pr[MAX_MOVES];
+        int n = policy_probs(net, &s.st, mv, pr, NULL);
+        int top = 0;
+        for (int i = 1; i < n; i++) if (pr[i] > pr[top]) top = i;
+        int tb = 0;
+        for (int i = 1; i < s.npi; i++) if (s.ppr[i] > s.ppr[tb]) tb = i;
+        int tcard = s.pmv[tb] % 60, tdisc = (s.pmv[tb] / 60) % 2;
+        if (tcard != mv[top].card || tdisc != mv[top].discard) {
+            fwrite(&s, sizeof s, 1, fo);
+            kept++;
+        }
+    }
+    fseek(fo, sizeof h, SEEK_SET);
+    fwrite(&kept, sizeof kept, 1, fo);
+    fclose(fi); fclose(fo);
+    printf("mine --filter: kept %llu action-level corrections of %llu\n",
+           (unsigned long long)kept, (unsigned long long)cnt);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     const char *netpath = "data/best.bin", *outpath = "data/corr.smp";
+    const char *filter_in = NULL, *filter_out = NULL;
     int games = 200, nthread = 4, dets = 256, dup = 4;
     uint64_t seed = 20260729;
     for (int i = 1; i < argc; i++) {
@@ -243,10 +284,12 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--dets") && i + 1 < argc) dets = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--dup") && i + 1 < argc) dup = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], NULL, 10);
+        else if (!strcmp(argv[i], "--filter") && i + 2 < argc) { filter_in = argv[++i]; filter_out = argv[++i]; }
         else { fprintf(stderr, "usage: %s [--net N] [--out F] [--games G] [--threads T] [--dets D] [--dup K]\n", argv[0]); return 1; }
     }
     Net *net = (Net *)malloc(sizeof(Net));
     if (!net || net_load(net, netpath)) { fprintf(stderr, "mine: cannot load %s\n", netpath); return 1; }
+    if (filter_in) return filter_mode(net, filter_in, filter_out);
 
     FILE *out = fopen(outpath, "wb");
     if (!out) { fprintf(stderr, "mine: cannot open %s\n", outpath); return 1; }
