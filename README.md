@@ -282,6 +282,11 @@ Regenerating the reviewed game under the full gates removed every
 reviewer-graded blunder while keeping the overrides the reviewer agreed
 with.
 
+Sampled playouts (playout_sample, spec field 14) A/B'd against argmax at
+the full config: 49.4% ± 2.0% over 300 pairs -- a tie.  Unbiased
+continuations cost nothing in strength, so analysis and training labels
+use them; match play keeps argmax with the sampled confirmation gate.
+
 Recommended settings: **maximum strength**
 `rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3` (search from ply 14, four
 candidates evaluated, dominated discards pruned, 3-SE advisory override);
