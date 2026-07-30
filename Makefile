@@ -1,5 +1,8 @@
 CC      ?= gcc
-CFLAGS  ?= -O3 -march=native -ffast-math -funroll-loops -Wall -Wextra -std=c11
+# x86-64-v3 (AVX2/FMA) instead of native: these sessions migrate between
+# hosts on container restarts, and a binary built -march=native on one CPU
+# dies with SIGILL on the next -- portability is worth the sliver of perf
+CFLAGS  ?= -O3 -march=x86-64-v3 -ffast-math -funroll-loops -Wall -Wextra -std=c11
 LDFLAGS ?= -lm -pthread
 
 BIN     := bin
