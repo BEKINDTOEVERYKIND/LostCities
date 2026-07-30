@@ -119,6 +119,20 @@ magnitude. The feature planes themselves remain per-card-id (a relabel-
 invariant encoding would invalidate every trained net); augmentation makes
 the net invariant to the labels rather than making the labels disappear.
 
+Measured: retrofitting invariance onto a mature net does not pay as a
+fine-tune. c10 (the c9 corrections recipe + `--aug 1` as the only change)
+collapsed to 30% vs the champion's policy by iteration 5 as the trunk's
+label-specific structure was torn up, then recovered to a plateau of only
+45-48% by iteration 20 -- the augmentation machinery itself was validated
+separately (20k mined samples: permuted targets always legal in permuted
+states, all invariants hold), so the shortfall is the size of the
+reorganization, not a bug. The right home for augmentation is training
+where the net is still plastic: both trainers accept `--aug 1` (`rl.c`
+keeps the PPO ratio honest because a from-scratch net stays near-symmetric
+throughout, so old and new policy agree across relabelings), and the
+from-scratch reproduction pipeline run with augmentation at every stage is
+the clean test of the symmetry thesis.
+
 ## Results
 
 All numbers are 3-round paired matches (each triple of deals played twice with

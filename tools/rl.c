@@ -165,6 +165,13 @@ typedef struct {
     const int *idx;
     int from, to;
     float clip, vcoef, entcoef, advscale, bw;
+    int aug;             /* symmetry augmentation: present each sample under
+                            a random relabeling of the 5 interchangeable
+                            suits and 3 identical wager copies per suit.
+                            oldp/vtarget/adv are label-invariant scalars;
+                            trained from scratch the net stays near-symmetric
+                            throughout, so the PPO ratio stays honest */
+    Rng rng;
     double ploss, vloss, bloss, clipped;
     int pn;
     long bn;
@@ -185,8 +192,30 @@ static void *opt_worker(void *arg)
     uint8_t bcard[NCARD];
     float blogit[NCARD], dbel[NCARD];
 
+    RLSample augs;
     for (int i = t->from; i < t->to; i++) {
         const RLSample *s = &t->buf[t->idx[i]];
+        if (t->aug) {
+            augs = *s;
+            int sperm[NSUIT], wperm[NSUIT][WAGERS_PER_SUIT];
+            for (int a = 0; a < NSUIT; a++) sperm[a] = a;
+            for (int a = NSUIT - 1; a > 0; a--) {
+                int b = (int)(rng_next(&t->rng) % (uint64_t)(a + 1));
+                int tm = sperm[a]; sperm[a] = sperm[b]; sperm[b] = tm;
+            }
+            for (int su = 0; su < NSUIT; su++) {
+                for (int a = 0; a < WAGERS_PER_SUIT; a++) wperm[su][a] = a;
+                for (int a = WAGERS_PER_SUIT - 1; a > 0; a--) {
+                    int b = (int)(rng_next(&t->rng) % (uint64_t)(a + 1));
+                    int tm = wperm[su][a]; wperm[su][a] = wperm[su][b]; wperm[su][b] = tm;
+                }
+            }
+            uint8_t map[NCARD];
+            lc_perm_map(sperm, wperm, map);
+            lc_permute(&augs.st, map);
+            augs.chosen = lc_permute_pack(augs.chosen, map);
+            s = &augs;
+        }
         feat_extract(&s->st, s->persp, &f);
         net_trunk(t->net, &f, &act);
 
@@ -289,6 +318,7 @@ int main(int argc, char **argv)
     const char *ref_spec = "heur";
     int iters = 30, games = 4000, nthread = 4, batch = 512, epochs = 2;
     int eval_pairs = 400, eval_every = 1;
+    int aug = 0;
     float lr = 3e-4f, wd = 1e-7f, lambda = 0.85f, clip = 0.2f;
     float vcoef = 1.0f, entcoef = 0.004f, temp = 1.0f;
     float winbonus = 15.0f, bw = 1.0f, mw = 1.0f;
@@ -320,6 +350,7 @@ int main(int argc, char **argv)
         else if (ARG("--eval")) eval_pairs = atoi(argv[++i]);
         else if (ARG("--eval-every")) eval_every = atoi(argv[++i]);
         else if (ARG("--seed")) seed = strtoull(argv[++i], NULL, 10);
+        else if (ARG("--aug")) aug = atoi(argv[++i]);
         else { fprintf(stderr, "unknown option %s\n", k); return 1; }
         #undef ARG
     }
@@ -426,6 +457,8 @@ int main(int argc, char **argv)
                     tj[i].to = (i + 1) * chunk > batch ? batch : (i + 1) * chunk;
                     tj[i].clip = clip; tj[i].vcoef = vcoef; tj[i].entcoef = entcoef;
                     tj[i].advscale = 1.0f; tj[i].bw = bw;
+                    tj[i].aug = aug;
+                    for (int q = 0; q < 4; q++) tj[i].rng.s[q] = rng_next(&r) | 1ULL;
                 }
                 for (int i = 0; i < nt; i++) pthread_create(&tt[i], NULL, opt_worker, &tj[i]);
                 for (int i = 0; i < nt; i++) pthread_join(tt[i], NULL);
