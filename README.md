@@ -327,6 +327,20 @@ the full config: 49.4% ± 2.0% over 300 pairs -- a tie.  Unbiased
 continuations cost nothing in strength, so analysis and training labels
 use them; match play keeps argmax with the sampled confirmation gate.
 
+Exact endgame solving (solve_deck, spec field 15) A/B'd at deck <= 2
+against the full config: **48.7% ± 2.9% match wins, margin +1.98 ± 2.13
+per game** over 150 pairs (6 seeds pooled).  The signature is telling:
+the solver banks a couple of extra points per game in terminal positions
+but they do not convert to match wins -- the gated 96-world search already
+avoids the endgame blunders that matter, so at match level the feature is
+neutral and stays OUT of the strength spec.  It stays where exactness is
+the point: analysis labels (se = 0 ground truth near the deck's end) and
+the browser opponent, whose raw policy otherwise has no search to save it
+from last-card arithmetic errors.  Each solve_deck decision is bounded by
+one 4M-node budget across all moves and worlds, falling back to normal
+search on exhaustion -- an unbounded per-solve version could pin a thread
+for hours on one rare wide-hand endgame.
+
 Recommended settings: **maximum strength**
 `rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3` (search from ply 14, four
 candidates evaluated, dominated discards pruned, 3-SE advisory override);
