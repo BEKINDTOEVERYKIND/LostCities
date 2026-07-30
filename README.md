@@ -129,9 +129,21 @@ states, all invariants hold), so the shortfall is the size of the
 reorganization, not a bug. The right home for augmentation is training
 where the net is still plastic: both trainers accept `--aug 1` (`rl.c`
 keeps the PPO ratio honest because a from-scratch net stays near-symmetric
-throughout, so old and new policy agree across relabelings), and the
-from-scratch reproduction pipeline run with augmentation at every stage is
-the clean test of the symmetry thesis.
+throughout, so old and new policy agree across relabelings).
+
+**The from-scratch test confirmed the thesis decisively.** The full
+reproduction pipeline rerun with `--aug 1` at every stage (imitation ->
+130 PPO iterations -> win-dominated finishing, identical budgets
+otherwise) produced `data/sym1.bin`: **61.4% ± 1.7% match wins, +22.0 ±
+2.3 points/game over c9** (the previous strongest raw policy) and 63.7%
+over the champion's policy at final selection -- the largest single jump
+in policy strength in the project, from the same compute the asymmetric
+pipeline used. The probe scorecard shows why: long-standing habit leaks
+the old nets put ~0% prior on the correct move now carry majority prior
+(dead_discard 0.92, stall_habit 0.97, skip_B7 0.999). sym1 is
+`data/policy_best.bin` and the browser opponent. Symmetry was worth
+roughly what a color-blind observer would guess: five suits' worth of
+data for every weight instead of one.
 
 ## Results
 
