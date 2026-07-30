@@ -149,6 +149,7 @@ void lc_apply_draw(State *st, Move m, int card);
 int  lc_exp_score(const State *st, int p, int suit);
 uint64_t lc_dead_cards(const State *st);            /* unplayable by anyone  */
 int  lc_solve(const State *st, int p);              /* exact endgame margin (solver.c) */
+int  lc_solve_budget(const State *st, int p, long *budget);  /* bounded; *budget<=0 on bail */
 int  lc_discard_dominated(const State *st, Move m, uint64_t dead);
 
 /* ---- symmetry ---------------------------------------------------------

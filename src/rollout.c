@@ -138,38 +138,47 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
     /* exact endgame: with few deck cards the whole tree is solvable, so
      * every legal move gets an exact value inside each sampled world and
      * the argmax of the averages plays -- no priors, no playout noise, and
-     * no way for a confidently-wrong policy to forfeit terminal points */
+     * no way for a confidently-wrong policy to forfeit terminal points.
+     * One node budget covers the WHOLE decision (all moves x all worlds):
+     * a rare wide-hand endgame can blow any per-solve cap by hours, so on
+     * exhaustion the decision falls through to the normal search instead
+     * of trusting truncated bounds */
     if (a->solve_deck > 0 && st->deck_left <= a->solve_deck) {
         double ssum[MAX_MOVES];
         for (int i = 0; i < n; i++) ssum[i] = 0.0;
         const int sp = st->turn;
         int sreps = a->dets > 0 ? a->dets : 1;
         if (sreps > 32) sreps = 32;
-        for (int d = 0; d < sreps; d++) {
+        long sbudget = 4 * 1000 * 1000L;
+        int solved = 1;
+        for (int d = 0; d < sreps && solved; d++) {
             State world;
             determinize_b(st, sp, rng, a->no_belief ? NULL : a->net, &world);
             for (int i = 0; i < n; i++) {
                 State s = world;
                 lc_apply(&s, mv[i]);
-                ssum[i] += lc_solve(&s, sp);
+                ssum[i] += lc_solve_budget(&s, sp, &sbudget);
+                if (sbudget <= 0) { solved = 0; break; }
             }
         }
-        int sbest = 0;
-        for (int i = 1; i < n; i++) if (ssum[i] > ssum[sbest]) sbest = i;
-        if (stats) {
-            int keep = n < MAX_MOVES ? n : MAX_MOVES;
-            stats->n = keep;
-            for (int i = 0; i < keep; i++) {
-                stats->mv[i] = mv[i];
-                stats->visits[i] = sreps;
-                stats->q[i] = ssum[i] / sreps;
-                stats->se[i] = 0.0;
-                stats->qw[i] = -1.0;
+        if (solved) {
+            int sbest = 0;
+            for (int i = 1; i < n; i++) if (ssum[i] > ssum[sbest]) sbest = i;
+            if (stats) {
+                int keep = n < MAX_MOVES ? n : MAX_MOVES;
+                stats->n = keep;
+                for (int i = 0; i < keep; i++) {
+                    stats->mv[i] = mv[i];
+                    stats->visits[i] = sreps;
+                    stats->q[i] = ssum[i] / sreps;
+                    stats->se[i] = 0.0;
+                    stats->qw[i] = -1.0;
+                }
+                stats->value = (float)(ssum[sbest] / sreps);
             }
-            stats->value = (float)(ssum[sbest] / sreps);
+            if (out_value) *out_value = (float)(ssum[sbest] / sreps);
+            return mv[sbest];
         }
-        if (out_value) *out_value = (float)(ssum[sbest] / sreps);
-        return mv[sbest];
     }
 
     /* ply window: outside it the raw policy plays (see agent.h) */
