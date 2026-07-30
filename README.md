@@ -141,9 +141,10 @@ in policy strength in the project, from the same compute the asymmetric
 pipeline used. The probe scorecard shows why: long-standing habit leaks
 the old nets put ~0% prior on the correct move now carry majority prior
 (dead_discard 0.92, stall_habit 0.97, skip_B7 0.999). sym1 is
-`data/policy_best.bin` and the browser opponent. Symmetry was worth
-roughly what a color-blind observer would guess: five suits' worth of
-data for every weight instead of one.
+`data/policy_best.bin`, `data/best.bin` (see the search section: it also
+won the search slot 68.3% ± 2.7%), and the browser opponent. Symmetry was
+worth roughly what a color-blind observer would guess: five suits' worth
+of data for every weight instead of one.
 
 ## Results
 
@@ -326,13 +327,17 @@ reviewer-graded blunder while keeping the overrides the reviewer agreed
 with.
 
 The corrections loop (mine -> gate-respecting labels -> anchored fine-tune,
-tools/mine.c) produced its first net gain: c9 beats the champion 52-55%
+tools/mine.c) produced its first net gain: c9 beat the then-champion 52-55%
 policy-vs-policy with every reviewer-flagged prior improved on the held-out
-probe suite, while search-vs-search pools to exact parity (49.6% ± 1.8%,
-400 pairs) -- the search already extracts what the policy fix supplies.  So
-the nets split by surface: data/best.bin stays the search champion;
-data/policy_best.bin (= c9) is the strongest RAW policy and powers the
-browser opponent, which has no search to lean on.
+probe suite, while search-vs-search pooled to exact parity (49.6% ± 1.8%,
+400 pairs) -- the search already extracted what the policy fix supplied.
+For a while the nets split by surface (best.bin for search, c9 for raw
+policy); the symmetric from-scratch net ended the split.  sym1 swept both
+slots: policy-vs-policy 61.4% ± 1.7% over c9, and search-vs-search
+**68.3% ± 2.7%, +32.9 ± 3.4 points/game** over the old champion (150
+pairs, full gates) -- unlike c9's, its gains AMPLIFY under search, which
+means the value and belief heads improved along with the policy.
+data/best.bin and data/policy_best.bin are both sym1 now.
 
 Sampled playouts (playout_sample, spec field 14) A/B'd against argmax at
 the full config: 49.4% ± 2.0% over 300 pairs -- a tie.  Unbiased
