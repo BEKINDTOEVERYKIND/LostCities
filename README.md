@@ -146,6 +146,16 @@ won the search slot 68.3% ± 2.7%), and the browser opponent. Symmetry was
 worth roughly what a color-blind observer would guess: five suits' worth
 of data for every weight instead of one.
 
+And the corrections loop compounds on the symmetric base: c11 (mining the
+new champion's own games -- the stall class had collapsed from thousands
+of detections to 46 -- then the proven corrections recipe with `--aug 1`)
+fine-tuned with no c10-style collapse, exactly as the symmetry argument
+predicts for an already-invariant net, and its best iteration beats sym1's
+raw policy **57.6% ± 1.7%, +15.3 ± 1.7 points/game** (400 pairs) with a
+healthy probe scorecard. `data/policy_best.bin` = c11 and it powers the
+browser opponent; the search slot gets its own A/B before `best.bin`
+moves.
+
 ## Results
 
 All numbers are 3-round paired matches (each triple of deals played twice with
