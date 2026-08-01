@@ -88,7 +88,13 @@ void determinize_b(const State *st, int p, Rng *rng, const Net *net, State *out)
     float key[NCARD];
     int order[NCARD];
     for (int i = 0; i < n; i++) {
-        float u = rng_float(rng) + 1e-7f;
+        /* clamp u into (0,1) strictly: at the RNG's 24-bit max, u+eps
+         * rounds to exactly 1.0f and logf(-logf(1)) = logf(-0) = -inf,
+         * making key = +inf -- which silently FORCES this card into the
+         * sampled hand regardless of its belief logit */
+        float u = rng_float(rng);
+        if (u < 1e-7f) u = 1e-7f;
+        if (u > 0.999999f) u = 0.999999f;
         float l = logit[i];
         if (l > 15.0f) l = 15.0f;
         if (l < -15.0f) l = -15.0f;

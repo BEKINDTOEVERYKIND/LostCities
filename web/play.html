@@ -445,7 +445,10 @@ function determinize(net,st,p,rand){
   const lg=net.hasBelief?net.beliefLogits(st,p,unseen):unseen.map(()=>0);
   const keyed=unseen.map((c,i)=>{
     const l=Math.max(-15,Math.min(15,lg[i]));
-    return[l-Math.log(-Math.log(rand()+1e-9)),c];
+    /* clamp into (0,1): rand()+1e-9 can exceed 1, and Math.log of the
+       resulting negative -log gives a NaN key that corrupts the sort */
+    const u=Math.min(Math.max(rand(),1e-9),0.9999999);
+    return[l-Math.log(-Math.log(u)),c];
   });
   keyed.sort((a,b)=>b[0]-a[0]);
   w.hand[o]=maskCopy(st.known[o]);

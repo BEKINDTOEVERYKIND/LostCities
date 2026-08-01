@@ -177,10 +177,23 @@ static void *worker(void *arg)
                     memset(&ss, 0, sizeof ss);
                     float sval = 0.0f;
                     Move lm = rollout_move(&lab, &st, &rng, &sval, &ss);
+                    /* the policy's preferred ACTION: fold identical wager
+                     * copies first (their split mass otherwise loses the
+                     * argmax), and compare modulo the copy isomorphism --
+                     * "played the other Yx" is agreement, not a correction
+                     * worth 4x dup weight */
+                    Move fmv[MAX_MOVES];
+                    float fpr[MAX_MOVES];
+                    memcpy(fmv, mv, sizeof(Move) * (size_t)n);
+                    memcpy(fpr, pr, sizeof(float) * (size_t)n);
+                    int fn = lc_dedup_wagers(&st, fmv, fpr, n, 1);
                     int top = 0;
-                    for (int i = 1; i < n; i++) if (pr[i] > pr[top]) top = i;
-                    int agree = lm.card == mv[top].card && lm.discard == mv[top].discard &&
-                                lm.draw == mv[top].draw;
+                    for (int i = 1; i < fn; i++) if (fpr[i] > fpr[top]) top = i;
+                    int same_card = lm.card == fmv[top].card ||
+                                    (CARD_IS_WAGER(lm.card) && CARD_IS_WAGER(fmv[top].card) &&
+                                     CARD_SUIT(lm.card) == CARD_SUIT(fmv[top].card));
+                    int agree = same_card && lm.discard == fmv[top].discard &&
+                                lm.draw == fmv[top].draw;
                     /* corrections AND confirmations: the same flagged state
                      * where the search agrees with the policy is the
                      * counterweight that keeps a class from becoming a
@@ -243,6 +256,7 @@ static int filter_mode(const Net *net, const char *inp, const char *outp)
     if (fread(h, sizeof h, 1, fi) != 1 || fread(&cnt, sizeof cnt, 1, fi) != 1 ||
         h[0] != SMP_MAGIC || h[1] != sizeof(Sample)) { fprintf(stderr, "mine: bad file\n"); return 1; }
     FILE *fo = fopen(outp, "wb");
+    if (!fo) { fprintf(stderr, "mine: cannot open %s\n", outp); return 1; }
     uint64_t kept = 0;
     fwrite(h, sizeof h, 1, fo);
     fwrite(&kept, sizeof kept, 1, fo);

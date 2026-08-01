@@ -55,6 +55,10 @@ static int playout(const Net *net, State *s, int p, int prune, Rng *srng,
     while (!s->over) {
         int n = rank_moves(net, s, mv, score);
         if (n <= 0) break;
+        /* fold identical wager copies here too: the argmax below otherwise
+         * compares each copy's SPLIT probability against undivided rivals
+         * and systematically underplays wagers in every playout */
+        if (n > 1) n = lc_dedup_wagers(s, mv, score, n, net != NULL);
         uint64_t dead = prune ? (lc_dead_cards(s) & s->hand[s->turn]) : 0;
         int best = -1;
         if (srng && net) {
@@ -151,19 +155,36 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         if (sreps > 32) sreps = 32;
         long sbudget = 4 * 1000 * 1000L;
         int solved = 1;
+        /* in the final round the match objective is WINS, not margin: an
+         * exact +5 that still loses the match must not beat an exact +12
+         * that wins it.  Solved values are noise-free, so the lexicographic
+         * (wins, then margin) order is safe here in a way it is not for
+         * sampled playouts. */
+        const int slast = st->round >= MATCH_ROUNDS - 1;
+        const int scumd = (int)st->cum[sp] - (int)st->cum[sp ^ 1];
+        double swin[MAX_MOVES];
+        for (int i = 0; i < n; i++) swin[i] = 0.0;
         for (int d = 0; d < sreps && solved; d++) {
             State world;
             determinize_b(st, sp, rng, a->no_belief ? NULL : a->net, &world);
             for (int i = 0; i < n; i++) {
                 State s = world;
                 lc_apply(&s, mv[i]);
-                ssum[i] += lc_solve_budget(&s, sp, &sbudget);
+                int sm = lc_solve_budget(&s, sp, &sbudget);
+                ssum[i] += sm;
+                if (slast)
+                    swin[i] += scumd + sm > 0 ? 1.0 : (scumd + sm == 0 ? 0.5 : 0.0);
                 if (sbudget <= 0) { solved = 0; break; }
             }
         }
         if (solved) {
             int sbest = 0;
-            for (int i = 1; i < n; i++) if (ssum[i] > ssum[sbest]) sbest = i;
+            for (int i = 1; i < n; i++) {
+                if (slast) {
+                    if (swin[i] > swin[sbest] ||
+                        (swin[i] == swin[sbest] && ssum[i] > ssum[sbest])) sbest = i;
+                } else if (ssum[i] > ssum[sbest]) sbest = i;
+            }
             if (stats) {
                 int keep = n < MAX_MOVES ? n : MAX_MOVES;
                 stats->n = keep;

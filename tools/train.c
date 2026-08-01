@@ -125,25 +125,33 @@ static void *gen_worker(void *arg)
             Move mv[MAX_MOVES];
             float pr[MAX_MOVES];
             int n = 0;
+            int gated_idx = -1;
             chain_hasv[T] = 0;
 
             if (j->agent.kind == AG_ROLLOUT) {
                 SearchStats ss;
                 float sv = 0.0f;
-                rollout_move(&j->agent, &st, &rng, &sv, &ss);
+                Move gm = rollout_move(&j->agent, &st, &rng, &sv, &ss);
                 n = ss.n;
-                /* The rollout values are margins in points, so the softmax
-                 * temperature is in points too: wide enough not to trust
-                 * differences smaller than the sampling error. */
+                /* Both behavior and targets follow the GATED selection rule
+                 * (rollout_move's returned move), not the raw Q-argmax --
+                 * the ungated argmax selects among paired noise and measured
+                 * 42.8% against the baseline (the c1-c8 label-bug family).
+                 * The tau softmax over Q survives only as the exploration
+                 * distribution for early-ply sampling. */
                 double mx = -1e30;
                 for (int i = 0; i < n; i++) if (ss.q[i] > mx) mx = ss.q[i];
                 double sum = 0.0;
+                int gi = -1;
                 for (int i = 0; i < n; i++) {
                     mv[i] = ss.mv[i];
                     pr[i] = (float)exp((ss.q[i] - mx) / j->tau);
                     sum += pr[i];
+                    if (mv[i].card == gm.card && mv[i].discard == gm.discard &&
+                        mv[i].draw == gm.draw) gi = i;
                 }
                 for (int i = 0; i < n; i++) pr[i] /= (float)sum;
+                gated_idx = gi;
                 chain_sval[T] = sv; chain_hasv[T] = 1;
             } else if (j->agent.kind == AG_MCTS) {
                 SearchStats ss;
@@ -169,10 +177,19 @@ static void *gen_worker(void *arg)
                 for (int i = 0; i < n; i++) pr[i] /= sum;
             }
 
-            topk(mv, pr, n, chain_pmv[T], chain_ppr[T], &chain_npi[T]);
+            if (gated_idx >= 0) {
+                /* target = one-hot on the gated selection (the validated
+                 * labeling rule); pr stays the exploration distribution */
+                float tgt[MAX_MOVES];
+                for (int i = 0; i < n; i++) tgt[i] = (i == gated_idx) ? 1.0f : 0.0f;
+                topk(mv, tgt, n, chain_pmv[T], chain_ppr[T], &chain_npi[T]);
+            } else {
+                topk(mv, pr, n, chain_pmv[T], chain_ppr[T], &chain_npi[T]);
+            }
 
             int chosen;
             if (T < j->sample_plies) chosen = sample_index(pr, n, &rng);
+            else if (gated_idx >= 0) chosen = gated_idx;
             else { chosen = 0; for (int i = 1; i < n; i++) if (pr[i] > pr[chosen]) chosen = i; }
 
             T++;
@@ -192,7 +209,11 @@ static void *gen_worker(void *arg)
                 if (t < T - 1 && j->lambda < 0.999f) {
                     float vnext;
                     if (chain_hasv[t + 1]) {
-                        vnext = (chain[t + 1].turn == p) ? chain_sval[t + 1] : -chain_sval[t + 1];
+                        /* search values are THIS-ROUND margins while G is
+                         * match-scale: shift by the known cumulative
+                         * context (future-round margin unknowable here) */
+                        float rv = (chain[t + 1].turn == p) ? chain_sval[t + 1] : -chain_sval[t + 1];
+                        vnext = rv + (float)(chain[t + 1].cum[p] - chain[t + 1].cum[p ^ 1]);
                     } else {
                         feat_extract(&chain[t + 1], p, &f);
                         vnext = net_value(j->net, &f) * VAL_SCALE;
