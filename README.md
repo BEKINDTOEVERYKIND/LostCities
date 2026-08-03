@@ -153,8 +153,10 @@ fine-tuned with no c10-style collapse, exactly as the symmetry argument
 predicts for an already-invariant net, and its best iteration beats sym1's
 raw policy **57.6% ± 1.7%, +15.3 ± 1.7 points/game** (400 pairs) with a
 healthy probe scorecard. `data/policy_best.bin` = c11 and it powers the
-browser opponent; the search slot gets its own A/B before `best.bin`
-moves.
+browser opponent -- and c11 swept the search slot too: **55.9% ± 2.5%
+match wins, margin +7.4 ± 2.4 per game** over 400 pairs as a search agent
+against sym1 under the post-review-fix binary, so `data/best.bin` = c11
+across every surface.
 
 ## Results
 
