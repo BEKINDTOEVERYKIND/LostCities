@@ -164,7 +164,12 @@ final-selected at **49.1% ± 1.8% vs c11** -- parity with a champion built
 from half the self-play compute plus two corrections cycles.  Raw
 self-play has hit diminishing returns at this net size; the compounding
 loop of mine-your-own-mistakes -> gated labels -> augmented fine-tune is
-where strength is still being found.
+where strength is still being found.  And it keeps paying: c12 (third
+corrections generation, mined from c11's games with the isomorphism-fixed
+miner) beats c11 **53.2% ± 1.8%, +7.9 ± 1.7 points/game** (400 pairs).
+The champion lineage is old -> sym1 (+63.7%) -> c11 (+57.6%) -> c12
+(+53.2%), each step over the previous champion; `data/best.bin` =
+`data/policy_best.bin` = c12.
 
 ## Results
 
