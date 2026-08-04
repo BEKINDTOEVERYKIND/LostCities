@@ -176,6 +176,13 @@ converged on schedule: c14 (fifth cycle, same recipe) confirmed at
 classes are empty, and further cycles just churn.  c13 stands as the
 final corrections-loop champion for this architecture; the remaining
 gains live elsewhere (wider trunk, richer detectors, human review).
+Residual invariance, measured: across 8 random relabelings of real
+mid-game states the champion's top-move probability still varies with a
+6.6% standard deviation and the argmax flips 27% of the time (near-ties
+dominating the flips) -- augmentation got most of the way to invariance,
+not all of it.  Test-time symmetrization (averaging the policy over a few
+relabelings at the search's candidate stage, negligible cost next to the
+playouts) is the natural next experiment for whoever picks this up.
 
 ## Results
 
