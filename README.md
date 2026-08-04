@@ -170,7 +170,12 @@ miner) beats c11 **53.2% ± 1.8%, +7.9 ± 1.7 points/game** (400 pairs).
 The champion lineage is old -> sym1 (+63.7%) -> c11 (+57.6%) -> c12
 (+53.2%) -> c13 (+52.6%, margin +4.7 ± 1.7), each step over the previous
 champion, with per-generation gains shrinking as the mistake classes
-empty out; `data/best.bin` = `data/policy_best.bin` = c13.
+empty out; `data/best.bin` = `data/policy_best.bin` = c13.  The loop then
+converged on schedule: c14 (fifth cycle, same recipe) confirmed at
+**46.6% ± 1.8%** against c13 over 400 pairs -- the detectable mistake
+classes are empty, and further cycles just churn.  c13 stands as the
+final corrections-loop champion for this architecture; the remaining
+gains live elsewhere (wider trunk, richer detectors, human review).
 
 ## Results
 
