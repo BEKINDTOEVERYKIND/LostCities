@@ -168,8 +168,9 @@ where strength is still being found.  And it keeps paying: c12 (third
 corrections generation, mined from c11's games with the isomorphism-fixed
 miner) beats c11 **53.2% ± 1.8%, +7.9 ± 1.7 points/game** (400 pairs).
 The champion lineage is old -> sym1 (+63.7%) -> c11 (+57.6%) -> c12
-(+53.2%), each step over the previous champion; `data/best.bin` =
-`data/policy_best.bin` = c12.
+(+53.2%) -> c13 (+52.6%, margin +4.7 ± 1.7), each step over the previous
+champion, with per-generation gains shrinking as the mistake classes
+empty out; `data/best.bin` = `data/policy_best.bin` = c13.
 
 ## Results
 
