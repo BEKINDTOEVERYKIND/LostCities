@@ -158,6 +158,14 @@ match wins, margin +7.4 ± 2.4 per game** over 400 pairs as a search agent
 against sym1 under the post-review-fix binary, so `data/best.bin` = c11
 across every surface.
 
+Scale asks a different question and got a clear answer: s2 (the identical
+from-scratch augmented pipeline with a DOUBLED PPO budget, 260 iterations)
+final-selected at **49.1% ± 1.8% vs c11** -- parity with a champion built
+from half the self-play compute plus two corrections cycles.  Raw
+self-play has hit diminishing returns at this net size; the compounding
+loop of mine-your-own-mistakes -> gated labels -> augmented fine-tune is
+where strength is still being found.
+
 ## Results
 
 All numbers are 3-round paired matches (each triple of deals played twice with
