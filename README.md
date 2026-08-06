@@ -200,7 +200,15 @@ margin -2.7 ± 2.4** over 400 pairs -- rejected.  The sampled-confirmation
 gate's habit-pricing is on net protective: loosening it admits more
 determinism-bias artifacts than real endgame edges.  The sequencing class
 is a POLICY problem, addressed by the detector-driven corrections cycle,
-not a gate problem.
+not a gate problem.  That cycle also reported honestly: c15 (33,735
+samples mined with the new detectors -- deckburn fired ~8x/game) confirmed
+at **47.2% ± 1.8%** vs c13, no promotion.  The likely mechanism closes the
+loop on the estimator schism: the labeler's own sampled-confirmation gate
+sides with the deck-burn in most flagged states (it prices the policy's
+habits), so the corpus cannot teach the pile-extension it was mined to
+teach.  Fixing the sequencing class needs a label source that understands
+turn arithmetic -- deeper exact solving or a larger net -- not more of the
+same recipe.  c13 stands as champion.
 
 ## Results
 
