@@ -24,6 +24,7 @@
 #include "heuristic.h"
 #include <math.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define MAX_CAND 8
 
@@ -335,7 +336,20 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                 v2 += x * x;
             }
             double sed = sqrt(v2 / (reps - 1) / reps);
-            if (dm > a->override_k * sed && dm > a->override_min &&
+            /* same-action draw variants may qualify at half k (see agent.h
+             * ov_draw): the action is the policy's own choice, only the
+             * draw source differs, and their paired SE is structurally
+             * inflated by future divergence */
+            float k = a->override_k;
+            if (a->ov_draw &&
+                mv[order[c]].card == mv[order[elig]].card &&
+                mv[order[c]].discard == mv[order[elig]].discard)
+                k *= 0.5f;
+            if (getenv("LC_OV_DEBUG"))
+                fprintf(stderr, "[ov] cand %d dm %.2f sed %.2f need >%.2f and >%.2f: %s\n",
+                        c, dm, sed, k * sed, a->override_min,
+                        (dm > k * sed && dm > a->override_min) ? "QUALIFY" : "reject");
+            if (dm > k * sed && dm > a->override_min &&
                 sum[c] > sum[best]) best = c;
         }
         /* sampled confirmation: a qualifying gap must survive stochastic
@@ -344,21 +358,39 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
          * +0.6 under sampling, from one knife-edge downstream decision
          * repeating across every paired world */
         if (best != elig) {
-            double ds = 0.0;
-            for (int d = 0; d < reps; d++) {
-                State world;
-                determinize_b(st, p, rng, a->no_belief ? NULL : a->net, &world);
-                uint64_t wseed = 0x9E3779B97F4A7C15ULL * (uint64_t)(d + 1) ^ rng->s[0];
-                Rng r1, r2;
-                rng_seed(&r1, wseed);
-                rng_seed(&r2, wseed);
-                State sa = world, sb = world;
-                lc_apply(&sa, mv[order[best]]);
-                lc_apply(&sb, mv[order[elig]]);
-                ds += playout(a->net, &sa, p, a->prune_dom, &r1, NULL)
-                    - playout(a->net, &sb, p, a->prune_dom, &r2, NULL);
+            /* ov_draw=2: same-action draw variants skip the sampled
+             * confirmation.  The sampled gate prices the policy's OWN
+             * continuation habits; for a draw-source choice that gate can
+             * veto an objectively winning turn-extension because the
+             * policy later squanders it (measured: argmax +4.2 +- 0.5 vs
+             * sampled -2.0 +- 0.5 on the same decision at 3000 worlds,
+             * and the unsampled line demonstrably lost the match).
+             * Whether trusting argmax here helps MATCH play is an A/B
+             * question, hence a mode rather than the default. */
+            int skip_conf = a->ov_draw >= 2 &&
+                            mv[order[best]].card == mv[order[elig]].card &&
+                            mv[order[best]].discard == mv[order[elig]].discard;
+            if (!skip_conf) {
+                double ds = 0.0;
+                for (int d = 0; d < reps; d++) {
+                    State world;
+                    determinize_b(st, p, rng, a->no_belief ? NULL : a->net, &world);
+                    uint64_t wseed = 0x9E3779B97F4A7C15ULL * (uint64_t)(d + 1) ^ rng->s[0];
+                    Rng r1, r2;
+                    rng_seed(&r1, wseed);
+                    rng_seed(&r2, wseed);
+                    State sa = world, sb = world;
+                    lc_apply(&sa, mv[order[best]]);
+                    lc_apply(&sb, mv[order[elig]]);
+                    ds += playout(a->net, &sa, p, a->prune_dom, &r1, NULL)
+                        - playout(a->net, &sb, p, a->prune_dom, &r2, NULL);
+                }
+                if (getenv("LC_OV_DEBUG"))
+                    fprintf(stderr, "[ov] confirm best %d vs elig %d: sampled ds %.2f need >=%.2f: %s\n",
+                            best, elig, ds / reps, 0.5 * a->override_min,
+                            (ds / reps < 0.5 * a->override_min) ? "REVERT" : "CONFIRMED");
+                if (ds / reps < 0.5 * a->override_min) best = elig;
             }
-            if (ds / reps < 0.5 * a->override_min) best = elig;
         }
     }
     float bestq = (float)(sum[best] / reps);

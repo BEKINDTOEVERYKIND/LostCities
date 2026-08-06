@@ -92,6 +92,20 @@ typedef struct Agent {
                            policy's top move already has >= this probability
                            (0 = always search) */
     int no_belief;      /* AG_ROLLOUT ablation: sample worlds uniformly      */
+    int ov_draw;        /* AG_ROLLOUT: draw variants of the SAME action
+                           qualify for the override at HALF override_k.
+                           Rationale: the 42.8% forcing disaster was about
+                           written-off ACTIONS entering selection; a draw
+                           variant keeps the chosen action and reconsiders
+                           only the draw source -- the policy's weakest
+                           head -- and its paired SE is inherently larger
+                           (different draws genuinely diverge the futures),
+                           so the full-k gate demands ~7+ points and real
+                           ~5-point endgame edges are unreachable (observed:
+                           a trailing player burning the deck instead of a
+                           free dead-pile draw with q +12.5 vs +7.2).
+                           Points floor and sampled confirmation still
+                           apply.  0 = off (measured default until A/B'd). */
     const char *name;
 } Agent;
 

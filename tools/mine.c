@@ -120,6 +120,37 @@ static int detect(const State *st, const Move *mv, const float *pr, int n)
         for (int i = 0; i < n; i++)
             if (pr[i] >= 0.01f && lc_discard_dominated(st, mv[i], dead)) { cls |= 16; break; }
     }
+
+    /* 6: out-of-order same-expedition play -- the top move plays card B
+     * while a LOWER playable card A of the same suit sits in hand.  B-first
+     * permanently kills A (ascending only); A-first keeps both.  Skipping A
+     * to save a turn is sometimes right, which is exactly why these states
+     * need a searched label instead of a habit (observed: G7 over held G6
+     * at 5 deck stranded 6 points and flipped a 133-131 match). */
+    if (!mv[top].discard && !CARD_IS_WAGER(mv[top].card)) {
+        int bs = CARD_SUIT(mv[top].card), bv = CARD_VALUE(mv[top].card);
+        for (int i = 0; i < nh; i++) {
+            int c = hc[i];
+            if (CARD_IS_WAGER(c) || CARD_SUIT(c) != bs || c == mv[top].card) continue;
+            if (CARD_VALUE(c) < bv && playable(st, p, c)) { cls |= 32; break; }
+        }
+    }
+
+    /* 7: deck burn while turn-constrained with a free pile extension --
+     * the mover has more guaranteed plays than remaining turns, some pile
+     * top is dead to BOTH sides (drawing it costs nothing), yet the top
+     * move burns a deck card, shortening the very round the mover needs
+     * lengthened (observed at 10 deck: q +12.5 for the free extension vs
+     * +7.2 for the deck burn, and the deck line lost the match). */
+    if (mv[top].draw == 0 && st->deck_left <= 14) {
+        int turns_left = (st->deck_left + 1) / 2;
+        if (nplay > turns_left) {
+            for (int s = 0; s < NSUIT; s++) {
+                if (st->pile_n[s] == 0) continue;
+                if ((dead >> st->pile[s][st->pile_n[s] - 1]) & 1ULL) { cls |= 64; break; }
+            }
+        }
+    }
     return cls;
 }
 
@@ -130,7 +161,7 @@ typedef struct {
     FILE *out;
     pthread_mutex_t *lk;
     long flagged, corrected, plies, written;
-    long bycls[5];
+    long bycls[7];
 } Job;
 
 static void *worker(void *arg)
@@ -201,7 +232,7 @@ static void *worker(void *arg)
                     {
                         if (!agree) {
                             j->corrected++;
-                            for (int b = 0; b < 5; b++) if (cls & (1 << b)) j->bycls[b]++;
+                            for (int b = 0; b < 7; b++) if (cls & (1 << b)) j->bycls[b]++;
                         }
                         Sample s;
                         memset(&s, 0, sizeof s);
@@ -365,7 +396,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < nthread; i++) {
         pthread_join(th[i], NULL);
         fl += jobs[i].flagged; co += jobs[i].corrected; pl += jobs[i].plies;
-        for (int b = 0; b < 5; b++) bc[b] += jobs[i].bycls[b];
+        for (int b = 0; b < 7; b++) bc[b] += jobs[i].bycls[b];
     }
     long wr = 0;
     for (int i = 0; i < nthread; i++) wr += jobs[i].written;
@@ -375,8 +406,8 @@ int main(int argc, char **argv)
     fclose(out);
     printf("mine: %d games, %ld plies, %ld flagged (%.1f%%), %ld corrected (%.1f%% of flagged)\n",
            games, pl, fl, 100.0 * fl / (pl ? pl : 1), co, 100.0 * co / (fl ? fl : 1));
-    printf("      by class: skip %ld, pile-refusal %ld, stall %ld, burial %ld, hedge %ld\n",
-           bc[0], bc[1], bc[2], bc[3], bc[4]);
+    printf("      by class: skip %ld, pile-refusal %ld, stall %ld, burial %ld, hedge %ld, misorder %ld, deckburn %ld\n",
+           bc[0], bc[1], bc[2], bc[3], bc[4], bc[5], bc[6]);
     printf("      wrote %llu samples (dup %d) to %s\n",
            (unsigned long long)count, dup, outpath);
     return 0;
