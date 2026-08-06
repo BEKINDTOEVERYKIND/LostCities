@@ -194,7 +194,13 @@ sym1 measurement.  The doubted games were real, though: an adversarial
 review of the embedded match confirmed three indefensible moves -- one an
 artifact of a weakened display config, two exposing the endgame
 draw-sequencing weakness that the misorder/deckburn detector classes and
-the ov_draw override mode now target.
+the ov_draw override mode now target.  Measured: the ov_draw override
+(same-action draw variants through relaxed gates) scored **47.2% ± 2.5%,
+margin -2.7 ± 2.4** over 400 pairs -- rejected.  The sampled-confirmation
+gate's habit-pricing is on net protective: loosening it admits more
+determinism-bias artifacts than real endgame edges.  The sequencing class
+is a POLICY problem, addressed by the detector-driven corrections cycle,
+not a gate problem.
 
 ## Results
 
