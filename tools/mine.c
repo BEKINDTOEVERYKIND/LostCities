@@ -392,7 +392,7 @@ int main(int argc, char **argv)
         jobs[i].seed = seed; jobs[i].out = out; jobs[i].lk = &lk;
         pthread_create(&th[i], NULL, worker, &jobs[i]);
     }
-    long fl = 0, co = 0, pl = 0, bc[5] = { 0 };
+    long fl = 0, co = 0, pl = 0, bc[7] = { 0 };
     for (int i = 0; i < nthread; i++) {
         pthread_join(th[i], NULL);
         fl += jobs[i].flagged; co += jobs[i].corrected; pl += jobs[i].plies;
