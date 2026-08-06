@@ -184,6 +184,18 @@ not all of it.  Test-time symmetrization (averaging the policy over a few
 relabelings at the search's candidate stage, negligible cost next to the
 playouts) is the natural next experiment for whoever picks this up.
 
+**The trust check, run both ways.** When a reviewer doubted the lineage
+("too many horrible plays to believe it improved"), the current champion
+was measured directly against the ORIGINAL pre-symmetry champion recovered
+from git history: **71.4% ± 1.6% (+42.5 pts/game) as raw policies** and
+**68.2% ± 2.3% (+32.2 ± 3.3 pts/game) as full search agents** over 400
+paired matches each, with transitive intermediate rungs and a reproduced
+sym1 measurement.  The doubted games were real, though: an adversarial
+review of the embedded match confirmed three indefensible moves -- one an
+artifact of a weakened display config, two exposing the endgame
+draw-sequencing weakness that the misorder/deckburn detector classes and
+the ov_draw override mode now target.
+
 ## Results
 
 All numbers are 3-round paired matches (each triple of deals played twice with
