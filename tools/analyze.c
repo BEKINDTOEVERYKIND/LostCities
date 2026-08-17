@@ -127,13 +127,15 @@ static int move_eq(Move a, Move b)
 int main(int argc, char **argv)
 {
     const char *spec = "rollout:data/big0.bin:128:6";
+    const char *playspec = NULL;   /* -p: the agent that PLAYS the moves */
     uint64_t seed = 1;
     int rounds = MATCH_ROUNDS;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-a") && i + 1 < argc) spec = argv[++i];
+        else if (!strcmp(argv[i], "-p") && i + 1 < argc) playspec = argv[++i];
         else if (!strcmp(argv[i], "-s") && i + 1 < argc) seed = strtoull(argv[++i], NULL, 10);
         else if (!strcmp(argv[i], "-r") && i + 1 < argc) rounds = atoi(argv[++i]);
-        else { fprintf(stderr, "usage: %s [-a SPEC] [-s seed] [-r rounds]\n", argv[0]); return 1; }
+        else { fprintf(stderr, "usage: %s [-a ANALYSIS_SPEC] [-p PLAY_SPEC] [-s seed] [-r rounds]\n", argv[0]); return 1; }
     }
     if (rounds < 1) rounds = 1;
     if (rounds > MATCH_ROUNDS) rounds = MATCH_ROUNDS;
@@ -141,6 +143,17 @@ int main(int argc, char **argv)
     Agent ag;
     spec_parse(spec, &ag);
     if (!ag.net) { fprintf(stderr, "analyze: spec '%s' has no network\n", spec); return 1; }
+    /* The analysis agent searches every ply so the console has something to
+     * show, but that configuration is MEASURED WORSE as a player (search
+     * everywhere 51.5%% vs late-window 56.2%%; early candidate Qs sit inside
+     * noise and argmax discards the prior -- observed: an 89%%-prior wager
+     * play lost a ply-1 coin flip to a 0.7-point Q gap).  So the game is
+     * PLAYED by the match agent and merely analysed by the display agent. */
+    Agent play_ag;
+    if (playspec) {
+        spec_parse(playspec, &play_ag);
+        if (!play_ag.net) { fprintf(stderr, "analyze: play spec '%s' has no network\n", playspec); return 1; }
+    }
 
     Rng rng;
     rng_seed(&rng, seed);
@@ -258,11 +271,13 @@ int main(int argc, char **argv)
         }
         fputc(']', pf);
 
-        /* one rollout_move call decides the ply and yields the search stats */
+        /* the display agent yields the search stats; the MATCH agent (when
+         * -p is given) decides the move actually played */
         SearchStats ss;
         memset(&ss, 0, sizeof ss);
         float sval = 0.0f;
         Move m = rollout_move(&ag, &st, &rng, &sval, &ss);
+        if (playspec) m = agent_move(&play_ag, &st, &rng);
 
         int sord[MAX_MOVES];
         for (int i = 0; i < ss.n; i++) sord[i] = i;
