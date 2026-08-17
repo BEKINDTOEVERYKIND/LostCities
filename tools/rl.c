@@ -303,10 +303,10 @@ static void *opt_worker(void *arg)
 
 static void grad_accumulate(Net *dst, Net *const *src, int n)
 {
-    float *d = (float *)dst;
-    size_t nw = sizeof(Net) / sizeof(float);
+    float *d = dst->blk;
+    size_t nw = dst->nfloat;
     for (int k = 1; k < n; k++) {
-        const float *s = (const float *)src[k];
+        const float *s = src[k]->blk;
         for (size_t i = 0; i < nw; i++) d[i] += s[i];
     }
 }
@@ -355,17 +355,24 @@ int main(int argc, char **argv)
         #undef ARG
     }
 
-    Net *net = (Net *)malloc(sizeof(Net));
-    Net *frozen = (Net *)malloc(sizeof(Net));
+    Net *net = (Net *)calloc(1, sizeof(Net));
+    Net *frozen = (Net *)calloc(1, sizeof(Net));
     Adam *adam = (Adam *)calloc(1, sizeof(Adam));
     if (net_load(net, init_path) != 0) { fprintf(stderr, "cannot load %s\n", init_path); return 1; }
-    printf("initialised from %s\n", init_path);
+    printf("initialised from %s (%dx%d)\n", init_path, net->h1, net->h2);
+    if (net_alloc_like(frozen, net) != 0 ||
+        net_alloc_like(&adam->m, net) != 0 || net_alloc_like(&adam->v, net) != 0) {
+        fprintf(stderr, "allocation failed\n"); return 1;
+    }
 
     Agent ref;
     spec_parse(ref_spec, &ref);
 
     Net **grads = (Net **)calloc((size_t)nthread, sizeof(Net *));
-    for (int i = 0; i < nthread; i++) grads[i] = (Net *)malloc(sizeof(Net));
+    for (int i = 0; i < nthread; i++) {
+        grads[i] = (Net *)calloc(1, sizeof(Net));
+        if (net_alloc_like(grads[i], net) != 0) { fprintf(stderr, "grad allocation failed\n"); return 1; }
+    }
 
     size_t cap = (size_t)games * 210 * (size_t)rounds;
     RLSample *buf = (RLSample *)malloc(sizeof(RLSample) * cap);
@@ -380,7 +387,7 @@ int main(int argc, char **argv)
     for (int it = 1; it <= iters; it++) {
         struct timespec t0, t1;
         clock_gettime(CLOCK_MONOTONIC, &t0);
-        memcpy(frozen, net, sizeof(Net));
+        net_copy(frozen, net);
 
         GenJob *jobs = (GenJob *)calloc((size_t)nthread, sizeof(GenJob));
         pthread_t *th = (pthread_t *)calloc((size_t)nthread, sizeof(pthread_t));

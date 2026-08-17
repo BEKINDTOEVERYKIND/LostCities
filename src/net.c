@@ -3,6 +3,64 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* the block is laid out in this order (matches the on-disk format and the
+ * pre-runtime-sizing struct layout exactly) */
+static size_t net_nfloat(int h1, int h2)
+{
+    return (size_t)FEAT_DIM * h1 + h1
+         + (size_t)h1 * h2 + h2
+         + h2 + 1
+         + (size_t)NET_NPLAY * h2 + NET_NPLAY
+         + (size_t)NET_NDRAW * h2 + NET_NDRAW
+         + (size_t)NCARD * h2 + NCARD;
+}
+
+static void net_wire(Net *n)
+{
+    float *p = n->blk;
+    n->w1 = p;    p += (size_t)FEAT_DIM * n->h1;
+    n->b1 = p;    p += n->h1;
+    n->w2 = p;    p += (size_t)n->h1 * n->h2;
+    n->b2 = p;    p += n->h2;
+    n->w3 = p;    p += n->h2;
+    n->b3 = p;    p += 1;
+    n->wplay = p; p += (size_t)NET_NPLAY * n->h2;
+    n->bplay = p; p += NET_NPLAY;
+    n->wdraw = p; p += (size_t)NET_NDRAW * n->h2;
+    n->bdraw = p; p += NET_NDRAW;
+    n->wbel = p;  p += (size_t)NCARD * n->h2;
+    n->bbel = p;  p += NCARD;
+    n->nfloat = (size_t)(p - n->blk);
+}
+
+int net_alloc(Net *n, int h1, int h2)
+{
+    if (h1 < 1 || h1 > NET_H1_MAX || h2 < 1 || h2 > NET_H2_MAX) return -1;
+    n->h1 = h1;
+    n->h2 = h2;
+    n->blk = (float *)calloc(net_nfloat(h1, h2), sizeof(float));
+    if (!n->blk) return -1;
+    net_wire(n);
+    return 0;
+}
+
+void net_free(Net *n)
+{
+    free(n->blk);
+    n->blk = NULL;
+    n->nfloat = 0;
+}
+
+int net_alloc_like(Net *dst, const Net *src)
+{
+    return net_alloc(dst, src->h1, src->h2);
+}
+
+void net_copy(Net *dst, const Net *src)
+{
+    memcpy(dst->blk, src->blk, src->nfloat * sizeof(float));
+}
+
 static float gauss(Rng *r)
 {
     float u1 = rng_float(r) + 1e-7f, u2 = rng_float(r);
@@ -11,29 +69,30 @@ static float gauss(Rng *r)
 
 void net_init(Net *n, uint64_t seed)
 {
+    const int H1 = n->h1, H2 = n->h2;
     Rng r; rng_seed(&r, seed);
     float s1 = sqrtf(2.0f / (float)FEAT_DIM);
     for (int i = 0; i < FEAT_DIM; i++)
-        for (int h = 0; h < NET_H1; h++) n->w1[i][h] = gauss(&r) * s1;
-    for (int h = 0; h < NET_H1; h++) n->b1[h] = 0.0f;
-    float s2 = sqrtf(2.0f / (float)NET_H1);
-    for (int i = 0; i < NET_H1; i++)
-        for (int h = 0; h < NET_H2; h++) n->w2[i][h] = gauss(&r) * s2;
-    for (int h = 0; h < NET_H2; h++) n->b2[h] = 0.0f;
-    float s3 = sqrtf(1.0f / (float)NET_H2);
-    for (int h = 0; h < NET_H2; h++) n->w3[h] = gauss(&r) * s3;
-    n->b3 = 0.0f;
-    float s4 = 0.1f * sqrtf(1.0f / (float)NET_H2);
+        for (int h = 0; h < H1; h++) n->w1[(size_t)i * H1 + h] = gauss(&r) * s1;
+    for (int h = 0; h < H1; h++) n->b1[h] = 0.0f;
+    float s2 = sqrtf(2.0f / (float)H1);
+    for (int i = 0; i < H1; i++)
+        for (int h = 0; h < H2; h++) n->w2[(size_t)i * H2 + h] = gauss(&r) * s2;
+    for (int h = 0; h < H2; h++) n->b2[h] = 0.0f;
+    float s3 = sqrtf(1.0f / (float)H2);
+    for (int h = 0; h < H2; h++) n->w3[h] = gauss(&r) * s3;
+    *n->b3 = 0.0f;
+    float s4 = 0.1f * sqrtf(1.0f / (float)H2);
     for (int i = 0; i < NET_NPLAY; i++) {
-        for (int h = 0; h < NET_H2; h++) n->wplay[i][h] = gauss(&r) * s4;
+        for (int h = 0; h < H2; h++) n->wplay[(size_t)i * H2 + h] = gauss(&r) * s4;
         n->bplay[i] = 0.0f;
     }
     for (int i = 0; i < NET_NDRAW; i++) {
-        for (int h = 0; h < NET_H2; h++) n->wdraw[i][h] = gauss(&r) * s4;
+        for (int h = 0; h < H2; h++) n->wdraw[(size_t)i * H2 + h] = gauss(&r) * s4;
         n->bdraw[i] = 0.0f;
     }
     for (int i = 0; i < NCARD; i++) {
-        for (int h = 0; h < NET_H2; h++) n->wbel[i][h] = gauss(&r) * s4;
+        for (int h = 0; h < H2; h++) n->wbel[(size_t)i * H2 + h] = gauss(&r) * s4;
         n->bbel[i] = 0.0f;
     }
 }
@@ -41,77 +100,81 @@ void net_init(Net *n, uint64_t seed)
 /* random-init only the belief head (for upgrading older files) */
 static void net_init_belief(Net *n, uint64_t seed)
 {
+    const int H2 = n->h2;
     Rng r; rng_seed(&r, seed);
-    float s4 = 0.1f * sqrtf(1.0f / (float)NET_H2);
+    float s4 = 0.1f * sqrtf(1.0f / (float)H2);
     for (int i = 0; i < NCARD; i++) {
-        for (int h = 0; h < NET_H2; h++) n->wbel[i][h] = gauss(&r) * s4;
+        for (int h = 0; h < H2; h++) n->wbel[(size_t)i * H2 + h] = gauss(&r) * s4;
         n->bbel[i] = 0.0f;
     }
 }
 
 void net_zero(Net *n)
 {
-    memset(n, 0, sizeof(*n));
+    memset(n->blk, 0, n->nfloat * sizeof(float));
 }
 
 void net_trunk(const Net *n, const Features *f, NetAct *act)
 {
-    float h1[NET_H1];
-    for (int h = 0; h < NET_H1; h++) h1[h] = n->b1[h];
+    const int H1 = n->h1, H2 = n->h2;
+    float h1[NET_H1_MAX];
+    for (int h = 0; h < H1; h++) h1[h] = n->b1[h];
     for (int k = 0; k < f->nidx; k++) {
-        const float *w = n->w1[f->idx[k]];
-        for (int h = 0; h < NET_H1; h++) h1[h] += w[h];
+        const float *w = n->w1 + (size_t)f->idx[k] * H1;
+        for (int h = 0; h < H1; h++) h1[h] += w[h];
     }
     for (int j = 0; j < FEAT_DENSE; j++) {
         float x = f->dense[j];
         if (x == 0.0f) continue;
-        const float *w = n->w1[FEAT_BIN + j];
-        for (int h = 0; h < NET_H1; h++) h1[h] += x * w[h];
+        const float *w = n->w1 + (size_t)(FEAT_BIN + j) * H1;
+        for (int h = 0; h < H1; h++) h1[h] += x * w[h];
     }
-    for (int h = 0; h < NET_H1; h++) act->a1[h] = h1[h] > 0.0f ? h1[h] : 0.0f;
+    for (int h = 0; h < H1; h++) act->a1[h] = h1[h] > 0.0f ? h1[h] : 0.0f;
 
-    float h2[NET_H2];
-    for (int h = 0; h < NET_H2; h++) h2[h] = n->b2[h];
-    for (int i = 0; i < NET_H1; i++) {
+    float h2[NET_H2_MAX];
+    for (int h = 0; h < H2; h++) h2[h] = n->b2[h];
+    for (int i = 0; i < H1; i++) {
         float a = act->a1[i];
         if (a == 0.0f) continue;
-        const float *w = n->w2[i];
-        for (int h = 0; h < NET_H2; h++) h2[h] += a * w[h];
+        const float *w = n->w2 + (size_t)i * H2;
+        for (int h = 0; h < H2; h++) h2[h] += a * w[h];
     }
-    for (int h = 0; h < NET_H2; h++) act->a2[h] = h2[h] > 0.0f ? h2[h] : 0.0f;
+    for (int h = 0; h < H2; h++) act->a2[h] = h2[h] > 0.0f ? h2[h] : 0.0f;
 }
 
 float net_value_act(const Net *n, const NetAct *act)
 {
-    float o = n->b3;
-    for (int h = 0; h < NET_H2; h++) o += act->a2[h] * n->w3[h];
+    float o = *n->b3;
+    for (int h = 0; h < n->h2; h++) o += act->a2[h] * n->w3[h];
     return o;
 }
 
-static inline float dot_h2(const float *w, const float *a)
+static inline float dot_h2(const float *w, const float *a, int h2)
 {
     float o = 0.0f;
-    for (int h = 0; h < NET_H2; h++) o += a[h] * w[h];
+    for (int h = 0; h < h2; h++) o += a[h] * w[h];
     return o;
 }
 
 void net_policy_act(const Net *n, const NetAct *act, const uint16_t *mv, int nmv, float *logits)
 {
+    const int H2 = n->h2;
     float pl[NET_NPLAY], dr[NET_NDRAW];
     uint8_t hp[NET_NPLAY] = { 0 }, hd[NET_NDRAW] = { 0 };
     for (int i = 0; i < nmv; i++) {
         int ip = MOVE_CARD(mv[i]) * 2 + MOVE_DISC(mv[i]);
         int id = MOVE_DRAW(mv[i]);
-        if (!hp[ip]) { pl[ip] = n->bplay[ip] + dot_h2(n->wplay[ip], act->a2); hp[ip] = 1; }
-        if (!hd[id]) { dr[id] = n->bdraw[id] + dot_h2(n->wdraw[id], act->a2); hd[id] = 1; }
+        if (!hp[ip]) { pl[ip] = n->bplay[ip] + dot_h2(n->wplay + (size_t)ip * H2, act->a2, H2); hp[ip] = 1; }
+        if (!hd[id]) { dr[id] = n->bdraw[id] + dot_h2(n->wdraw + (size_t)id * H2, act->a2, H2); hd[id] = 1; }
         logits[i] = pl[ip] + dr[id];
     }
 }
 
 void net_belief_act(const Net *n, const NetAct *act, const uint8_t *cards, int nc, float *logits)
 {
+    const int H2 = n->h2;
     for (int i = 0; i < nc; i++)
-        logits[i] = n->bbel[cards[i]] + dot_h2(n->wbel[cards[i]], act->a2);
+        logits[i] = n->bbel[cards[i]] + dot_h2(n->wbel + (size_t)cards[i] * H2, act->a2, H2);
 }
 
 float net_value(const Net *n, const Features *f)
@@ -126,12 +189,13 @@ void net_backward(const Net *n, const Features *f, const NetAct *act,
                   const uint8_t *bc, const float *dbel, int nb,
                   Net *g)
 {
-    float d2[NET_H2];
-    for (int h = 0; h < NET_H2; h++) d2[h] = 0.0f;
+    const int H1 = n->h1, H2 = n->h2;
+    float d2[NET_H2_MAX];
+    for (int h = 0; h < H2; h++) d2[h] = 0.0f;
 
     if (dvalue != 0.0f) {
-        g->b3 += dvalue;
-        for (int h = 0; h < NET_H2; h++) {
+        *g->b3 += dvalue;
+        for (int h = 0; h < H2; h++) {
             g->w3[h] += dvalue * act->a2[h];
             d2[h] += dvalue * n->w3[h];
         }
@@ -155,19 +219,19 @@ void net_backward(const Net *n, const Features *f, const NetAct *act,
             int ip = plist[k];
             float d = sp[ip];
             if (d == 0.0f) continue;
-            float *gw = g->wplay[ip];
-            const float *w = n->wplay[ip];
+            float *gw = g->wplay + (size_t)ip * H2;
+            const float *w = n->wplay + (size_t)ip * H2;
             g->bplay[ip] += d;
-            for (int h = 0; h < NET_H2; h++) { gw[h] += d * act->a2[h]; d2[h] += d * w[h]; }
+            for (int h = 0; h < H2; h++) { gw[h] += d * act->a2[h]; d2[h] += d * w[h]; }
         }
         for (int k = 0; k < nd; k++) {
             int id = dlist[k];
             float d = sd[id];
             if (d == 0.0f) continue;
-            float *gw = g->wdraw[id];
-            const float *w = n->wdraw[id];
+            float *gw = g->wdraw + (size_t)id * H2;
+            const float *w = n->wdraw + (size_t)id * H2;
             g->bdraw[id] += d;
-            for (int h = 0; h < NET_H2; h++) { gw[h] += d * act->a2[h]; d2[h] += d * w[h]; }
+            for (int h = 0; h < H2; h++) { gw[h] += d * act->a2[h]; d2[h] += d * w[h]; }
         }
     }
     if (dbel) {
@@ -175,38 +239,38 @@ void net_backward(const Net *n, const Features *f, const NetAct *act,
             float dv = dbel[i];
             if (dv == 0.0f) continue;
             int card = bc[i];
-            float *gw = g->wbel[card];
-            const float *w = n->wbel[card];
+            float *gw = g->wbel + (size_t)card * H2;
+            const float *w = n->wbel + (size_t)card * H2;
             g->bbel[card] += dv;
-            for (int h = 0; h < NET_H2; h++) { gw[h] += dv * act->a2[h]; d2[h] += dv * w[h]; }
+            for (int h = 0; h < H2; h++) { gw[h] += dv * act->a2[h]; d2[h] += dv * w[h]; }
         }
     }
-    for (int h = 0; h < NET_H2; h++) if (act->a2[h] <= 0.0f) d2[h] = 0.0f;
+    for (int h = 0; h < H2; h++) if (act->a2[h] <= 0.0f) d2[h] = 0.0f;
 
-    float d1[NET_H1];
-    for (int h = 0; h < NET_H2; h++) g->b2[h] += d2[h];
-    for (int i = 0; i < NET_H1; i++) {
+    float d1[NET_H1_MAX];
+    for (int h = 0; h < H2; h++) g->b2[h] += d2[h];
+    for (int i = 0; i < H1; i++) {
         float a = act->a1[i];
         if (a != 0.0f) {
-            float *gw = g->w2[i];
-            const float *w = n->w2[i];
+            float *gw = g->w2 + (size_t)i * H2;
+            const float *w = n->w2 + (size_t)i * H2;
             float acc = 0.0f;
-            for (int h = 0; h < NET_H2; h++) { gw[h] += a * d2[h]; acc += w[h] * d2[h]; }
+            for (int h = 0; h < H2; h++) { gw[h] += a * d2[h]; acc += w[h] * d2[h]; }
             d1[i] = acc;
         } else {
             d1[i] = 0.0f;
         }
     }
-    for (int h = 0; h < NET_H1; h++) g->b1[h] += d1[h];
+    for (int h = 0; h < H1; h++) g->b1[h] += d1[h];
     for (int k = 0; k < f->nidx; k++) {
-        float *gw = g->w1[f->idx[k]];
-        for (int h = 0; h < NET_H1; h++) gw[h] += d1[h];
+        float *gw = g->w1 + (size_t)f->idx[k] * H1;
+        for (int h = 0; h < H1; h++) gw[h] += d1[h];
     }
     for (int j = 0; j < FEAT_DENSE; j++) {
         float x = f->dense[j];
         if (x == 0.0f) continue;
-        float *gw = g->w1[FEAT_BIN + j];
-        for (int h = 0; h < NET_H1; h++) gw[h] += x * d1[h];
+        float *gw = g->w1 + (size_t)(FEAT_BIN + j) * H1;
+        for (int h = 0; h < H1; h++) gw[h] += x * d1[h];
     }
 }
 
@@ -218,9 +282,9 @@ void net_adam_step(Net *n, const Net *g, Adam *a, float lr, float scale, float w
     float bc2 = 1.0f - powf(b2, (float)a->t);
     float step = lr * sqrtf(bc2) / bc1;
 
-    float *w = (float *)n, *gm = (float *)&a->m, *gv = (float *)&a->v;
-    const float *gr = (const float *)g;
-    size_t nw = sizeof(Net) / sizeof(float);
+    float *w = n->blk, *gm = a->m.blk, *gv = a->v.blk;
+    const float *gr = g->blk;
+    size_t nw = n->nfloat;
     for (size_t i = 0; i < nw; i++) {
         float grad = gr[i] * scale + wd * w[i];
         gm[i] = b1 * gm[i] + (1.0f - b1) * grad;
@@ -230,15 +294,14 @@ void net_adam_step(Net *n, const Net *g, Adam *a, float lr, float scale, float w
 }
 
 #define NET_MAGIC 0x4C435651U /* "LCVQ" */
-#define NET_BELIEF_BYTES (sizeof(((Net *)0)->wbel) + sizeof(((Net *)0)->bbel))
 
 int net_save(const Net *n, const char *path)
 {
     FILE *fp = fopen(path, "wb");
     if (!fp) return -1;
-    uint32_t hdr[6] = { NET_MAGIC, FEAT_DIM, NET_H1, NET_H2, NET_NPLAY, 4 };
+    uint32_t hdr[6] = { NET_MAGIC, FEAT_DIM, (uint32_t)n->h1, (uint32_t)n->h2, NET_NPLAY, 4 };
     fwrite(hdr, sizeof(hdr), 1, fp);
-    fwrite(n, sizeof(Net), 1, fp);
+    fwrite(n->blk, n->nfloat * sizeof(float), 1, fp);
     fclose(fp);
     return 0;
 }
@@ -249,14 +312,20 @@ int net_load(Net *n, const char *path)
     if (!fp) return -1;
     uint32_t hdr[6];
     if (fread(hdr, sizeof(hdr), 1, fp) != 1) { fclose(fp); return -1; }
-    if (hdr[0] != NET_MAGIC || hdr[1] != FEAT_DIM || hdr[2] != NET_H1 ||
-        hdr[3] != NET_H2 || hdr[4] != NET_NPLAY) { fclose(fp); return -2; }
+    /* width comes from the file now; only the feature space and the policy
+     * head's structural dims must match the build */
+    if (hdr[0] != NET_MAGIC || hdr[1] != FEAT_DIM ||
+        hdr[4] != NET_NPLAY) { fclose(fp); return -2; }
+    if (net_alloc(n, (int)hdr[2], (int)hdr[3]) != 0) { fclose(fp); return -3; }
     if (hdr[5] >= 4) {
-        if (fread(n, sizeof(Net), 1, fp) != 1) { fclose(fp); return -1; }
+        if (fread(n->blk, n->nfloat * sizeof(float), 1, fp) != 1) {
+            fclose(fp); net_free(n); return -1;
+        }
     } else {
         /* older file without the belief head: load the prefix, init the rest */
-        size_t prefix = sizeof(Net) - NET_BELIEF_BYTES;
-        if (fread(n, prefix, 1, fp) != 1) { fclose(fp); return -1; }
+        size_t belief = (size_t)NCARD * n->h2 + NCARD;
+        size_t prefix = (n->nfloat - belief) * sizeof(float);
+        if (fread(n->blk, prefix, 1, fp) != 1) { fclose(fp); net_free(n); return -1; }
         net_init_belief(n, 0xBE11EFULL);
     }
     fclose(fp);

@@ -367,10 +367,10 @@ static void *train_worker(void *arg)
 
 static void grad_accumulate(Net *dst, Net *const *src, int n)
 {
-    float *d = (float *)dst;
-    size_t nw = sizeof(Net) / sizeof(float);
+    float *d = dst->blk;
+    size_t nw = dst->nfloat;
     for (int k = 1; k < n; k++) {
-        const float *s = (const float *)src[k];
+        const float *s = src[k]->blk;
         for (size_t i = 0; i < nw; i++) d[i] += s[i];
     }
 }
@@ -394,6 +394,7 @@ int main(int argc, char **argv)
     int keep_lr_flat = 0;
     int gen_switch = 1;
     int gen_dets = 12, gen_sims = 100, gen_rw = 12, gen_nw = 8;
+    int h1 = NET_H1_DEF, h2 = NET_H2_DEF;   /* from-scratch width; --init overrides from file */
     const char *dump_path = NULL;   /* write generated samples to this file  */
     const char *data_path = NULL;   /* train from this file, no generation   */
 
@@ -431,18 +432,24 @@ int main(int argc, char **argv)
         else if (ARG("--data")) data_path = argv[++i];
         else if (ARG("--bw")) bw = (float)atof(argv[++i]);
         else if (ARG("--aug")) aug = atoi(argv[++i]);
+        else if (ARG("--h1")) h1 = atoi(argv[++i]);
+        else if (ARG("--h2")) h2 = atoi(argv[++i]);
         else if (!strcmp(k, "--flat-lr")) keep_lr_flat = 1;
         else { fprintf(stderr, "unknown option %s\n", k); return 1; }
         #undef ARG
     }
 
-    Net *net = (Net *)malloc(sizeof(Net));
+    Net *net = (Net *)calloc(1, sizeof(Net));
     Adam *adam = (Adam *)calloc(1, sizeof(Adam));
     if (init_path) {
         if (net_load(net, init_path) != 0) { fprintf(stderr, "cannot load %s\n", init_path); return 1; }
-        printf("loaded initial network from %s\n", init_path);
+        printf("loaded initial network from %s (%dx%d)\n", init_path, net->h1, net->h2);
     } else {
+        if (net_alloc(net, h1, h2) != 0) { fprintf(stderr, "bad width %dx%d\n", h1, h2); return 1; }
         net_init(net, seed * 977 + 13);
+    }
+    if (net_alloc_like(&adam->m, net) != 0 || net_alloc_like(&adam->v, net) != 0) {
+        fprintf(stderr, "adam allocation failed\n"); return 1;
     }
 
     /* Sample files: header {magic, sizeof(Sample), PI_K, 0, count(u64)} then
@@ -482,14 +489,17 @@ int main(int argc, char **argv)
     spec_parse(ref_spec, &ref);
 
     Net **grads = (Net **)calloc((size_t)nthread, sizeof(Net *));
-    for (int i = 0; i < nthread; i++) grads[i] = (Net *)malloc(sizeof(Net));
+    for (int i = 0; i < nthread; i++) {
+        grads[i] = (Net *)calloc(1, sizeof(Net));
+        if (net_alloc_like(grads[i], net) != 0) { fprintf(stderr, "grad allocation failed\n"); return 1; }
+    }
 
     size_t sample_cap = (size_t)games * 200 * (size_t)rounds;
     Sample *genbuf = (Sample *)malloc(sizeof(Sample) * sample_cap);
     if (!genbuf) { fprintf(stderr, "generation buffer allocation failed\n"); return 1; }
 
     printf("network %d-%d-%d value+policy, %zu weights, replay %zu MB\n",
-           FEAT_DIM, NET_H1, NET_H2, sizeof(Net) / sizeof(float),
+           FEAT_DIM, net->h1, net->h2, net->nfloat,
            bufcap * sizeof(Sample) / (1024 * 1024));
     fflush(stdout);
 
