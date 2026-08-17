@@ -17,3 +17,4 @@ data/FINALS_DONE
 data/w4.bin
 data/ref_w4.bin
 data/w4_selection.txt
+data/*.tmp
