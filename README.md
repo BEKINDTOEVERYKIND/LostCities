@@ -210,6 +210,33 @@ teach.  Fixing the sequencing class needs a label source that understands
 turn arithmetic -- deeper exact solving or a larger net -- not more of the
 same recipe.  c13 stands as champion.
 
+**The exact-label test settles it.** The "deeper exact solving" branch was
+then built and measured.  A transposition table went into the endgame
+solver (2.5-3x fewer nodes, verified byte-identical values against the
+table-off solver), and a one-root-solve-per-world voting mode
+(`lc_solve_root` + `solve_vote`) made exact labeling affordable where
+per-move exact averaging is not: one alpha-beta from the root prices a
+whole belief world (6.5-31M nodes at deck 5) because rising alpha refutes
+bad moves cheaply, where full-window per-move solving costs 12-55M nodes
+PER MOVE.  corr10 (33,624 samples, 320 games, deck<=5 plies labeled by
+solver vote instead of gated search) trained c16: every fine-tune
+iteration evaluated below parity, and the best iteration confirmed at
+**42.7% ± 2.9%** vs c13 over 300 paired games (margin -12.9) -- stopped
+early, no promotion.  Two independent label sources -- the gated search
+(c15) and the exact solver (c16) -- have now failed the same way, which
+acquits the labels and convicts the recipe: fine-tuning on one-hot
+targets drawn only from detector-flagged positions degrades global play
+(the flagged distribution is not the play distribution, and the
+interference cost exceeds the endgame gain; the exact slice, ~10% of the
+corpus, cannot outvote it).  The corrections loop is closed for this
+architecture.  Exact endgame strength, if it matters, belongs at
+DECISION time (`solve_deck`, measured match-neutral) or inside ordinary
+self-play training data -- not in flagged-corpus fine-tunes.  The
+remaining strength levers are a wider trunk (needs dynamic net sizing:
+the C structs are compile-time sized, the JS side is already dynamic)
+and test-time symmetrization at the candidate stage.  c13 stands as
+champion.
+
 ## Results
 
 All numbers are 3-round paired matches (each triple of deals played twice with
