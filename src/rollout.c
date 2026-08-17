@@ -154,7 +154,15 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         const int sp = st->turn;
         int sreps = a->dets > 0 ? a->dets : 1;
         if (sreps > 32) sreps = 32;
-        long sbudget = 4 * 1000 * 1000L;
+        /* labeling runs may raise the per-decision budget by env; match
+         * play keeps the 4M default (LC_SOLVE_BUDGET, nodes) */
+        static long sbudget_cfg = -1;
+        if (sbudget_cfg < 0) {
+            const char *e = getenv("LC_SOLVE_BUDGET");
+            sbudget_cfg = e ? atol(e) : 4 * 1000 * 1000L;
+            if (sbudget_cfg < 100000) sbudget_cfg = 100000;
+        }
+        long sbudget = sbudget_cfg;
         int solved = 1;
         /* in the final round the match objective is WINS, not margin: an
          * exact +5 that still loses the match must not beat an exact +12
