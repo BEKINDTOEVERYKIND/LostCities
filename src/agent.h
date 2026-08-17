@@ -73,6 +73,20 @@ typedef struct Agent {
                            belief-sampled world (alpha-beta, no net calls)
                            and take the argmax of the exact averages.
                            0 = off. */
+    int solve_vote;     /* AG_ROLLOUT labeling mode: with solve_deck set,
+                           solve each belief world ONCE from the root (a
+                           single alpha-beta whose cutoffs skip refuted
+                           moves) and vote across worlds for the PV move,
+                           margin-sum tiebreak.  Exact per-move averages
+                           cost n_moves x worlds full-window solves --
+                           measured 12-55M nodes PER MOVE at deck 5, out of
+                           reach of any labeling budget -- while one root
+                           solve prices a whole world.  Within one world
+                           margin-argmax IS wins-then-margin argmax (win is
+                           a monotone threshold on margin), so the final
+                           round needs no special case.  Worlds that blow
+                           the budget don't vote; fewer than 3 completed
+                           worlds falls through to the normal search. */
     int playout_sample; /* AG_ROLLOUT: sample the policy in playouts instead
                            of argmaxing it (common per-world seeds keep the
                            candidate comparison paired).  Argmax repeats

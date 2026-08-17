@@ -163,52 +163,106 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             if (sbudget_cfg < 100000) sbudget_cfg = 100000;
         }
         long sbudget = sbudget_cfg;
-        int solved = 1;
-        /* in the final round the match objective is WINS, not margin: an
-         * exact +5 that still loses the match must not beat an exact +12
-         * that wins it.  Solved values are noise-free, so the lexicographic
-         * (wins, then margin) order is safe here in a way it is not for
-         * sampled playouts. */
-        const int slast = st->round >= MATCH_ROUNDS - 1;
-        const int scumd = (int)st->cum[sp] - (int)st->cum[sp ^ 1];
-        double swin[MAX_MOVES];
-        for (int i = 0; i < n; i++) swin[i] = 0.0;
-        for (int d = 0; d < sreps && solved; d++) {
-            State world;
-            determinize_b(st, sp, rng, a->no_belief ? NULL : a->net, &world);
-            for (int i = 0; i < n; i++) {
-                State s = world;
-                lc_apply(&s, mv[i]);
-                int sm = lc_solve_budget(&s, sp, &sbudget);
-                ssum[i] += sm;
-                if (slast)
-                    swin[i] += scumd + sm > 0 ? 1.0 : (scumd + sm == 0 ? 0.5 : 0.0);
-                if (sbudget <= 0) { solved = 0; break; }
-            }
-        }
-        if (solved) {
-            int sbest = 0;
-            for (int i = 1; i < n; i++) {
-                if (slast) {
-                    if (swin[i] > swin[sbest] ||
-                        (swin[i] == swin[sbest] && ssum[i] > ssum[sbest])) sbest = i;
-                } else if (ssum[i] > ssum[sbest]) sbest = i;
-            }
-            if (stats) {
-                int keep = n < MAX_MOVES ? n : MAX_MOVES;
-                stats->n = keep;
-                for (int i = 0; i < keep; i++) {
-                    stats->mv[i] = mv[i];
-                    stats->visits[i] = sreps;
-                    stats->q[i] = ssum[i] / sreps;
-                    stats->se[i] = 0.0;
-                    stats->qw[i] = -1.0;
+        /* labeling mode: one root solve per world, vote for the PV move
+         * (see agent.h solve_vote).  Worlds that exhaust the shared budget
+         * don't vote; too few completed worlds falls through to search. */
+        if (a->solve_vote) {
+            int votes[MAX_MOVES];
+            double vsum[MAX_MOVES];
+            for (int i = 0; i < n; i++) { votes[i] = 0; vsum[i] = 0.0; }
+            int vreps = sreps < 9 ? sreps : 9;
+            int done = 0;
+            for (int d = 0; d < vreps && sbudget > 0; d++) {
+                State world;
+                determinize_b(st, sp, rng, a->no_belief ? NULL : a->net, &world);
+                Move bm;
+                int v = lc_solve_root(&world, &sbudget, &bm);
+                if (sbudget <= 0) break;
+                /* map the PV move onto the deduped list modulo the
+                 * wager-copy isomorphism: the solver searches the lowest
+                 * held copy, the dedup fold may have kept another */
+                int idx = -1;
+                for (int i = 0; i < n && idx < 0; i++) {
+                    int same_card = mv[i].card == bm.card ||
+                                    (CARD_IS_WAGER(mv[i].card) && CARD_IS_WAGER(bm.card) &&
+                                     CARD_SUIT(mv[i].card) == CARD_SUIT(bm.card) &&
+                                     mv[i].discard == bm.discard);
+                    if (same_card && mv[i].discard == bm.discard && mv[i].draw == bm.draw)
+                        idx = i;
                 }
-                stats->value = (float)(ssum[sbest] / sreps);
+                if (idx >= 0) { votes[idx]++; vsum[idx] += v; done++; }
             }
-            if (out_value) *out_value = (float)(ssum[sbest] / sreps);
-            return mv[sbest];
-        }
+            if (done >= 3) {
+                int vb = 0;
+                for (int i = 1; i < n; i++)
+                    if (votes[i] > votes[vb] ||
+                        (votes[i] == votes[vb] && vsum[i] > vsum[vb])) vb = i;
+                if (out_value) *out_value = votes[vb] ? (float)(vsum[vb] / votes[vb]) : value;
+                if (stats) {
+                    int keep = n < MAX_MOVES ? n : MAX_MOVES;
+                    stats->n = keep;
+                    for (int i = 0; i < keep; i++) {
+                        stats->mv[i] = mv[i];
+                        stats->visits[i] = votes[i];
+                        stats->q[i] = votes[i] ? vsum[i] / votes[i] : 0.0;
+                        stats->se[i] = 0.0;
+                        stats->qw[i] = -1.0;
+                    }
+                    stats->value = votes[vb] ? (float)(vsum[vb] / votes[vb]) : value;
+                }
+                return mv[vb];
+            }
+            /* not enough exact worlds: fall through to the normal search
+             * (skip the per-move averaging path -- if the budget could not
+             * finish 3 root solves it cannot finish n x worlds solves) */
+        } else {
+            int solved = 1;
+            /* in the final round the match objective is WINS, not margin: an
+             * exact +5 that still loses the match must not beat an exact +12
+             * that wins it.  Solved values are noise-free, so the lexicographic
+             * (wins, then margin) order is safe here in a way it is not for
+             * sampled playouts. */
+            const int slast = st->round >= MATCH_ROUNDS - 1;
+            const int scumd = (int)st->cum[sp] - (int)st->cum[sp ^ 1];
+            double swin[MAX_MOVES];
+            for (int i = 0; i < n; i++) swin[i] = 0.0;
+            for (int d = 0; d < sreps && solved; d++) {
+                State world;
+                determinize_b(st, sp, rng, a->no_belief ? NULL : a->net, &world);
+                for (int i = 0; i < n; i++) {
+                    State s = world;
+                    lc_apply(&s, mv[i]);
+                    int sm = lc_solve_budget(&s, sp, &sbudget);
+                    ssum[i] += sm;
+                    if (slast)
+                        swin[i] += scumd + sm > 0 ? 1.0 : (scumd + sm == 0 ? 0.5 : 0.0);
+                    if (sbudget <= 0) { solved = 0; break; }
+                }
+            }
+            if (solved) {
+                int sbest = 0;
+                for (int i = 1; i < n; i++) {
+                    if (slast) {
+                        if (swin[i] > swin[sbest] ||
+                            (swin[i] == swin[sbest] && ssum[i] > ssum[sbest])) sbest = i;
+                    } else if (ssum[i] > ssum[sbest]) sbest = i;
+                }
+                if (stats) {
+                    int keep = n < MAX_MOVES ? n : MAX_MOVES;
+                    stats->n = keep;
+                    for (int i = 0; i < keep; i++) {
+                        stats->mv[i] = mv[i];
+                        stats->visits[i] = sreps;
+                        stats->q[i] = ssum[i] / sreps;
+                        stats->se[i] = 0.0;
+                        stats->qw[i] = -1.0;
+                    }
+                    stats->value = (float)(ssum[sbest] / sreps);
+                }
+                if (out_value) *out_value = (float)(ssum[sbest] / sreps);
+                return mv[sbest];
+            }
+            }
     }
 
     /* ply window: outside it the raw policy plays (see agent.h) */

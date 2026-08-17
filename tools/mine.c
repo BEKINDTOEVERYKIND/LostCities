@@ -156,7 +156,7 @@ static int detect(const State *st, const Move *mv, const float *pr, int n)
 
 typedef struct {
     const Net *net;
-    int games, thread, nthread, dets, dup;
+    int games, thread, nthread, dets, dup, solvedeck;
     uint64_t seed;
     FILE *out;
     pthread_mutex_t *lk;
@@ -178,6 +178,12 @@ static void *worker(void *arg)
     lab.eval_cand = 4;
     lab.override_k = 3.0f;      /* override_min 4 and prune_dom on by default */
     lab.playout_sample = 1;
+    /* exact endgame labels: at deck_left <= solvedeck the labeler solves
+     * belief worlds instead of estimating them -- vote mode, one root
+     * solve per world (grant the solver a real budget via LC_SOLVE_BUDGET
+     * or it falls back to search immediately) */
+    lab.solve_deck = j->solvedeck;
+    lab.solve_vote = j->solvedeck > 0;
 
     Features f;
     for (int g = j->thread; g < j->games; g += j->nthread) {
@@ -355,7 +361,7 @@ int main(int argc, char **argv)
 {
     const char *netpath = "data/best.bin", *outpath = "data/corr.smp";
     const char *filter_in = NULL, *filter_out = NULL, *self_in = NULL, *self_out = NULL;
-    int games = 200, nthread = 4, dets = 256, dup = 4;
+    int games = 200, nthread = 4, dets = 256, dup = 4, solvedeck = 0;
     uint64_t seed = 20260729;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--net") && i + 1 < argc) netpath = argv[++i];
@@ -365,6 +371,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--dets") && i + 1 < argc) dets = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--dup") && i + 1 < argc) dup = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], NULL, 10);
+        else if (!strcmp(argv[i], "--solvedeck") && i + 1 < argc) solvedeck = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--filter") && i + 2 < argc) { filter_in = argv[++i]; filter_out = argv[++i]; }
         else if (!strcmp(argv[i], "--selftarget") && i + 2 < argc) { self_in = argv[++i]; self_out = argv[++i]; }
         else { fprintf(stderr, "usage: %s [--net N] [--out F] [--games G] [--threads T] [--dets D] [--dup K]\n", argv[0]); return 1; }
@@ -389,6 +396,7 @@ int main(int argc, char **argv)
         memset(&jobs[i], 0, sizeof(Job));
         jobs[i].net = net; jobs[i].games = games; jobs[i].thread = i;
         jobs[i].nthread = nthread; jobs[i].dets = dets; jobs[i].dup = dup;
+        jobs[i].solvedeck = solvedeck;
         jobs[i].seed = seed; jobs[i].out = out; jobs[i].lk = &lk;
         pthread_create(&th[i], NULL, worker, &jobs[i]);
     }
