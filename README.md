@@ -259,7 +259,12 @@ trunk carries relatively more of its strength -- a hybrid agent (champion
 policy priors, wide-net playout evaluation) is the other recorded
 follow-up, pending an Agent that can carry two nets.  Either way the
 sizing infrastructure is permanent: any width now loads, trains, and
-plays from the same binaries.
+plays from the same binaries.  The undertraining reading was then tested
+directly: 130 MORE PPO iterations on the wide net (260 total, twice the
+recipe's budget) moved its vs-champion-policy probe from 37.4% to 39.2%
+-- statistically flat across six late checkpoints (34-40%, SE ~2.4 each).
+Doubling the training did not unlock the doubled capacity; width scaling
+under this recipe is closed, matching the s2 result one width down.
 
 ## Results
 
