@@ -237,6 +237,30 @@ the C structs are compile-time sized, the JS side is already dynamic)
 and test-time symmetrization at the candidate stage.  c13 stands as
 champion.
 
+**The wider trunk, measured.** Runtime net sizing was then built (the
+weight-file header always carried h1/h2; the Net struct became a shell
+over one contiguous block in the old layout, so a 512x256 file
+round-trips byte-identically and an arena chunk replays game-for-game --
+35% faster, the block being kinder to the cache), and the full sym1
+pipeline (imitation -> 130 PPO -> 80 win-finishing, `--aug 1` everywhere,
+identical budgets) was rerun at 1024x512 -- 2.56x the weights.  The wide
+net trained normally (87-93% vs its own imitation start through PPO,
+finishing added its usual match-win reshaping), and its best checkpoint
+(`data/big1.bin`) confirmed at **41.8%** vs c13 as a raw policy (300
+pairs) and **46.3% ± 1.8%** (margin -15.2) as a full search agent over
+800 games.  No promotion; c13 stands.  Two readings, both recorded: the
+narrow one is that width alone at a FIXED training budget loses to four
+generations of corrections -- 2.56x capacity fed the same 130+80
+iterations is plausibly undertrained, and resuming b1's PPO for another
+130+ iterations is the cheap follow-up this leaves on the table.  The
+interesting one is the config split: as a search agent the wide net sits
+5 points closer to c13 than its raw policy does, i.e. its value/belief
+trunk carries relatively more of its strength -- a hybrid agent (champion
+policy priors, wide-net playout evaluation) is the other recorded
+follow-up, pending an Agent that can carry two nets.  Either way the
+sizing infrastructure is permanent: any width now loads, trains, and
+plays from the same binaries.
+
 ## Results
 
 All numbers are 3-round paired matches (each triple of deals played twice with
