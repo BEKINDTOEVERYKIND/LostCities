@@ -106,6 +106,14 @@ typedef struct Agent {
                            policy's top move already has >= this probability
                            (0 = always search) */
     int no_belief;      /* AG_ROLLOUT ablation: sample worlds uniformly      */
+    const Net *net_b;   /* AG_ROLLOUT hybrid: when set, THIS net's belief
+                           head steers world sampling while `net` keeps the
+                           policy/priors/playouts (spec kind "rollouth").
+                           NULL = use `net` for both, the normal case.  Born
+                           from the wide-trunk config split: the 1024x512
+                           net's search results sat 5 points closer to the
+                           champion than its raw policy, suggesting its
+                           trunk's strength lives in inference, not moves. */
     int ov_draw;        /* AG_ROLLOUT: draw variants of the SAME action
                            qualify for the override at HALF override_k.
                            Rationale: the 42.8% forcing disaster was about

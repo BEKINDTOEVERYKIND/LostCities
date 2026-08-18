@@ -36,16 +36,24 @@ void spec_parse(const char *spec, Agent *a)
         return;
     }
     if (!strcmp(tok, "net") || !strcmp(tok, "mcts") || !strcmp(tok, "policy") ||
-        !strcmp(tok, "rollout") || !strcmp(tok, "rolloutu")) {
+        !strcmp(tok, "rollout") || !strcmp(tok, "rolloutu") || !strcmp(tok, "rollouth")) {
         int is_mcts = !strcmp(tok, "mcts");
         int is_policy = !strcmp(tok, "policy");
-        int is_rollout = !strcmp(tok, "rollout") || !strcmp(tok, "rolloutu");
+        int is_hybrid = !strcmp(tok, "rollouth");
+        int is_rollout = !strcmp(tok, "rollout") || !strcmp(tok, "rolloutu") || is_hybrid;
         int is_uniform = !strcmp(tok, "rolloutu");
         char *path = strtok_r(NULL, ":", &save);
         if (!path) { fprintf(stderr, "agent '%s' needs a network path\n", tok); exit(1); }
         Net *n = load_net(path);
         agent_default(a, is_rollout ? AG_ROLLOUT :
                          (is_mcts ? AG_MCTS : (is_policy ? AG_POLICY : AG_NET)), n);
+        if (is_hybrid) {
+            /* rollouth:NETMAIN:NETBELIEF:<the usual rollout fields> -- the
+             * second net's belief head steers world sampling only */
+            char *bpath = strtok_r(NULL, ":", &save);
+            if (!bpath) { fprintf(stderr, "rollouth needs a second (belief) network path\n"); exit(1); }
+            a->net_b = load_net(bpath);
+        }
         char *v;
         if (is_rollout) {
             a->no_belief = is_uniform;

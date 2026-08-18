@@ -174,7 +174,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             int done = 0;
             for (int d = 0; d < vreps && sbudget > 0; d++) {
                 State world;
-                determinize_b(st, sp, rng, a->no_belief ? NULL : a->net, &world);
+                determinize_b(st, sp, rng, a->no_belief ? NULL : (a->net_b ? a->net_b : a->net), &world);
                 Move bm;
                 int v = lc_solve_root(&world, &sbudget, &bm);
                 if (sbudget <= 0) break;
@@ -228,7 +228,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             for (int i = 0; i < n; i++) swin[i] = 0.0;
             for (int d = 0; d < sreps && solved; d++) {
                 State world;
-                determinize_b(st, sp, rng, a->no_belief ? NULL : a->net, &world);
+                determinize_b(st, sp, rng, a->no_belief ? NULL : (a->net_b ? a->net_b : a->net), &world);
                 for (int i = 0; i < n; i++) {
                     State s = world;
                     lc_apply(&s, mv[i]);
@@ -352,7 +352,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
 
     for (int d = 0; d < reps; d++) {
         State world;
-        determinize_b(st, p, rng, a->no_belief ? NULL : a->net, &world);
+        determinize_b(st, p, rng, a->no_belief ? NULL : (a->net_b ? a->net_b : a->net), &world);
         uint64_t wseed = 0x9E3779B97F4A7C15ULL * (uint64_t)(d + 1) ^ rng->s[0];
         for (int c = 0; c < neval; c++) {
             State s = world;                 /* same world for every candidate */
@@ -436,7 +436,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                 double ds = 0.0;
                 for (int d = 0; d < reps; d++) {
                     State world;
-                    determinize_b(st, p, rng, a->no_belief ? NULL : a->net, &world);
+                    determinize_b(st, p, rng, a->no_belief ? NULL : (a->net_b ? a->net_b : a->net), &world);
                     uint64_t wseed = 0x9E3779B97F4A7C15ULL * (uint64_t)(d + 1) ^ rng->s[0];
                     Rng r1, r2;
                     rng_seed(&r1, wseed);
