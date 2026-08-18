@@ -265,6 +265,15 @@ recipe's budget) moved its vs-champion-policy probe from 37.4% to 39.2%
 -- statistically flat across six late checkpoints (34-40%, SE ~2.4 each).
 Doubling the training did not unlock the doubled capacity; width scaling
 under this recipe is closed, matching the s2 result one width down.
+The inference-side signal was then isolated with a hybrid agent
+(`rollouth:MAIN:BELIEF` -- MAIN keeps priors, candidates and playouts,
+BELIEF's head alone steers world sampling): champion policy + wide-net
+beliefs measured **49.7% ± 1.8%** (margin -6.5) against the plain
+champion over 800 games.  Parity, not gain -- the config split was the
+search structure flattering the wide net, not a superior belief head.
+The wide-trunk direction is fully closed: policy 41.8%, search 46.3%,
+doubled PPO flat, beliefs 49.7%.  The rollouth machinery stays (any two
+nets can now split roles in one agent).  c13 stands as champion.
 
 ## Results
 
