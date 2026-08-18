@@ -509,7 +509,9 @@ plays.  Measured head-to-head at k=1: **53.8% ± 1.8% match wins over
 800 games** against the ungated spec (margin -6.7: it wins more matches
 on fewer aggregate points -- the signature of removing rare
 catastrophes at a small cost in average sharpness, and match wins are
-the objective).
+the objective).  k=1.5 measured 52.0% ± 1.8% over its own 800 games --
+also above parity, but the stricter gate suppresses more of the good
+overrides than it saves in blunders; k=1 stands.
 
 ## Reproducing
 
