@@ -488,11 +488,28 @@ search on exhaustion -- an unbounded per-solve version could pin a thread
 for hours on one rare wide-hand endgame.
 
 Recommended settings: **maximum strength**
-`rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3` (search from ply 14, four
-candidates evaluated, dominated discards pruned, 3-SE advisory override);
+`rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1` (search from ply 14,
+four candidates evaluated, dominated discards pruned, 3-SE advisory
+override, 1-SE selection gate);
 **gate 0.85 for real-time play**; raw policy for bulk generation.
 Analysis uses `rollout:NET:512:5:0.02:0:1:0:0:4:0:1:3` -- the same
 selection rules at 512 worlds, searched at every ply for display.
+
+Field 17 (`sel_k`) is the selection gate, added after a reviewer caught
+the showcase game gifting a B wager to an opponent holding a wager-only
+B expedition.  The eligible-candidate argmax had no noise protection:
+the two dead wager copies dedup-folded into a 3.7% prior that crossed
+the 2% floor, and at 96 worlds a candidate measuring **3.13 ± 0.52
+points worse** at 4000 worlds still won the argmax in ~5% of seeds --
+the game hit that tail.  With the gate a non-top candidate must lead
+the policy top by `sel_k` paired SEs or the top plays.  Replays at the
+caught position: the gift drops to 0/40 seeds while the position's
+genuinely better override (the safe wager discard, +2.61 ± 0.24) still
+plays.  Measured head-to-head at k=1: **53.8% ± 1.8% match wins over
+800 games** against the ungated spec (margin -6.7: it wins more matches
+on fewer aggregate points -- the signature of removing rare
+catastrophes at a small cost in average sharpness, and match wins are
+the objective).
 
 ## Reproducing
 
