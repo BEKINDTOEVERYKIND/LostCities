@@ -106,6 +106,15 @@ typedef struct Agent {
                            policy's top move already has >= this probability
                            (0 = always search) */
     int no_belief;      /* AG_ROLLOUT ablation: sample worlds uniformly      */
+    float sel_k;        /* AG_ROLLOUT selection gate: a non-top-prior ELIGIBLE
+                           candidate may replace the policy top only when its
+                           paired lead exceeds sel_k standard errors.  The
+                           advisory override always had this protection; the
+                           eligible argmax had none, so a low-prior candidate
+                           could take the move on pure world noise (observed:
+                           a 2%-prior wager gift, 3.1 +- 0.5 points WORSE at
+                           4000 worlds, played from a ~5% noise tail at 96).
+                           0 = raw argmax (old behavior). */
     const Net *net_b;   /* AG_ROLLOUT hybrid: when set, THIS net's belief
                            head steers world sampling while `net` keeps the
                            policy/priors/playouts (spec kind "rollouth").

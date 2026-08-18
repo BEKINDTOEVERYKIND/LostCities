@@ -379,6 +379,35 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                     (sumw[c] == sumw[best] && sum[c] > sum[best]))
                  : (sum[c] > sum[best])) best = c;
     }
+    /* selection gate (sel_k, see agent.h): candidate 0 is the policy's top
+     * choice after dedup and pruning; any other eligible candidate keeps the
+     * move only if its paired margin lead over candidate 0 clears sel_k
+     * standard errors.  Among qualifiers the usual rule picks; if none
+     * qualify the policy top plays.  The gate is on margins even in win_q
+     * mode -- the win signal is coarser, not less noisy. */
+    if (a->sel_k > 0.0f && val && reps > 1 && best != 0) {
+        int pick = 0;
+        for (int c = 1; c < ncand; c++) {
+            double dm = (sum[c] - sum[0]) / reps;
+            if (dm <= 0.0) continue;
+            double v2 = 0.0;
+            for (int d = 0; d < reps; d++) {
+                double x = val[(size_t)c * reps + d] - val[(size_t)0 * reps + d] - dm;
+                v2 += x * x;
+            }
+            double sed = sqrt(v2 / (reps - 1) / reps);
+            if (getenv("LC_OV_DEBUG"))
+                fprintf(stderr, "[sel] cand %d dm %.2f sed %.2f need >%.2f: %s\n",
+                        c, dm, sed, a->sel_k * sed,
+                        dm > a->sel_k * sed ? "QUALIFY" : "reject");
+            if (dm <= a->sel_k * sed) continue;
+            if (pick == 0 ||
+                (usew ? (sumw[c] > sumw[pick] ||
+                         (sumw[c] == sumw[pick] && sum[c] > sum[pick]))
+                      : (sum[c] > sum[pick]))) pick = c;
+        }
+        best = pick;
+    }
     /* significance-gated override: an advisory candidate may take the move
      * only when its lead over the eligible best exceeds override_k paired
      * standard errors AND override_min points.  The SE gate rejects noise
