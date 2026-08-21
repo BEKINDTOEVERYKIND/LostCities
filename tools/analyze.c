@@ -253,17 +253,22 @@ int main(int argc, char **argv)
             fprintf(pf, "]}");
         }
 
-        /* policy head over all legal moves, best first, capped at 10 */
+        /* policy head over all legal moves, best first, capped at 10.
+         * Fold identical wager copies (summed mass) exactly as the decision
+         * path does: the raw per-copy split confused a reviewer into asking
+         * whether the symmetry work had landed at all -- it had, everywhere
+         * except this dump */
         Move pmv[MAX_MOVES];
         float prob[MAX_MOVES], pv;
         int nleg = policy_probs(ag.net, &st, pmv, prob, &pv);
+        int nfold = nleg > 1 ? lc_dedup_wagers(&st, pmv, prob, nleg, 1) : nleg;
         int ord[MAX_MOVES];
-        for (int i = 0; i < nleg; i++) ord[i] = i;
-        for (int i = 0; i < nleg; i++)
-            for (int j = i + 1; j < nleg; j++)
+        for (int i = 0; i < nfold; i++) ord[i] = i;
+        for (int i = 0; i < nfold; i++)
+            for (int j = i + 1; j < nfold; j++)
                 if (prob[ord[j]] > prob[ord[i]]) { int t = ord[i]; ord[i] = ord[j]; ord[j] = t; }
         fprintf(pf, ",\"nlegal\":%d,\"policy\":[", nleg);
-        int keep = nleg < 10 ? nleg : 10;
+        int keep = nfold < 10 ? nfold : 10;
         for (int i = 0; i < keep; i++) {
             if (i) fputc(',', pf);
             j_move_open(pf, pmv[ord[i]]);
