@@ -127,27 +127,12 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             if (k > 0) n = k;
         }
     }
-    /* wager-gift pruning (prune_dom >= 2): discarding a wager the OPPONENT
-     * can still play (their expedition in that suit has no number cards)
-     * hands them multiplier fuel of unbounded value.  Reviewer-caught twice
-     * as round-deciding -- a gifted third Y wager grew into a x4 20-bonus
-     * expedition -- and the playout estimator underprices the gift (it
-     * scored one such discard BEST at 4000 worlds), so the class is removed
-     * from the candidate set outright whenever any other move survives. */
-    if (a->prune_dom >= 2 && n > 1) {
-        const int opp = st->turn ^ 1;
-        int k = 0;
-        for (int i = 0; i < n; i++) {
-            if (mv[i].discard && CARD_IS_WAGER(mv[i].card) &&
-                st->exp_top[opp][CARD_SUIT(mv[i].card)] == 0 &&
-                st->exp_wager[opp][CARD_SUIT(mv[i].card)] < WAGERS_PER_SUIT)
-                continue;
-            mv[k] = mv[i];
-            prob[k] = prob[i];
-            k++;
-        }
-        if (k > 0) n = k;
-    }
+    /* NOTE: a prune of opponent-playable wager discards was tried here and
+     * REVERTED at the reviewer's direction: the class is sometimes correct
+     * (every alternative worse, or an endgame where the pickup cannot be
+     * afforded), and category bans are the wrong tool.  The wager-gift
+     * blunders (probes c13m_gift_19, selk_gift_13) are POLICY weaknesses,
+     * recorded in the suite until the policy itself learns them. */
     if (n <= 1) {
         if (out_value) *out_value = value;
         if (stats) {
