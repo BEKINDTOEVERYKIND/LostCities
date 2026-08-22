@@ -106,6 +106,12 @@ typedef struct Agent {
                            policy's top move already has >= this probability
                            (0 = always search) */
     int no_belief;      /* AG_ROLLOUT ablation: sample worlds uniformly      */
+    long solve_budget;  /* AG_ROLLOUT: per-decision node budget for the
+                           solve_deck block (spec field 19, in millions;
+                           0 = the LC_SOLVE_BUDGET env / 4M default).  The
+                           pre-transposition-table budget could not finish a
+                           deck-5 decision; with the table a root-vote at
+                           deck 5 fits in tens of millions. */
     float sel_k;        /* AG_ROLLOUT selection gate: a non-top-prior ELIGIBLE
                            candidate may replace the policy top only when its
                            paired lead exceeds sel_k standard errors.  The

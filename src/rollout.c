@@ -127,6 +127,27 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             if (k > 0) n = k;
         }
     }
+    /* wager-gift pruning (prune_dom >= 2): discarding a wager the OPPONENT
+     * can still play (their expedition in that suit has no number cards)
+     * hands them multiplier fuel of unbounded value.  Reviewer-caught twice
+     * as round-deciding -- a gifted third Y wager grew into a x4 20-bonus
+     * expedition -- and the playout estimator underprices the gift (it
+     * scored one such discard BEST at 4000 worlds), so the class is removed
+     * from the candidate set outright whenever any other move survives. */
+    if (a->prune_dom >= 2 && n > 1) {
+        const int opp = st->turn ^ 1;
+        int k = 0;
+        for (int i = 0; i < n; i++) {
+            if (mv[i].discard && CARD_IS_WAGER(mv[i].card) &&
+                st->exp_top[opp][CARD_SUIT(mv[i].card)] == 0 &&
+                st->exp_wager[opp][CARD_SUIT(mv[i].card)] < WAGERS_PER_SUIT)
+                continue;
+            mv[k] = mv[i];
+            prob[k] = prob[i];
+            k++;
+        }
+        if (k > 0) n = k;
+    }
     if (n <= 1) {
         if (out_value) *out_value = value;
         if (stats) {
@@ -162,7 +183,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             sbudget_cfg = e ? atol(e) : 4 * 1000 * 1000L;
             if (sbudget_cfg < 100000) sbudget_cfg = 100000;
         }
-        long sbudget = sbudget_cfg;
+        long sbudget = a->solve_budget > 0 ? a->solve_budget : sbudget_cfg;
         /* labeling mode: one root solve per world, vote for the PV move
          * (see agent.h solve_vote).  Worlds that exhaust the shared budget
          * don't vote; too few completed worlds falls through to search. */
