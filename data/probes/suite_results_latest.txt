@@ -1,0 +1,69 @@
+===== ADOPTED SPEC =====
+wager_open_w2        legacy (.moves row), skipped
+wager_open_w3        legacy (.moves row), skipped
+skip_cost_B8         legacy (.moves row), skipped
+skip_cost_B10        legacy (.moves row), skipped
+dead_discard         legacy (.moves row), skipped
+gift_discard         legacy (.moves row), skipped
+stall_habit          legacy (.moves row), skipped
+suit_order_72        better 13/20  worse  7/20  other  0  ok
+premature_B10        better 13/20  worse  7/20  other  0  ok
+bank_vs_wait_75      better  3/20  worse 17/20  other  0  FAIL
+g424_policy_G5       better 20/20  worse  0/20  other  0  PASS
+g424_skip_B7         better 18/20  worse  0/20  other  2  PASS
+g424_stall_38        better  1/20  worse 13/20  other  6  FAIL
+g424_stall_43        better  0/20  worse  0/20  other 20  ok
+g424_Y3_play         better 20/20  worse  0/20  other  0  PASS
+g424_det_bias        better 20/20  worse  0/20  other  0  PASS
+g424_G10_111         better 20/20  worse  0/20  other  0  PASS
+g424_drawY_112       better  8/20  worse  4/20  other  8  ok
+g424_G8Y_118         better 13/20  worse  0/20  other  7  PASS
+g424_takeG6_126      better  4/20  worse  9/20  other  7  FAIL
+c13m_gift_19         better 16/20  worse  0/20  other  4  PASS
+c13m_grab_20         better  7/20  worse  5/20  other  8  ok
+selk_gift_13         better  0/20  worse  0/20  other 20  ok
+selk_open_7          better  0/20  worse 20/20  other  0  FAIL
+selk_tempo_23        better  3/20  worse 14/20  other  3  FAIL
+selk_deny_33         better  6/20  worse  0/20  other 14  PASS
+selk_stall_43        better 15/20  worse  0/20  other  5  PASS
+selk_stall_89        better  0/20  worse 20/20  other  0  FAIL
+selk_stall_91        better  1/20  worse  5/20  other 14  FAIL
+selk_stall_93        better  0/20  worse 20/20  other  0  FAIL
+selk_open_59         better  0/20  worse 20/20  other  0  FAIL
+
+24 probes: better 201, worse 161 (42% / 34% of decisions)
+
+===== SOLVER-ENDGAME CANDIDATE =====
+wager_open_w2        legacy (.moves row), skipped
+wager_open_w3        legacy (.moves row), skipped
+skip_cost_B8         legacy (.moves row), skipped
+skip_cost_B10        legacy (.moves row), skipped
+dead_discard         legacy (.moves row), skipped
+gift_discard         legacy (.moves row), skipped
+stall_habit          legacy (.moves row), skipped
+suit_order_72        better 13/20  worse  7/20  other  0  ok
+premature_B10        better 13/20  worse  7/20  other  0  ok
+bank_vs_wait_75      better  3/20  worse 17/20  other  0  FAIL
+g424_policy_G5       better 20/20  worse  0/20  other  0  PASS
+g424_skip_B7         better 18/20  worse  0/20  other  2  PASS
+g424_stall_38        better  1/20  worse 13/20  other  6  FAIL
+g424_stall_43        better  0/20  worse  0/20  other 20  ok
+g424_Y3_play         better 20/20  worse  0/20  other  0  PASS
+g424_det_bias        better 20/20  worse  0/20  other  0  PASS
+g424_G10_111         better 20/20  worse  0/20  other  0  PASS
+g424_drawY_112       better  8/20  worse  4/20  other  8  ok
+g424_G8Y_118         better 13/20  worse  0/20  other  7  PASS
+g424_takeG6_126      better  4/20  worse  9/20  other  7  FAIL
+c13m_gift_19         better 16/20  worse  0/20  other  4  PASS
+c13m_grab_20         better  7/20  worse  5/20  other  8  ok
+selk_gift_13         better  0/20  worse  0/20  other 20  ok
+selk_open_7          better  0/20  worse 20/20  other  0  FAIL
+selk_tempo_23        better  3/20  worse 14/20  other  3  FAIL
+selk_deny_33         better  6/20  worse  0/20  other 14  PASS
+selk_stall_43        better  3/20  worse  0/20  other 17  PASS
+selk_stall_89        better  0/20  worse 20/20  other  0  FAIL
+selk_stall_91        better 18/20  worse  1/20  other  1  ok
+selk_stall_93        better 20/20  worse  0/20  other  0  PASS
+selk_open_59         better  0/20  worse 20/20  other  0  FAIL
+
+24 probes: better 226, worse 137 (47% / 29% of decisions)

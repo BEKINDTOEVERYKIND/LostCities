@@ -19,3 +19,14 @@ g424_G10_111	g424_p111.state	424242	111	G10 p deck	Y5 d deck	G10 +1.23 over the 
 g424_drawY_112	g424_p112.state	424242	112	R4 p Y	R4 p deck	useful-pile-draw undervalued: +4.99 for taking the yellow; policy 0.01% on it
 g424_G8Y_118	g424_p118.state	424242	118	G8 p Y	Y7 p deck	the never-evaluated combo was +5.03 better; motivated draw-variant expansion
 g424_takeG6_126	g424_p126.state	424242	126	W6 p G	W6 p deck	drawing the just-discarded G6 is +8.61; combo was never a candidate pre-expansion
+c13m_gift_19	c13m_p19.state	424245	19	Yx d deck	Bx d deck	reviewer catch: B-wager gift to a wager-only opp expedition; -3.13 +- 0.52 vs policy top at 4000w, safe Yx twin +2.61; led to the selection gate AND the wager-gift prune
+c13m_grab_20	c13m_p20.state	424245	20	G2 d deck	Y4 p B	the gifted wager grabbed next ply; display 512w: G2 d 9.4 vs Y4-B 6.7
+selk_gift_13	selk_p13.state	909091	13	B6 p deck	Yx d deck	reviewer: "absolutely horrendous" -- third Y wager gifted to wager-only opp exp, grew into a x4 20-bonus expedition; B6 +5.91 +- 0.68; POLICY-level (0.231 top)
+selk_open_7	selk_p7.state	909091	7	Yx p deck	Y4 p deck	reviewer flagged Y4 (suggested W8 +0.63); measured best Yx play +1.81 +- 0.54
+selk_tempo_23	selk_p23.state	909091	23	W2 d deck	R7 p deck	reviewer: W2 discard clearly best; measured +0.34 +- 0.26 (marginal); gate kept the policy top
+selk_deny_33	selk_p33.state	909091	33	W2 d deck	B8 p deck	reviewer suggested Y6 (+1.19); W2 d best +1.64 +- 0.20
+selk_stall_43	selk_p43.state	909091	43	Y7 p deck	G7 p B	EXACT: 8/8 solved worlds play Y7 and draw deck; playouts preferred the stall (schism)
+selk_stall_89	selk_p89.state	909091	89	Y7 p deck	Y7 p B	WATCH: playouts love the stall (+9.2!); exact solve of this width incomplete, sibling plies 91/93 unanimously refute the class
+selk_stall_91	selk_p91.state	909091	91	Y9 p deck	Y9 p B	EXACT: 8/8 worlds deck; playouts prefer the stall +1.90 -- schism
+selk_stall_93	selk_p93.state	909091	93	Y10 p deck	G7 p Y	EXACT: 8/8 worlds Y10-deck; played G7+Y-pile stall wrong on both card and draw
+selk_open_59	selk_p59.state	909091	59	B6 p deck	Gx p deck	reviewer: Gx nonsense, B6 best; B6 +4.92 +- 0.41; gate kept the policy top over search's correct B6
