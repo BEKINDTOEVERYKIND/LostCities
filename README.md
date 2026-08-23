@@ -532,6 +532,19 @@ win-aware AVERAGING block (per-move exact values, lexicographic
 wins-then-margin) at a real budget -- the configuration E14 tested only
 at starved 4M budgets before the transposition table existed.
 
+That rematch was run: solvedeck 5 through the averaging block at a 60M
+node budget (spec tail `:5:0:1:0:60`), 400 pairs / 800 games against
+the adopted spec.  Result **49.2% ± 3.5%** (95% CI), point margin +1.0:
+measured-neutral.  The magnitude-aware aggregation fixes the vote's
+pathology (it recovers the ~6-point match loss the vote suffered) and
+still flips the solver-covered stall probes, but converts none of that
+into match wins -- by deck<=5 the games it changes are almost all
+already decided, and each endgame decision costs minutes of solving.
+The adopted fast spec stands.  Verdict for the flagged-stall class:
+decision-time exactness is the wrong lever at this depth; what remains
+of the stall flaw lives at deck 6-8, outside affordable solver reach,
+and is a policy-training problem.
+
 ## Reproducing
 
 ```
