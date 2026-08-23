@@ -1,0 +1,233 @@
+=== ply 1: -c W2 d deck -c Y2 p deck -c G3 p deck -c Bx p deck
+
+candidate          Q(round)     +-SE     paired diff vs first
+W2 d deck             -5.78     0.48
+Y2 p deck             -6.22     0.48     -0.44 +- 0.26
+G3 p deck             -6.44     0.47     -0.66 +- 0.45
+Bx p deck             -6.18     0.48     -0.40 +- 0.39
+=== ply 3: -c W2 d deck -c Y6 p deck -c Bx p deck -c G3 p deck
+
+candidate          Q(round)     +-SE     paired diff vs first
+W2 d deck             -3.89     0.47
+Y6 p deck             -3.80     0.47     +0.09 +- 0.22
+Bx p deck             -2.92     0.47     +0.97 +- 0.34
+G3 p deck             -6.13     0.47     -2.24 +- 0.43
+=== ply 10: -c G5 p deck -c R5 p deck -c W5 p deck
+value head: +703.4   policy priors:  [G5 p deck] 0.0052  [R5 p deck] 0.8418  [W5 p deck] 0.1530
+
+candidate          Q(round)     +-SE     paired diff vs first
+G5 p deck            +12.44     0.44
+R5 p deck             +7.67     0.41     -4.77 +- 0.48
+W5 p deck             +6.02     0.43     -6.42 +- 0.50
+=== ply 12: -c G6 p deck -c Wx p deck
+hand: Wx W5 W8 W10 G6 G10 R5 R10
+value head: +568.2   policy priors:  [G6 p deck] 0.5906  [Wx p deck] 0.4079
+
+candidate          Q(round)     +-SE     paired diff vs first
+G6 p deck            +17.55     0.43
+Wx p deck            +17.39     0.43     -0.16 +- 0.13
+=== ply 13: -c G4 p deck -c Yx d deck
+hand: Yx Y10 B7 B9 W6 G4 G9 R8
+value head: -307.0   policy priors:  [G4 p deck] 0.1453  [Yx d deck] 0.8547
+
+candidate          Q(round)     +-SE     paired diff vs first
+G4 p deck            -21.46     0.41
+Yx d deck            -21.38     0.41     +0.08 +- 0.13
+=== ply 19: -c B7 p deck -c Y10 p deck
+hand: Y10 B7 B8 B9 W6 W9 G9 R8
+value head: +694.6   policy priors:  [B7 p deck] 0.0008  [Y10 p deck] 0.9992
+
+candidate          Q(round)     +-SE     paired diff vs first
+B7 p deck             +3.08     0.35
+Y10 p deck            +2.11     0.36     -0.97 +- 0.24
+=== ply 27: -c Gx d deck -c Bx d deck -c B10 p deck -c R2 d deck
+
+candidate          Q(round)     +-SE     paired diff vs first
+Gx d deck             +8.05     0.24
+Bx d deck             +8.31     0.23     +0.27 +- 0.12
+B10 p deck            +8.54     0.23     +0.50 +- 0.12
+R2 d deck             +5.39     0.26     -2.66 +- 0.27
+=== ply 36: -c R5 p deck -c R5 p B
+hand: Y8 B5 W10 R5 R6 R7 R9 R10
+value head: +1148.7   policy priors:  [R5 p deck] 0.9857  [R5 p B] 0.0062
+
+candidate          Q(round)     +-SE     paired diff vs first
+R5 p deck            +11.84     0.11
+R5 p B               +12.41     0.05     +0.57 +- 0.11
+=== ply 37: -c G9 p deck -c W6 d deck
+hand: W6 W9 G9 Rx R2 R3 R4 R8
+value head: +307.9   policy priors:  [G9 p deck] 0.9995  [W6 d deck] 0.0000
+
+candidate          Q(round)     +-SE     paired diff vs first
+G9 p deck             +5.99     0.18
+W6 d deck             +6.50     0.18     +0.51 +- 0.06
+=== ply 38: -c R6 p deck -c R6 p W
+hand: Y8 Bx B5 W10 R6 R7 R9 R10
+value head: +1011.6   policy priors:  [R6 p deck] 0.0203  [R6 p W] 0.4029
+
+candidate          Q(round)     +-SE     paired diff vs first
+R6 p deck            +14.07     0.11
+R6 p W               +12.32     0.04     -1.75 +- 0.11
+=== ply 43: -c Wx d deck -c Wx d Y
+hand: Wx Wx W9 Rx R2 R3 R4 R8
+value head: -14.9   policy priors:  [Wx d deck] 0.0441  [Wx d Y] 0.0000
+
+candidate          Q(round)     +-SE     paired diff vs first
+Wx d deck             -7.69     0.12
+Wx d Y                -8.70     0.10     -1.01 +- 0.09
+=== ply 46: -c W10 p deck -c W10 p R
+hand: Y4 Y7 Y8 Bx B5 Wx W6 W10
+value head: +925.3   policy priors:  [W10 p deck] 0.2718  [W10 p R] 0.6554
+
+candidate          Q(round)     +-SE     paired diff vs first
+W10 p deck           +11.00     0.00
+W10 p R              +11.00     0.00     +0.00 +- 0.00
+=== ply 54: -c Y3 p deck -c Y3 d deck -c Y4 d deck
+value head: +258.2   policy priors:  [Y3 p deck] 0.0000  [Y3 d deck] 0.9676  [Y4 d deck] 0.0058
+
+candidate          Q(round)     +-SE     paired diff vs first
+Y3 p deck             -6.49     0.47
+Y3 d deck             -8.19     0.47     -1.70 +- 0.54
+Y4 d deck             -8.71     0.47     -2.22 +- 0.54
+=== ply 58: -c Gx p deck -c B2 d deck
+hand: B2 B10 Wx Gx G7 R3 R5 R7
+value head: +165.3   policy priors:  [Gx p deck] 1.0000  [B2 d deck] 0.0000
+
+candidate          Q(round)     +-SE     paired diff vs first
+Gx p deck            -11.88     0.50
+B2 d deck            -11.45     0.50     +0.43 +- 0.40
+=== ply 68: -c Y8 d deck -c Y8 d B -c G7 p deck
+value head: +557.0   policy priors:  [Y8 d deck] 0.8879  [Y8 d B] 0.0234  [G7 p deck] 0.0858
+
+candidate          Q(round)     +-SE     paired diff vs first
+Y8 d deck             -1.49     0.44
+Y8 d B                -2.10     0.43     -0.61 +- 0.51
+G7 p deck             -2.18     0.44     -0.69 +- 0.31
+=== ply 74: -c Bx p B -c Y8 d B
+hand: Y8 Bx B5 B9 B10 Wx W6 R7
+value head: -75.3   policy priors:  [Bx p B] 0.9999  [Y8 d B] 0.0001
+
+candidate          Q(round)     +-SE     paired diff vs first
+Bx p B               -11.09     0.39
+Y8 d B               -10.74     0.39     +0.34 +- 0.14
+=== ply 93: -c W9 p deck -c R2 d deck
+hand: Bx B3 B4 B8 W2 W9 W10 R2
+value head: +1958.8   policy priors:  [W9 p deck] 0.9694  [R2 d deck] 0.0000
+
+candidate          Q(round)     +-SE     paired diff vs first
+W9 p deck            +61.05     0.32
+R2 d deck            +66.09     0.24     +5.04 +- 0.14
+=== ply 111: -c G10 p deck -c Y5 d deck
+hand: Y5 Bx Bx W4 W7 W9 G10 R7
+value head: -909.3   policy priors:  [G10 p deck] 0.0000  [Y5 d deck] 1.0000
+
+candidate          Q(round)     +-SE     paired diff vs first
+G10 p deck           +14.18     0.44
+Y5 d deck            +12.95     0.44     -1.23 +- 0.25
+=== ply 112: -c R4 p Y -c R4 p deck
+hand: Y7 Y9 B7 Wx W6 W8 R4 R8
+value head: +1812.6   policy priors:  [R4 p Y] 0.0001  [R4 p deck] 0.8166
+
+candidate          Q(round)     +-SE     paired diff vs first
+R4 p Y                -7.32     0.42
+R4 p deck            -12.31     0.42     -4.99 +- 0.58
+=== ply 113: -c G10 p deck -c Bx p deck
+hand: Bx Bx B8 W4 W7 W9 G10 R7
+value head: -672.6   policy priors:  [G10 p deck] 0.7474  [Bx p deck] 0.0704
+
+candidate          Q(round)     +-SE     paired diff vs first
+G10 p deck           +14.03     0.44
+Bx p deck            +14.31     0.46     +0.29 +- 0.35
+=== ply 114: -c Wx p Y -c Wx p deck
+hand: Y7 Y9 Y10 B7 Wx W6 W8 R8
+value head: +1855.5   policy priors:  [Wx p Y] 0.0202  [Wx p deck] 0.9151
+
+candidate          Q(round)     +-SE     paired diff vs first
+Wx p Y                -8.59     0.43
+Wx p deck            -11.70     0.43     -3.12 +- 0.61
+=== ply 115: -c G10 p deck -c Bx p deck
+hand: Bx B8 W4 W7 W9 W10 G10 R7
+value head: +14.2   policy priors:  [G10 p deck] 0.0007  [Bx p deck] 0.9993
+
+candidate          Q(round)     +-SE     paired diff vs first
+G10 p deck           +43.04     0.44
+Bx p deck            +43.02     0.44     -0.02 +- 0.12
+=== ply 116: -c W3 p Y -c W3 p deck
+hand: Y7 Y9 Y10 B7 W3 W6 W8 R8
+value head: +1638.3   policy priors:  [W3 p Y] 0.0091  [W3 p deck] 0.9909
+
+candidate          Q(round)     +-SE     paired diff vs first
+W3 p Y               -11.98     0.44
+W3 p deck            -14.21     0.45     -2.24 +- 0.66
+=== ply 118: -c G8 p Y -c Y7 p deck -c G8 p deck
+value head: +1645.2   policy priors:  [G8 p Y] 0.0000  [Y7 p deck] 0.9878  [G8 p deck] 0.0002
+
+candidate          Q(round)     +-SE     paired diff vs first
+G8 p Y               -20.25     0.41
+Y7 p deck            -25.28     0.42     -5.03 +- 0.62
+G8 p deck            -24.17     0.42     -3.92 +- 0.61
+=== ply 122: -c Y10 p deck -c Rx d deck
+hand: Y10 B4 B7 W6 W8 G8 Rx R8
+value head: +1253.1   policy priors:  [Y10 p deck] 0.9996  [Rx d deck] 0.0001
+
+candidate          Q(round)     +-SE     paired diff vs first
+Y10 p deck           -34.66     0.39
+Rx d deck            -34.25     0.39     +0.42 +- 0.18
+=== ply 125: -c W5 p deck -c G6 d deck
+hand: B8 W5 W7 W9 W10 G6 R6 R7
+value head: -75.6   policy priors:  [W5 p deck] 1.0000  [G6 d deck] 0.0000
+
+candidate          Q(round)     +-SE     paired diff vs first
+W5 p deck            +37.88     0.37
+G6 d deck            +39.78     0.39     +1.90 +- 0.18
+=== ply 126: -c W6 p G -c W6 p deck -c Y8 d deck
+value head: +1541.2   policy priors:  [W6 p G] 0.0000  [W6 p deck] 0.9176  [Y8 d deck] 0.0796
+
+candidate          Q(round)     +-SE     paired diff vs first
+W6 p G               -34.89     0.32
+W6 p deck            -43.50     0.34     -8.61 +- 0.46
+Y8 d deck            -42.76     0.34     -7.86 +- 0.46
+=== ply 128: -c W6 p G -c W6 p deck
+hand: Bx B4 B7 B10 W6 W8 G8 R8
+value head: +2031.6   policy priors:  [W6 p G] 0.0000  [W6 p deck] 0.9966
+
+candidate          Q(round)     +-SE     paired diff vs first
+W6 p G               -27.81     0.29
+W6 p deck            -37.09     0.29     -9.27 +- 0.40
+=== ply 130: -c G8 p deck -c Gx d deck -c W8 p deck -c B4 p deck
+
+candidate          Q(round)     +-SE     paired diff vs first
+G8 p deck            -41.46     0.28
+Gx d deck            -41.61     0.28     -0.14 +- 0.11
+W8 p deck            -43.06     0.28     -1.60 +- 0.09
+B4 p deck            -39.56     0.28     +1.90 +- 0.12
+=== ply 134: -c W8 p deck -c B4 p deck
+hand: Yx B4 B7 B9 B10 W8 G8 R8
+value head: +2250.3   policy priors:  [W8 p deck] 0.0000  [B4 p deck] 0.9961
+
+candidate          Q(round)     +-SE     paired diff vs first
+W8 p deck            -16.41     0.19
+B4 p deck            -12.13     0.19     +4.28 +- 0.10
+=== ply 143: -c B5 d deck -c R5 p deck
+hand: B3 B5 W2 Rx R5 R6 R7 R10
+value head: -2365.9   policy priors:  [B5 d deck] 0.8878  [R5 p deck] 0.0000
+
+candidate          Q(round)     +-SE     paired diff vs first
+B5 d deck             +2.80     0.05
+R5 p deck             +3.04     0.07     +0.24 +- 0.05
+=== DEEP ply 93: sampled ===
+candidate          Q(round)     +-SE     paired diff vs first
+W9 p deck            +61.48     0.31
+R2 d deck            +62.05     0.30     +0.57 +- 0.18
+=== DEEP ply 93: search continuations ===
+candidate          Q(round)     +-SE     paired diff vs first
+W9 p deck            +61.16     1.20
+R2 d deck            +66.09     1.07     +4.93 +- 0.40
+=== DEEP ply 125: sampled ===
+candidate          Q(round)     +-SE     paired diff vs first
+W5 p deck            +38.12     0.37
+G6 d deck            +40.32     0.39     +2.20 +- 0.19
+=== DEEP ply 125: search continuations ===
+candidate          Q(round)     +-SE     paired diff vs first
+W5 p deck            +37.52     1.52
+G6 d deck            +39.14     1.54     +1.62 +- 0.70
