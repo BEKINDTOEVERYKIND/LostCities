@@ -18,7 +18,7 @@ g424_det_bias	g424_p93.state	424242	93	W9 p deck	R2 d deck	WATCH determinism art
 g424_G10_111	g424_p111.state	424242	111	G10 p deck	Y5 d deck	G10 +1.23 over the 100%-prior discard into opponent Yx
 g424_drawY_112	g424_p112.state	424242	112	R4 p Y	R4 p deck	useful-pile-draw undervalued: +4.99 for taking the yellow; policy 0.01% on it
 g424_G8Y_118	g424_p118.state	424242	118	G8 p Y	Y7 p deck	the never-evaluated combo was +5.03 better; motivated draw-variant expansion
-g424_takeG6_126	g424_p126.state	424242	126	W6 p G	W6 p deck	drawing the just-discarded G6 is +8.61; combo was never a candidate pre-expansion
+g424_takeG6_126	g424_p126.state	424242	126	W6 p G	W6 p deck	drawing the just-discarded G6 was +8.61 vs a 0.0000-prior blind spot; RESOLVED by later policy generations (c13 priors ~0.19 on both G-draw pairings, gap collapsed to +0.68); residual: R8-vs-W6 pairing misorder ~2.8, the small-edge class
 c13m_gift_19	c13m_p19.state	424245	19	Yx d deck	Bx d deck	reviewer catch: B-wager gift to a wager-only opp expedition; -3.13 +- 0.52 vs policy top at 4000w, safe Yx twin +2.61; led to the selection gate AND the wager-gift prune
 c13m_grab_20	c13m_p20.state	424245	20	G2 d deck	Y4 p B	the gifted wager grabbed next ply; display 512w: G2 d 9.4 vs Y4-B 6.7
 selk_gift_13	selk_p13.state	909091	13	B6 p deck	Yx d deck	reviewer: "absolutely horrendous" -- third Y wager gifted to wager-only opp exp, grew into a x4 20-bonus expedition; B6 +5.91 +- 0.68; POLICY-level (0.231 top)
