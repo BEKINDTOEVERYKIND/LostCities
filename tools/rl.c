@@ -51,6 +51,7 @@ typedef struct {
     float temp;
     float winbonus;     /* terminal reward for winning the match, in points */
     float mw;           /* weight of the margin term in the return          */
+    float stallpen;     /* shaped penalty per own pile-draw at deck_left<=8 */
     int rounds;
 } GenJob;
 
@@ -131,6 +132,15 @@ static void *gen_worker(void *arg)
             else if (score[p] < score[p ^ 1]) G -= j->winbonus;
             for (int t = T - 1; t >= 0; t--) {
                 if (t < T - 1) G = (1.0f - j->lambda) * chain_v[p][t + 1] + j->lambda * G;
+                /* Shaped per-move reward: the reviewer-flagged stall class is
+                 * pile-draws late in the round that only extend it for the
+                 * opponent.  A small penalty biases the POLICY away from them
+                 * while leaving the trade-off to learning -- a late pile draw
+                 * that wins real value (denial, a needed card) still pays for
+                 * itself.  Off by default; both seats are shaped equally. */
+                if (j->stallpen > 0.0f && chain[t].turn == p &&
+                    MOVE_DRAW(chain_mv[t]) != 0 && chain[t].deck_left <= 8)
+                    G -= j->stallpen;
                 if (j->nout >= j->cap) continue;
                 RLSample *s = &j->out[j->nout++];
                 s->st = chain[t];
@@ -321,7 +331,7 @@ int main(int argc, char **argv)
     int aug = 0;
     float lr = 3e-4f, wd = 1e-7f, lambda = 0.85f, clip = 0.2f;
     float vcoef = 1.0f, entcoef = 0.004f, temp = 1.0f;
-    float winbonus = 15.0f, bw = 1.0f, mw = 1.0f;
+    float winbonus = 15.0f, bw = 1.0f, mw = 1.0f, stallpen = 0.0f;
     int rounds = MATCH_ROUNDS;
     uint64_t seed = 7;
 
@@ -343,6 +353,7 @@ int main(int argc, char **argv)
         else if (ARG("--ent")) entcoef = (float)atof(argv[++i]);
         else if (ARG("--temp")) temp = (float)atof(argv[++i]);
         else if (ARG("--winbonus")) winbonus = (float)atof(argv[++i]);
+        else if (ARG("--stallpen")) stallpen = (float)atof(argv[++i]);
         else if (ARG("--bw")) bw = (float)atof(argv[++i]);
         else if (ARG("--mw")) mw = (float)atof(argv[++i]);
         else if (ARG("--rounds")) rounds = atoi(argv[++i]);
@@ -402,6 +413,7 @@ int main(int argc, char **argv)
             jobs[i].lambda = lambda;
             jobs[i].temp = temp;
             jobs[i].winbonus = winbonus;
+            jobs[i].stallpen = stallpen;
             jobs[i].mw = mw;
             jobs[i].rounds = rounds;
         }
