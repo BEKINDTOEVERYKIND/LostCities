@@ -52,6 +52,8 @@ typedef struct {
     float winbonus;     /* terminal reward for winning the match, in points */
     float mw;           /* weight of the margin term in the return          */
     float stallpen;     /* shaped penalty per own pile-draw at deck_left<=8 */
+    float giftpen;      /* shaped penalty for discarding a wager the
+                           opponent can still play (no numbers down in suit) */
     int rounds;
 } GenJob;
 
@@ -141,6 +143,18 @@ static void *gen_worker(void *arg)
                 if (j->stallpen > 0.0f && chain[t].turn == p &&
                     MOVE_DRAW(chain_mv[t]) != 0 && chain[t].deck_left <= 8)
                     G -= j->stallpen;
+                /* Wager-gift shaping, same philosophy: discarding a wager is
+                 * sometimes right (per the reviewer), so this is a soft bias
+                 * against doing it while the opponent could still play that
+                 * wager -- i.e. they have no number cards down in the suit. */
+                if (j->giftpen > 0.0f && chain[t].turn == p &&
+                    MOVE_DISC(chain_mv[t]) == 1) {
+                    int card = MOVE_CARD(chain_mv[t]);
+                    int suit = card / 12;
+                    if (card % 12 < 3 &&
+                        ((chain[t].played[p ^ 1] >> (suit * 12 + 3)) & 0x1FFu) == 0)
+                        G -= j->giftpen;
+                }
                 if (j->nout >= j->cap) continue;
                 RLSample *s = &j->out[j->nout++];
                 s->st = chain[t];
@@ -331,7 +345,7 @@ int main(int argc, char **argv)
     int aug = 0;
     float lr = 3e-4f, wd = 1e-7f, lambda = 0.85f, clip = 0.2f;
     float vcoef = 1.0f, entcoef = 0.004f, temp = 1.0f;
-    float winbonus = 15.0f, bw = 1.0f, mw = 1.0f, stallpen = 0.0f;
+    float winbonus = 15.0f, bw = 1.0f, mw = 1.0f, stallpen = 0.0f, giftpen = 0.0f;
     int rounds = MATCH_ROUNDS;
     uint64_t seed = 7;
 
@@ -354,6 +368,7 @@ int main(int argc, char **argv)
         else if (ARG("--temp")) temp = (float)atof(argv[++i]);
         else if (ARG("--winbonus")) winbonus = (float)atof(argv[++i]);
         else if (ARG("--stallpen")) stallpen = (float)atof(argv[++i]);
+        else if (ARG("--giftpen")) giftpen = (float)atof(argv[++i]);
         else if (ARG("--bw")) bw = (float)atof(argv[++i]);
         else if (ARG("--mw")) mw = (float)atof(argv[++i]);
         else if (ARG("--rounds")) rounds = atoi(argv[++i]);
@@ -414,6 +429,7 @@ int main(int argc, char **argv)
             jobs[i].temp = temp;
             jobs[i].winbonus = winbonus;
             jobs[i].stallpen = stallpen;
+            jobs[i].giftpen = giftpen;
             jobs[i].mw = mw;
             jobs[i].rounds = rounds;
         }
