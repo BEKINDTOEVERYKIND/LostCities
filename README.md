@@ -513,6 +513,25 @@ the objective).  k=1.5 measured 52.0% ± 1.8% over its own 800 games --
 also above parity, but the stricter gate suppresses more of the good
 overrides than it saves in blunders; k=1 stands.
 
+**The solver-vote endgame, measured -- and a divergence worth naming.**
+A reviewer's stall catches were refuted by EXACT solving (8/8 sampled
+worlds at three deck-4/5 positions say draw from the deck) while
+4000-world playouts scored the stalls BETTER by up to +9.2: the playout
+policy stalls on both seats, so round extensions price its own habit as
+profit.  Decision-time fix attempt: at deck<=5, one root alpha-beta per
+belief world and a majority vote (spec fields 15/18/19).  On the probe
+suite it does exactly what it promises -- the two solver-covered stall
+probes flip from 1/20 and 0/20 correct to 18/20 and 20/20.  In the
+400-pair match gate it scores **47.1% ± 1.8%** (margin -12.3): NO
+adoption.  The lesson is the divergence itself: winning the flagged
+positions does not win matches when the aggregation is variance-blind
+-- a majority of per-world optima ignores margin magnitude, so a move
+that is +1 in five worlds outvotes one that is +40 in four, and the
+carried round margins pay for it.  Next: the same solver through the
+win-aware AVERAGING block (per-move exact values, lexicographic
+wins-then-margin) at a real budget -- the configuration E14 tested only
+at starved 4M budgets before the transposition table existed.
+
 ## Reproducing
 
 ```
