@@ -559,6 +559,22 @@ with the sel_k noise gate (calibrated at 96 worlds' SE) absorbing most
 of the extra resolution.  A sel_k recalibration at 192 is the natural
 follow-up if the time budget ever allows a slow spec.
 
+**Stall-shaped policy training (`rl --stallpen`), measured.**  The
+training-side attack on the flagged stall class: a soft penalty (0.8
+pts) subtracted from the RL return whenever the acting player draws
+from a pile at deck<=8, folded into the standard finishing-phase
+fine-tune from best.bin.  Behaviorally it works: the reviewer-probe
+suite's flagged-worse rate collapses from 34% to 13% of decisions
+(flagged-better rises 42%->44%), and the exact-solver-refuted stall at
+probe 91 flips to a deck draw 11/12.  At the 800-game match gate under
+the full search spec: **50.3% ± 3.5%**, margin -3.2 -- measured-neutral,
+best.bin stands.  The instructive part is the suite/match divergence in
+the OTHER direction from solver-vote: fixing the flagged behaviors did
+not win matches, which says the search layer was already absorbing most
+of the stall cost at decision time -- the remaining flagged-worse
+choices are real but cheap.  The flag stays in the trainer (off by
+default) as the template for shaping other flagged classes.
+
 ## Reproducing
 
 ```
