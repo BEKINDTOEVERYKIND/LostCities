@@ -545,6 +545,20 @@ decision-time exactness is the wrong lever at this depth; what remains
 of the stall flaw lives at deck 6-8, outside affordable solver reach,
 and is a policy-training problem.
 
+**Doubled world sampling (dets 192), measured.**  The other open lever:
+2x belief-world samples per decision (192 vs the adopted 96), targeting
+the small-edge class -- reviewer-flagged decisions where the true gap
+is ~1-3 points and 96 worlds leaves it under the noise gate.  800 games
+against the adopted spec: **51.4% ± 3.5%** (95% CI), point margin
+**+4.7**.  Short of the 52% adoption gate, so the 96-world spec stands
+as the recommendation, but the signature differs from a null result:
+the point margin was +4 to +8 in every interim read (E14TT's collapsed
+to ~0), i.e. 192 worlds plays measurably sharper per point and doubles
+decision time, yet converts little of it into match wins -- consistent
+with the sel_k noise gate (calibrated at 96 worlds' SE) absorbing most
+of the extra resolution.  A sel_k recalibration at 192 is the natural
+follow-up if the time budget ever allows a slow spec.
+
 ## Reproducing
 
 ```
