@@ -575,6 +575,22 @@ of the stall cost at decision time -- the remaining flagged-worse
 choices are real but cheap.  The flag stays in the trainer (off by
 default) as the template for shaping other flagged classes.
 
+**Gift-shaped policy training (`rl --giftpen`), measured.**  The same
+template applied to the second flagged class: a soft penalty (0.8 pts)
+for discarding a wager while the opponent has no number cards down in
+that suit and could still play it -- soft because the reviewer is
+explicit that such discards are sometimes correct.  The fine-tune posts
+the best probe-suite score of any net so far (47% flagged-better / 14%
+flagged-worse; the adopted baseline is 42%/34%) with raw-policy evals
+at parity.  Match gate: **50.8% ± 3.5%** over 800 games, margin +1.6 --
+measured-neutral again.  Two shaped classes now show the same pattern:
+the flagged behaviors are trainable away at zero match cost, and
+neither buys wins because the search layer already prices most of the
+damage out at decision time.  Follow-up: one combined run
+(`--stallpen 0.8 --giftpen 0.8`) to fold both corrections into a single
+net -- at parity, the cleaner-behaving net is the better artifact, and
+it is a candidate for adoption on non-regression grounds.
+
 ## Reproducing
 
 ```
