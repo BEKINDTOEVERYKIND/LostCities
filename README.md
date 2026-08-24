@@ -591,6 +591,26 @@ damage out at decision time.  Follow-up: one combined run
 net -- at parity, the cleaner-behaving net is the better artifact, and
 it is a candidate for adoption on non-regression grounds.
 
+**The combined run, measured -- and the adoption decision.**  Stacking
+both penalties (`--stallpen 0.8 --giftpen 0.8`) over-shaped: the suite's
+flagged-better rate fell to 41% (below even the unshaped baseline's
+42%), one previously-passing probe regressed, and the match gate read
+**49.3% ± 3.5%** (margin +0.5) -- not adopted.  One class of shaping at
+a time is what the recipe tolerates.
+
+Final call: **best.bin is now the gift-shaped net** (the previous one
+is preserved as `data/best_pre_gp.bin`).  This is a behavior-quality
+adoption, documented as such: at match level the two nets are
+statistically indistinguishable (50.8% ± 3.5 over 800 games), and on
+the reviewer-flagged decision suite the gift-shaped net strictly
+dominates (47% flagged-better / 14% flagged-worse vs 42%/34%),
+including the exact-solver-confirmed stall at probe 91.  Where the
+match objective is a wash, the net that makes fewer of the flagged
+blunders is the better artifact -- and the better opponent against a
+field that punishes those blunders harder than self-play does.  The
+recommended spec string is UNCHANGED; only the contents of
+`data/best.bin` changed.
+
 ## Reproducing
 
 ```
