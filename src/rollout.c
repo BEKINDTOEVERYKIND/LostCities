@@ -283,6 +283,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             stats->visits[0] = 0;
             stats->q[0] = value;
             stats->se[0] = 0.0; stats->qw[0] = -1.0;
+            stats->prio[0] = prob[top];
             stats->value = value;
         }
         return mv[top];
@@ -379,11 +380,31 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
      * outranks a certain narrow loss regardless of expected points.  In
      * earlier rounds margin is all a round-end playout can know. */
     int usew = lastround && a->win_q;
+    /* prior-aware selection (prior_w0/w1): candidates compete on
+     * EV + lambda(ply)*log(prior), so the EV edge needed to overrule the
+     * policy grows with the prior gap -- log(p_top/p_cand) is ~3.2 nats for
+     * 95% vs 4% but ~0.2 for 55% vs 45% -- and a low-prior candidate must
+     * beat a mid-prior one on the same handicapped score.  lambda is
+     * interpolated across the ply so early-game policy trust and endgame
+     * search trust can differ.  Margin path only: the final-round win-first
+     * rule keeps its measured lexicographic form. */
+    double lam = 0.0;
+    if (a->prior_w0 != 0.0f || a->prior_w1 != 0.0f) {
+        double t = st->nply >= 44 ? 1.0 : (double)st->nply / 44.0;
+        lam = a->prior_w0 + (a->prior_w1 - a->prior_w0) * t;
+    }
+    double pscore[MAX_CAND];
+    for (int c = 0; c < neval; c++) {
+        double pr = prob[order[c]];
+        if (pr < 1e-4) pr = 1e-4;
+        pscore[c] = sum[c] / reps + lam * log(pr);
+    }
     int best = 0;
     for (int c = 1; c < ncand; c++) {
         if (usew ? (sumw[c] > sumw[best] ||
                     (sumw[c] == sumw[best] && sum[c] > sum[best]))
-                 : (sum[c] > sum[best])) best = c;
+                 : (lam != 0.0 ? pscore[c] > pscore[best]
+                               : sum[c] > sum[best])) best = c;
     }
     /* selection gate (sel_k, see agent.h): candidate 0 is the policy's top
      * choice after dedup and pruning; any other eligible candidate keeps the
@@ -407,10 +428,14 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                         c, dm, sed, a->sel_k * sed,
                         dm > a->sel_k * sed ? "QUALIFY" : "reject");
             if (dm <= a->sel_k * sed) continue;
+            /* under prior-aware selection the candidate must also clear the
+             * log-prior handicap, not just the noise gate */
+            if (lam != 0.0 && !usew && pscore[c] <= pscore[0]) continue;
             if (pick == 0 ||
                 (usew ? (sumw[c] > sumw[pick] ||
                          (sumw[c] == sumw[pick] && sum[c] > sum[pick]))
-                      : (sum[c] > sum[pick]))) pick = c;
+                      : (lam != 0.0 ? pscore[c] > pscore[pick]
+                                    : sum[c] > sum[pick]))) pick = c;
         }
         best = pick;
     }
@@ -498,6 +523,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             stats->visits[c] = reps;
             stats->q[c] = sum[c] / reps;
             stats->qw[c] = lastround ? sumw[c] / reps : -1.0;
+            stats->prio[c] = prob[order[c]];
             double v = 0.0;
             if (val && reps > 1) {
                 double mean = (sum[c] - (c == best ? 0.0 : sum[best])) / reps;

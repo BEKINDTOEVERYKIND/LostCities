@@ -26,6 +26,8 @@ typedef struct {
     double qw[MAX_MOVES];  /* rollout, final round only: match wins as a
                               fraction of playouts (draws count half);
                               -1 when not applicable */
+    double prio[MAX_MOVES];/* rollout only: the candidate's policy prior
+                              after wager-copy dedup (folded mass) */
     float value;           /* pooled root value in points        */
 } SearchStats;
 

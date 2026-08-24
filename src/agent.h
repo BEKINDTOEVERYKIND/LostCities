@@ -121,6 +121,22 @@ typedef struct Agent {
                            a 2%-prior wager gift, 3.1 +- 0.5 points WORSE at
                            4000 worlds, played from a ~5% noise tail at 96).
                            0 = raw argmax (old behavior). */
+    float prior_w0;     /* AG_ROLLOUT prior-aware selection (spec fields
+                           20/21): candidates are compared by
+                           EV + lambda(ply)*log(prior), lambda linearly
+                           interpolated from prior_w0 at ply 0 to prior_w1 at
+                           ply 44 (clamped past 44).  The EV edge a non-top
+                           candidate needs to overrule the policy therefore
+                           scales with the prior gap -- a 4% candidate against
+                           a 95% top needs lambda*log(95/4) extra points where
+                           a 45%-vs-55% split needs almost none -- and a 1%
+                           candidate must beat the 4% one on the same
+                           handicapped score before it can take the move.
+                           The sel_k paired-SE gate still applies on top
+                           (priors price model belief, SEs price sampling
+                           noise; they guard different failure modes).
+                           0/0 = plain EV argmax (previous behavior). */
+    float prior_w1;     /* lambda at ply 44+, see prior_w0 */
     const Net *net_b;   /* AG_ROLLOUT hybrid: when set, THIS net's belief
                            head steers world sampling while `net` keeps the
                            policy/priors/playouts (spec kind "rollouth").
