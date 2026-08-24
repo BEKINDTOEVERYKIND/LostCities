@@ -21,7 +21,11 @@ LR_EDGES = [0.0, 0.5, 1.0, 2.0, 3.0, 4.6, 99.0]
 PLY_EDGES = [0, 10, 20, 30, 44, 999]
 
 
-def load(pattern):
+def load(pattern, eligible_only=False):
+    """eligible_only restricts to rows the DEPLOYED spec can arbitrate:
+    candidate rank <= 4 (root_width 5) and prior >= 0.02 (cand_floor) --
+    the review found the unrestricted high-gap buckets otherwise dominate
+    the lr^2-weighted lambda fit with deployment-irrelevant rows."""
     rows = []
     for f in glob.glob(pattern):
         with open(f) as fh:
@@ -34,6 +38,8 @@ def load(pattern):
                 try:
                     pt, pc = float(p[idx["prio_top"]]), float(p[idx["prio_c"]])
                     if pc <= 0 or pt <= 0:
+                        continue
+                    if eligible_only and (int(p[idx["cand"]]) > 4 or pc < 0.02):
                         continue
                     rows.append((
                         int(p[idx["ply"]]),
@@ -63,8 +69,11 @@ def linreg(xs, ys):
 
 
 def main():
-    rows = load(sys.argv[1] if len(sys.argv) > 1 else "cal*_c*.tsv")
-    print(f"{len(rows)} candidate rows loaded")
+    pat = sys.argv[1] if len(sys.argv) > 1 else "cal*_c*.tsv"
+    eligible = "--all" not in sys.argv
+    rows = load(pat, eligible_only=eligible)
+    print(f"{len(rows)} candidate rows loaded"
+          f" ({'deployment-eligible only' if eligible else 'ALL ranks/priors'})")
     print("\nfalse-positive rate of the cheap search (dm96>0 but oracle says worse),")
     print("by prior-gap (nats) and ply band -- the raw case for prior handicaps:")
     print("band      " + "".join(f"  lr[{LR_EDGES[i]:.1f},{LR_EDGES[i+1]:.1f})" for i in range(len(LR_EDGES) - 1)))

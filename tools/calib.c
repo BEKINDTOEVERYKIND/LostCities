@@ -28,7 +28,7 @@
 int main(int argc, char **argv)
 {
     if (argc < 5) {
-        fprintf(stderr, "usage: %s NET GAMES SEED OUT.tsv [SPROB]\n", argv[0]);
+        fprintf(stderr, "usage: %s NET GAMES SEED OUT.tsv [SPROB] [ARGMAX]\n", argv[0]);
         return 1;
     }
     const char *netpath = argv[1];
@@ -36,6 +36,10 @@ int main(int argc, char **argv)
     uint64_t seed = (uint64_t)strtoull(argv[3], NULL, 10);
     const char *outpath = argv[4];
     double sprob = argc > 5 ? atof(argv[5]) : 0.15;
+    /* trajectory mode: 0 = temperature-1 policy sampling (diverse),
+     * 1 = policy argmax (closer to deployment's strong trajectories);
+     * collect both and let the analysis check the fits agree */
+    int adv_argmax = argc > 6 ? atoi(argv[6]) : 0;
 
     char spec96[256], spec1k[256];
     /* wide, floorless-ish, gate-free candidate sets; no sel/override logic so
@@ -106,8 +110,14 @@ int main(int argc, char **argv)
                         fflush(out);
                     }
                 }
-                /* advance by policy sampling: diverse, realistic states */
-                int pick = sample_index(pr, nf, &rng);
+                /* advance: sampled (diverse) or argmax (deployment-like) */
+                int pick;
+                if (adv_argmax) {
+                    pick = 0;
+                    for (int i = 1; i < nf; i++) if (pr[i] > pr[pick]) pick = i;
+                } else {
+                    pick = sample_index(pr, nf, &rng);
+                }
                 lc_apply(&st, mv[pick]);
             }
             cum[0] += lc_score(&st, 0);
