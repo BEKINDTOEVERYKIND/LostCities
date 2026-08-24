@@ -1,0 +1,79 @@
+Prior-aware override threshold calibration -- 2026-08-24
+========================================================
+
+Question (user-posed): how much better must a move score in search,
+relative to the policy's top choice, before the search should overrule
+the policy -- as a function of the PRIOR GAP and the PLY.
+
+Method: 640 self-play games (320 temperature-1 sampled trajectories,
+320 policy-argmax trajectories), 15% of decision points sampled at
+every ply, ~13k states / 93,191 candidate rows.  Each candidate scored
+by (a) the exact play-time estimator: 96 paired worlds, deterministic
+playouts, and (b) an oracle: 1024 worlds, sampled playouts.  Threshold
+m*(gap, ply) = cheap edge at which E[oracle edge] crosses zero, from
+the per-bucket regression E[dm1024 | dm96].  Primary fit restricted to
+deployment-eligible candidates (rank<=4, prior>=0.02) per adversarial
+review; log-linear form m* = lambda(ply) * log(p_top/p_c) verified
+against the bucket table (residuals <= ~0.2 pts everywhere).
+
+Known limits: the oracle is a lower-noise estimate of the SAME
+policy-conditioned estimand the play-time playouts price, so shared
+systematic playout bias cancels in the regression but is not removed;
+the match gate remains the arbiter of actual strength.
+
+================ PRIMARY FIT (eligible rows) ================
+17924 candidate rows loaded (deployment-eligible only)
+
+false-positive rate of the cheap search (dm96>0 but oracle says worse),
+by prior-gap (nats) and ply band -- the raw case for prior handicaps:
+band        lr[0.0,0.5)  lr[0.5,1.0)  lr[1.0,2.0)  lr[2.0,3.0)  lr[3.0,4.6)  lr[4.6,99.0)
+ply   0- 10    41.6%( 221)    40.7%( 204)    50.0%( 440)    53.9%( 477)    52.2%( 293)        --
+ply  10- 20    36.4%( 209)    30.5%( 226)    38.5%( 488)    41.8%( 493)    44.1%( 295)        --
+ply  20- 30    25.1%( 247)    31.2%( 253)    28.3%( 487)    30.7%( 476)    30.1%( 289)        --
+ply  30- 44    17.8%( 230)    23.6%( 267)    24.1%( 581)    26.8%( 571)    27.4%( 321)        --
+ply  44-999        --     5.0%(  20)     0.0%(  27)     7.1%(  28)        --        --
+
+threshold fit m* per (ply band, prior-gap bucket):
+m* = cheap edge where E[oracle edge]=0, from E[dm1k|dm96]=a+b*dm96
+  ply   0+ lr~0.26: m*=  0.07  (slope 0.20+-0.03, n=419)
+  ply   0+ lr~0.76: m*=  0.88  (slope 0.24+-0.03, n=440)
+  ply   0+ lr~1.50: m*=  1.30  (slope 0.29+-0.02, n=964)
+  ply   0+ lr~2.52: m*=  1.89  (slope 0.33+-0.02, n=1177)
+  ply   0+ lr~3.39: m*=  1.74  (slope 0.39+-0.02, n=822)
+  ply band 0-10: lambda = 0.65 pts/nat   residuals: -0.1 +0.4 +0.3 +0.2 -0.5
+  ply  10+ lr~0.25: m*=  0.39  (slope 0.46+-0.03, n=412)
+  ply  10+ lr~0.76: m*=  0.25  (slope 0.53+-0.02, n=506)
+  ply  10+ lr~1.48: m*=  0.74  (slope 0.45+-0.02, n=1123)
+  ply  10+ lr~2.50: m*=  0.95  (slope 0.54+-0.01, n=1275)
+  ply  10+ lr~3.38: m*=  1.05  (slope 0.59+-0.02, n=872)
+  ply band 10-20: lambda = 0.36 pts/nat   residuals: +0.3 -0.0 +0.2 +0.0 -0.2
+  ply  20+ lr~0.24: m*=  0.00  (slope 0.57+-0.02, n=513)
+  ply  20+ lr~0.75: m*=  0.09  (slope 0.68+-0.02, n=563)
+  ply  20+ lr~1.50: m*=  0.30  (slope 0.68+-0.01, n=1134)
+  ply  20+ lr~2.50: m*=  0.47  (slope 0.72+-0.01, n=1186)
+  ply  20+ lr~3.35: m*=  0.61  (slope 0.70+-0.02, n=792)
+  ply band 20-30: lambda = 0.19 pts/nat   residuals: -0.0 -0.1 +0.0 +0.0 -0.0
+  ply  30+ lr~0.25: m*=  0.05  (slope 0.76+-0.01, n=567)
+  ply  30+ lr~0.75: m*=  0.06  (slope 0.71+-0.01, n=622)
+  ply  30+ lr~1.52: m*=  0.14  (slope 0.77+-0.01, n=1448)
+  ply  30+ lr~2.50: m*=  0.23  (slope 0.79+-0.01, n=1522)
+  ply  30+ lr~3.39: m*=  0.28  (slope 0.81+-0.01, n=920)
+  ply band 30-44: lambda = 0.09 pts/nat   residuals: +0.0 -0.0 +0.0 +0.0 -0.0
+  ply  44+ lr~0.26: m*=  0.00  (slope 0.93+-0.02, n=78)
+  ply  44+ lr~0.72: m*=  0.27  (slope 0.90+-0.02, n=98)
+  ply  44+ lr~1.50: m*=  0.00  (slope 0.97+-0.02, n=214)
+  ply  44+ lr~2.47: m*=  0.20  (slope 0.91+-0.02, n=173)
+  ply  44+ lr~3.37: m*=  0.18  (slope 0.98+-0.01, n=84)
+  ply band 44-999: lambda = 0.06 pts/nat   residuals: -0.0 +0.2 -0.1 +0.0 -0.0
+
+suggested spec fields: pw0=0.72 pw1=0.16  (lambda per band: [(5, 0.65), (15, 0.36), (25, 0.19), (37, 0.09), (52, 0.06)])
+
+================ ROBUSTNESS ================
+sampled-trajectory workers only:  pw0=0.73 pw1=0.14 (bands 0.67/0.38/0.16/0.09/0.04)
+argmax-trajectory workers only:   pw0=0.70 pw1=0.19 (bands 0.64/0.35/0.22/0.09/0.09)
+all rows incl. deployment-ineligible (shape check, diluted): pw0=0.47 pw1=0.08
+
+CHOSEN DEPLOYMENT VALUES: pw0=0.7 pw1=0.2 (spec fields 20/21)
+Interpretation: at ply 0 a 95%-vs-4% prior gap demands ~2.2 extra
+points of search edge; by ply 44 the same gap demands ~0.6; a 55/45
+split demands ~0.14 early and ~0.04 late.
