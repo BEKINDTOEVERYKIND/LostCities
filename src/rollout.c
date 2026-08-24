@@ -475,8 +475,20 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                 fprintf(stderr, "[ov] cand %d dm %.2f sed %.2f need >%.2f and >%.2f: %s\n",
                         c, dm, sed, k * sed, a->override_min,
                         (dm > k * sed && dm > a->override_min) ? "QUALIFY" : "reject");
+            /* prior-aware selection extends to the advisory layer: these
+             * are the lowest-prior candidates of all, so without this they
+             * would be the only layer paying no prior tax -- and since the
+             * handicap can select an eligible best with a lower raw sum,
+             * their bar would actually DROP when lambda rose */
+            if (lam != 0.0 && pscore[c] <= pscore[elig]) {
+                if (getenv("LC_OV_DEBUG"))
+                    fprintf(stderr, "[ov] cand %d blocked by prior handicap "
+                            "(pscore %.2f <= %.2f)\n", c, pscore[c], pscore[elig]);
+                continue;
+            }
             if (dm > k * sed && dm > a->override_min &&
-                sum[c] > sum[best]) best = c;
+                (lam != 0.0 ? pscore[c] > pscore[best]
+                            : sum[c] > sum[best])) best = c;
         }
         /* sampled confirmation: a qualifying gap must survive stochastic
          * continuations at half the floor, or it was determinism bias --
