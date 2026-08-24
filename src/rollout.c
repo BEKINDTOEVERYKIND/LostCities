@@ -140,6 +140,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             if (n == 1) {
                 stats->mv[0] = mv[0]; stats->visits[0] = 1; stats->q[0] = value;
                 stats->se[0] = 0.0; stats->qw[0] = -1.0;
+                stats->prio[0] = n == 1 ? 1.0 : -1.0;
             }
             stats->value = value;
         }
@@ -213,6 +214,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                         stats->q[i] = votes[i] ? vsum[i] / votes[i] : 0.0;
                         stats->se[i] = 0.0;
                         stats->qw[i] = -1.0;
+                        stats->prio[i] = -1.0;
                     }
                     stats->value = votes[vb] ? (float)(vsum[vb] / votes[vb]) : value;
                 }
@@ -262,6 +264,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                         stats->q[i] = ssum[i] / sreps;
                         stats->se[i] = 0.0;
                         stats->qw[i] = -1.0;
+                        stats->prio[i] = -1.0;
                     }
                     stats->value = (float)(ssum[sbest] / sreps);
                 }
@@ -303,6 +306,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                 stats->visits[0] = 0;
                 stats->q[0] = value;
                 stats->se[0] = 0.0; stats->qw[0] = -1.0;
+            stats->prio[0] = prob[top];
                 stats->value = value;
             }
             return mv[top];

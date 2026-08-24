@@ -27,7 +27,9 @@ typedef struct {
                               fraction of playouts (draws count half);
                               -1 when not applicable */
     double prio[MAX_MOVES];/* rollout only: the candidate's policy prior
-                              after wager-copy dedup (folded mass) */
+                              after wager-copy dedup (folded mass); -1 on
+                              paths where priors were not the selection
+                              basis (exact-solver fills, heuristic mode) */
     float value;           /* pooled root value in points        */
 } SearchStats;
 
