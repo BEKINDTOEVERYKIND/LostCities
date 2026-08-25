@@ -90,6 +90,19 @@ static int playout(const Net *net, State *s, int p, int prune, Rng *srng,
     return sp - so;
 }
 
+/* is the top card of discard pile s playable by player p right now?
+ * (wager: blocked by any own number in the suit; number: blocked by any
+ * own played number of equal-or-higher rank) */
+static int pile_top_playable(const State *st, int p, int s)
+{
+    if (st->pile_n[s] == 0) return 0;
+    int card = st->pile[s][st->pile_n[s] - 1];
+    int r = card % 12;
+    uint32_t nums = (uint32_t)(st->played[p] >> (s * 12 + 3)) & 0x1FFu;
+    if (r < 3) return nums == 0;
+    return (nums >> (r - 3)) == 0;
+}
+
 Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                   float *out_value, SearchStats *stats)
 {
@@ -347,6 +360,14 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             Move top = mv[order[t]];
             for (int i = 0; i < n && neval < MAX_CAND; i++) {
                 if (mv[i].card != top.card || mv[i].discard != top.discard) continue;
+                /* draw_filter (spec field 23): expand a pile-draw variant
+                 * only when that pile's top is playable by the mover --
+                 * evaluating every pile after a popular play burns playouts
+                 * on draws nobody wants (the reviewer's ply-18 note), while
+                 * the useful-draw wins this expansion exists for all involve
+                 * a top card the mover could play */
+                if (a->draw_filter && mv[i].draw != 0 &&
+                    !pile_top_playable(st, st->turn, mv[i].draw - 1)) continue;
                 int seen = 0;
                 for (int c = 0; c < neval; c++) if (order[c] == i) { seen = 1; break; }
                 if (!seen) order[neval++] = i;

@@ -149,6 +149,17 @@ typedef struct Agent {
                            eligible set and lost to the full-k gate at 96
                            worlds while 512 worlds ranked them first by +6).
                            0 = off (previous behavior). */
+    int draw_filter;    /* AG_ROLLOUT (spec field 23): the advisory
+                           draw-variant expansion adds a pile-draw variant of
+                           a top action only when that pile's top card is
+                           playable by the mover.  The reviewer's ply-18 note:
+                           evaluating every pile draw after a popular play is
+                           pure waste -- and every historical useful-draw win
+                           (takeG6, drawY, the Gx grabs) involved a playable
+                           top.  Cuts per-decision playout cost; the freed
+                           budget can be spent as more worlds (higher dets at
+                           the same wall-clock).  0 = expand all legal draw
+                           sources (previous behavior). */
     const Net *net_b;   /* AG_ROLLOUT hybrid: when set, THIS net's belief
                            head steers world sampling while `net` keeps the
                            policy/priors/playouts (spec kind "rollouth").
