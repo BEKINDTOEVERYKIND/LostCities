@@ -301,3 +301,98 @@ Also, this is not a good fix, please undo this. It can absolutely be best at
 times to discard a wager the opponent can still play. Please try to avoid
 patchy fixes like this unless for cases that are very very clear, we should
 just be improving the ai so it doesn't make bad plays
+
+---
+
+## 2026-08-25 — full-strength showcase, game 1 (seed 909200, viewer game 1)
+
+Game PLAYED by the adopted match spec (96w, plylo 14, sel_k 1, override
+k3/min4 sampled-confirm) both sides; 512w display spec annotating.  The
+reviewer's words verbatim; states in fs1_p*.state, probe rows fs1_* in
+manifest.tsv, full game JSON in fs_909200.json.  Reviewer's closing
+instruction: these plies are "very obvious and can be taken as pretty
+much factual" — they are held-out ground truth for evaluating future
+nets and specs, not tuning targets for patches.
+
+ply 9: I'm quite surpised disc Yx isn't more popular in policy prior,
+it's definitely better than play W4 and play R6
+
+ply 11: gain disc Yx should be best here
+
+ply 13: disc Yx underrated again
+
+ply 15: same
+
+ply 17: policy again underrating disc Yx but this time search saves it
+
+ply 18: this is not just about this ply but also generally. There
+really is no reason to waste search worlds on checking each possible
+draw for the most popular plays. Just use more worlds on the actual
+good plays that policy suggest, checking the value of drawing from each
+disc pile after play G7 is pointless.
+
+ply 21: ridiculous play, disc R2 is so obviously best. Not only does
+Y4 give opponent a 4 for their expedition, disc R2 stops the opponent
+from potentially drawing the Rx which is currently a reasonable risk.
+
+ply 13-21: neither player really considering or valueing drawing the
+B3 while Blue has double blue wager down is really weird
+
+ply 25: how does search thing play Y3 is the 2nd best play? disc R4 is
+clearly the play
+
+ply 26: disc R5 should be better than disc Gx
+
+ply 27: why on earth is P1 not drawing the Gx from discard? the only
+reason them not playing G4 on their previous turns was to potentially
+draw a Gx, not drawing it now is completely ridiculous
+
+ply 29: same thing. i don't understand why search didn't overrule
+policy here either, regardless it's just terrible by policy not to
+draw Gx
+
+ply 47: completely ridiculous stall that just helps opponent, we have
+2 playable cards, literally no reason to stall complete nonsense
+
+ply 49: again completely ridiculous stall, so so so bad
+
+ply 51: even stalling on deck-1 which is always strictly inferior, in
+this case it doesn't matter because we know P2 can't have a playable
+card but it's just clearly showing a flaw in policy.
+
+ply 53: Wx should be better than Gx because we have the W3 in hand and
+only G9
+
+ply 62: very hard turn but it seems very unlikely that play G7 is best
+  [no probe row: reviewer explicitly called it very hard]
+
+ply 70: complete garbage play. play Y8 is very very very clearly best,
+it has no downsides.
+
+ply 71: play W6 is obviously best
+
+ply 76: play Y10 is obviously best, no idea why play R5 was chosen
+given how big the difference in policy was and how low the difference
+in search
+
+ply 96: completely terrible play. if we are drawing from deck we
+should obviously play G10 since this is our last card we can play.
+
+"I'll stop reviewing after that. Please save all these turns and my
+commentary to review future AIs with, since I'm only commenting on
+turns that are very obvious and can be taken as pretty much factual"
+
+### Cross-cutting observations recorded for follow-up
+
+- The disc-Yx arc (plies 9-17): one position class, flagged five
+  consecutive P1 turns; the 512w annotation search agreed with the
+  reviewer at 9/11/13 yet the 96w play-time layer never switched.
+- ply 18 is an ARCHITECTURE note, not a position note: stop spending
+  worlds on per-pile draw variants of popular plays; spend them on the
+  good candidate plays.  (Candidate draw-variant expansion vs deeper
+  evaluation of top candidates.)
+- ply 76 is the prior-aware-handicap textbook case (88.3% prior beaten
+  by 3.9% on a 0.1-pt edge) — the calibrated fields 20-21 exist and
+  measured match-neutral, but this ply is what they are for.
+- The round-1 endgame stalls (47/49/51) recur despite the stall-shaped
+  net: behavior class still present at full strength in round 0's end.

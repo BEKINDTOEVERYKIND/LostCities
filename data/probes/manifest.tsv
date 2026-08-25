@@ -30,3 +30,21 @@ selk_stall_89	selk_p89.state	909091	89	Y7 p deck	Y7 p B	WATCH: playouts love the
 selk_stall_91	selk_p91.state	909091	91	Y9 p deck	Y9 p B	EXACT: 8/8 worlds deck; playouts prefer the stall +1.90 -- schism
 selk_stall_93	selk_p93.state	909091	93	Y10 p deck	G7 p Y	EXACT: 8/8 worlds Y10-deck; played G7+Y-pile stall wrong on both card and draw
 selk_open_59	selk_p59.state	909091	59	B6 p deck	Gx p deck	reviewer: Gx nonsense, B6 best; B6 +4.92 +- 0.41; gate kept the policy top over search's correct B6
+fs1_open_9	fs1_p9.state	909200	9	Yx d deck	W4 p deck	reviewer: disc Yx definitely better than play W4/play R6; policy 0.9% on it; 512w search agreed (top q) yet play-time kept B7
+fs1_open_11	fs1_p11.state	909200	11	Yx d deck	B3 d deck	reviewer: disc Yx should be best; policy 1.4%; 512w search agreed, play-time kept the 47.9% B3
+fs1_wager_13	fs1_p13.state	909200	13	Yx d deck	Wx p deck	reviewer: disc Yx underrated again; policy 98.1% on the wager play; 512w had Yx d +4.3 over it
+fs1_open_15	fs1_p15.state	909200	15	Yx d deck	W4 p deck	reviewer: same underrating; policy 1.2% on Yx d
+fs1_save_17	fs1_p17.state	909200	17	Yx d deck	R6 p deck	reviewer: policy underrates disc Yx (2.3% vs 91.8% R6) but search saved it -- positive control, chosen move was already the better one
+fs1_gift_21	fs1_p21.state	909200	21	R2 d deck	Y4 d deck	reviewer: ridiculous play; Y4 gifts opponent a 4 and disc R2 denies the live Rx draw; policy had R2 at 80.5% and play-time still chose the 4.0% Y4
+fs1_disc_25	fs1_p25.state	909200	25	R4 d deck	Y3 d deck	reviewer: disc R4 is clearly the play; also flags 512w ranking play Y3 second as absurd
+fs1_disc_26	fs1_p26.state	909200	26	R5 d Y	Gx d Y	reviewer (P2 ply): disc R5 should beat disc Gx; 512w agreed +1.0 and play-time kept Gx
+fs1_drawGx_27	fs1_p27.state	909200	27	R4 d G	R4 d deck	reviewer: not drawing the Gx is completely ridiculous -- the only reason G4 was held back was to draw a Gx; 512w agreed +6.4, play-time took deck
+fs1_drawGx_29	fs1_p29.state	909200	29	R8 p G	R8 p deck	reviewer: same class next turn; 512w agreed +6.1, play-time took deck again
+fs1_stall_47	fs1_p47.state	909200	47	G10 p deck	G10 p R	reviewer: completely ridiculous stall that just helps opponent -- 2 playable cards in hand, no reason to stall; 512w preferred deck +2.8
+fs1_stall_49	fs1_p49.state	909200	49	R10 p deck	R10 p R	reviewer: again completely ridiculous stall, so so so bad
+fs1_stall_51	fs1_p51.state	909200	51	Rx d deck	Rx d B	reviewer: stalling at deck 1 is always strictly inferior; outcome-neutral here (opponent provably has no playable) but a clear policy-level flaw
+fs1_wager_53	fs1_p53.state	909200	53	Wx p deck	Gx p deck	reviewer (P2 ply): Wx should beat Gx -- W3 is in hand, Green has only G9 behind the wager
+fs1_play_70	fs1_p70.state	909200	70	Y8 p deck	W7 p deck	reviewer: play Y8 is very very very clearly best, it has no downsides; 512w had Y8 +0.3, gate kept the 84.2% W7
+fs1_play_71	fs1_p71.state	909200	71	W6 p deck	R6 p deck	reviewer (P2 ply): play W6 is obviously best; 512w agreed +0.2, gate kept the 75.3% R6
+fs1_prior_76	fs1_p76.state	909200	76	Y10 p deck	R5 p deck	reviewer: Y10 obviously best; the 88.3%-prior Y10 lost to a 3.9%-prior R5 on a 0.1-pt search edge -- the textbook prior-aware-handicap case
+fs1_last_96	fs1_p96.state	909200	96	G10 p deck	G8 p deck	reviewer: last effective play of the round (deck 2), G10 (10 pts) strictly beats G8; 512w top was even a G8 pile-stall
