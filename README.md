@@ -693,6 +693,27 @@ match arm is parked.  The reviewer's architecture note -- stop spending
 worlds on per-pile draw variants of popular plays, spend them on good
 candidate plays -- is an open work item.
 
+**The world-allocation follow-up (`draw_filter`, spec field 22-23 era),
+measured.**  The reviewer's ply-18 note -- stop spending worlds on every
+pile-draw variant of the popular plays, spend them on real candidates --
+turned out to be quantitatively right: the advisory draw-variant
+expansion was consuming 29% of searched-decision time at the match
+spec.  Spec field 23 (`draw_filter`) admits a pile-draw variant only
+when that pile's top card is playable by the mover; every historical
+useful-draw probe is bit-identical under it, and the freed budget fits
+128 worlds inside the old 96-world wall-clock with time to spare.  The
+reallocated spec (filter + dets 128) posted the best suite aggregate
+yet (357 better / 169 worse) and its pre-registered 800-game arm read
+**50.69% +- 3.5** against the adopted spec -- inside the neutral band,
+below the 52% bar a spec change must clear, so the recommended spec is
+unchanged.  What stands: the waste is real and the filter removes it
+safely (`filter at 96 worlds` is a pure ~29% speed win with identical
+probe decisions, relevant the day a time budget matters), but at fixed
+96-vs-128 worlds the extra determinizations do not convert to match
+wins -- consistent with the earlier dets-192 result, and one more data
+point that this engine's match ceiling is policy-bound, not
+worlds-bound.
+
 ## Reproducing
 
 ```
