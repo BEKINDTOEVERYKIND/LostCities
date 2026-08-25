@@ -77,6 +77,7 @@ void spec_parse(const char *spec, Agent *a)
             if ((v = strtok_r(NULL, ":", &save))) a->solve_budget = atol(v) * 1000000L;
             if ((v = strtok_r(NULL, ":", &save))) a->prior_w0 = (float)atof(v);
             if ((v = strtok_r(NULL, ":", &save))) a->prior_w1 = (float)atof(v);
+            if ((v = strtok_r(NULL, ":", &save))) a->sel_draw = atoi(v);
             /* a malformed spec must degrade to a working agent, not to an
              * uninitialized-read of sum[0] in the candidate loop */
             if (a->dets < 1) a->dets = 1;

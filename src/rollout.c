@@ -427,11 +427,20 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                 v2 += x * x;
             }
             double sed = sqrt(v2 / (reps - 1) / reps);
+            /* same-action draw variants clear at half sel_k (see agent.h
+             * sel_draw): only the draw source differs from the policy's own
+             * top choice, and its prior over draw sources is its least
+             * trustworthy output */
+            float sk = a->sel_k;
+            if (a->sel_draw &&
+                mv[order[c]].card == mv[order[0]].card &&
+                mv[order[c]].discard == mv[order[0]].discard)
+                sk *= 0.5f;
             if (getenv("LC_OV_DEBUG"))
                 fprintf(stderr, "[sel] cand %d dm %.2f sed %.2f need >%.2f: %s\n",
-                        c, dm, sed, a->sel_k * sed,
-                        dm > a->sel_k * sed ? "QUALIFY" : "reject");
-            if (dm <= a->sel_k * sed) continue;
+                        c, dm, sed, sk * sed,
+                        dm > sk * sed ? "QUALIFY" : "reject");
+            if (dm <= sk * sed) continue;
             /* under prior-aware selection the candidate must also clear the
              * log-prior handicap, not just the noise gate */
             if (lam != 0.0 && !usew && pscore[c] <= pscore[0]) continue;

@@ -137,6 +137,18 @@ typedef struct Agent {
                            noise; they guard different failure modes).
                            0/0 = plain EV argmax (previous behavior). */
     float prior_w1;     /* lambda at ply 44+, see prior_w0 */
+    int sel_draw;       /* AG_ROLLOUT (spec field 22): same-action draw
+                           variants clear the sel_k selection gate at HALF
+                           sel_k, mirroring ov_draw's rationale one layer up:
+                           the card and disposition are the policy's own top
+                           choice, only the draw source differs, the paired SE
+                           is structurally inflated by post-draw divergence,
+                           and the policy's prior over draw sources is its
+                           least trustworthy output (the reviewer's pile-draw
+                           refusals at 2026-08-25 plies 27/29 sat inside the
+                           eligible set and lost to the full-k gate at 96
+                           worlds while 512 worlds ranked them first by +6).
+                           0 = off (previous behavior). */
     const Net *net_b;   /* AG_ROLLOUT hybrid: when set, THIS net's belief
                            head steers world sampling while `net` keeps the
                            policy/priors/playouts (spec kind "rollouth").

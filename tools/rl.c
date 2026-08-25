@@ -54,6 +54,9 @@ typedef struct {
     float stallpen;     /* shaped penalty per own pile-draw at deck_left<=8 */
     float giftpen;      /* shaped penalty for discarding a wager the
                            opponent can still play (no numbers down in suit) */
+    float safewd;       /* shaped bonus for discarding a wager the opponent
+                           provably cannot play (numbers down in their suit
+                           expedition) -- the wager-clutch complement class */
     int rounds;
 } GenJob;
 
@@ -154,6 +157,20 @@ static void *gen_worker(void *arg)
                     if (card % 12 < 3 &&
                         ((chain[t].played[p ^ 1] >> (suit * 12 + 3)) & 0x1FFu) == 0)
                         G -= j->giftpen;
+                }
+                /* Wager-clutch shaping, the complement of the gift class:
+                 * policy clings to wagers the opponent provably cannot play
+                 * (a number card is already down on their suit expedition),
+                 * preferring filler plays over the safe unload.  A small
+                 * bonus tilts the discard into consideration; whether it
+                 * beats keeping the wager stays with the returns. */
+                if (j->safewd > 0.0f && chain[t].turn == p &&
+                    MOVE_DISC(chain_mv[t]) == 1) {
+                    int card = MOVE_CARD(chain_mv[t]);
+                    int suit = card / 12;
+                    if (card % 12 < 3 &&
+                        ((chain[t].played[p ^ 1] >> (suit * 12 + 3)) & 0x1FFu) != 0)
+                        G += j->safewd;
                 }
                 if (j->nout >= j->cap) continue;
                 RLSample *s = &j->out[j->nout++];
@@ -345,7 +362,7 @@ int main(int argc, char **argv)
     int aug = 0;
     float lr = 3e-4f, wd = 1e-7f, lambda = 0.85f, clip = 0.2f;
     float vcoef = 1.0f, entcoef = 0.004f, temp = 1.0f;
-    float winbonus = 15.0f, bw = 1.0f, mw = 1.0f, stallpen = 0.0f, giftpen = 0.0f;
+    float winbonus = 15.0f, bw = 1.0f, mw = 1.0f, stallpen = 0.0f, giftpen = 0.0f, safewd = 0.0f;
     int rounds = MATCH_ROUNDS;
     uint64_t seed = 7;
 
@@ -369,6 +386,7 @@ int main(int argc, char **argv)
         else if (ARG("--winbonus")) winbonus = (float)atof(argv[++i]);
         else if (ARG("--stallpen")) stallpen = (float)atof(argv[++i]);
         else if (ARG("--giftpen")) giftpen = (float)atof(argv[++i]);
+        else if (ARG("--safewd")) safewd = (float)atof(argv[++i]);
         else if (ARG("--bw")) bw = (float)atof(argv[++i]);
         else if (ARG("--mw")) mw = (float)atof(argv[++i]);
         else if (ARG("--rounds")) rounds = atoi(argv[++i]);
@@ -430,6 +448,7 @@ int main(int argc, char **argv)
             jobs[i].winbonus = winbonus;
             jobs[i].stallpen = stallpen;
             jobs[i].giftpen = giftpen;
+            jobs[i].safewd = safewd;
             jobs[i].mw = mw;
             jobs[i].rounds = rounds;
         }
