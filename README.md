@@ -655,6 +655,44 @@ pairing -- at dets 192+ where sel_k's SEs shrink, the early plies get
 cheaper to search and the 800-game signal may be real; that experiment
 should pre-register a larger sample from the start.
 
+**The 2026-08-25 reviewer corpus, and the stall-stacked champion.**  A
+reviewer pass over a full-strength self-play game (both sides played by
+the recommended spec) produced 21 flagged plies, archived verbatim in
+`data/probes/reviews.md` with 18 replayable probe rows (`fs1_*` in the
+manifest) held out as evaluation ground truth -- never trained on.
+Three behavior classes emerged: endgame stalls (still present despite
+the earlier stall-shaped run, which predated the gift-shaped adoption),
+wager-clutch (policy holding a wager the opponent provably cannot play,
+~1% prior on the correct discard five turns running), and pile-draw
+refusal (rejecting a useful discard-pile draw the deeper search ranks
+first).  The classes were attacked one at a time, per the combined-run
+lesson.
+
+The winner is the sequential stack: `--stallpen 0.8` fine-tuned FROM
+the gift-shaped champion.  Suite: **342 better / 186 worse** across all
+42 probes vs the champion's 300/268 -- the best aggregate of any net,
+with the flagged stalls fixed outright (probes 47/49: 0-for-20 to
+20-for-20) and unexpected spillover onto untrained classes (pile-draws
+17/3 and 18/2, plus probes 21, 71, 96).  Honest costs: suit_order_72
+regressed 19/1 to 3/17, play_70 and save_17 worsened.  Match gate:
+first 800 games 49.31% +- 3.5, a pre-registered 800-game extension
+52.81%, **pooled 1600 games 51.06% +- 2.4** (margin +0.19) -- above
+the 49.5% neutrality bar, so the behavior-dominant net is adopted:
+**best.bin is now the stall-stacked net** (previous champion preserved
+as `data/best_pre_st.bin`).  The recommended spec string is UNCHANGED.
+
+The other two classes are documented attempts: `rl --safewd` (a soft
+bonus for discarding a wager the opponent provably cannot play, the
+complement of `--giftpen`) fixed its literal probe (fs1_wager_53
+0/20 to 20/0) but left the clutch arc unmoved and regressed the
+aggregate to 251/246 -- not gated, retained in the trainer for a retry
+from the new champion.  Spec field 22 (`sel_draw`: same-action draw
+variants clear the sel_k gate at half k, mirroring ov_draw one layer
+up) measured suite-neutral with a mild gain on the draw class; its
+match arm is parked.  The reviewer's architecture note -- stop spending
+worlds on per-pile draw variants of popular plays, spend them on good
+candidate plays -- is an open work item.
+
 ## Reproducing
 
 ```
