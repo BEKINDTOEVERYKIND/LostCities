@@ -611,6 +611,50 @@ field that punishes those blunders harder than self-play does.  The
 recommended spec string is UNCHANGED; only the contents of
 `data/best.bin` changed.
 
+**Prior-aware override thresholds (spec fields 20-21), calibrated and
+measured.**  The idea: how much search EV it takes to overrule the
+policy should scale with how lopsided the policy is.  A 4% candidate
+against a 95% favourite must clear a much higher bar than a 45%
+candidate against 55%, and a 1% move must beat the 4% move, not just
+the leader.  Implemented as a prior tax on candidate selection --
+candidates compare on `EV + lambda(ply) * log(prior)` with `lambda`
+interpolated from field 20 (`pw0`, ply 0) to field 21 (`pw1`, ply 44+),
+applied uniformly to the initial argmax, the sel_k gate, and the
+advisory override layer; `0:0` (the default) reproduces the old
+behavior bit-for-bit.  The thresholds were fit empirically, not chosen:
+`tools/calib.c` sampled ~93k candidate rows from 640 self-play games
+(sampled and argmax trajectories), scoring every candidate with both
+the play-time 96-world estimator and a 1024-world sampled-playout
+oracle, and `tools/calfit.py` regressed, per prior-gap bucket and ply
+band, how large a cheap-search edge must be before the oracle expects
+the switch to gain points (full record in
+`data/probes/calib_fit_2026-08-24.txt`).  The surface is cleanly
+log-linear in log(p_top/p_c) and falls monotonically with ply -- 0.65
+pts/nat at plies 0-10 down to 0.06 past ply 44 -- confirming both of
+the motivating intuitions: certainty deserves deference, and it
+deserves *more* deference early, which is exactly why search had been
+restricted to ply>=14 in the first place.  Deployment fit: `pw0=0.7
+pw1=0.2`.
+
+Three pre-registered 800-game arms against the adopted spec, all with
+the tax on: at the current `plylo` 14 the tax is redundant -- 49.3% ±
+3.5 -- because the sel_k paired-SE gate already suppresses the same
+false positives at those plies.  The interesting arm moved `plylo` down
+to 8, using the tax as the safety net the early plies previously
+lacked: 54.6% ± 3.5 over the first 800 games.  A confirmatory
+1600-game final gate on that arm, pre-registered at a 52% adoption
+bar, came back **49.7% ± 2.4%** (margin -0.4); pooled over all 2400
+games the plylo-8 arm reads 51.3% ± 2.0 -- suggestive, not
+significant, and below the bar.  Verdict: measured-neutral, the
+recommended spec is unchanged.  What survives is the calibrated
+threshold surface itself (the empirical answer to "how much should a
+95/4 split cost to overturn"), the fields to deploy it, and a sharp
+negative result: with sel_k in place, prior taxes and earlier search
+buy nothing detectable at 96 worlds.  The one open door is a slow-spec
+pairing -- at dets 192+ where sel_k's SEs shrink, the early plies get
+cheaper to search and the 800-game signal may be real; that experiment
+should pre-register a larger sample from the start.
+
 ## Reproducing
 
 ```
