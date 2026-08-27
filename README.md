@@ -756,6 +756,24 @@ corrections training; the regressed rows are the natural targets of
 the next mining round, and the match gate says the trade is strongly
 net-positive.
 
+**c18: generation five, and the loop keeps paying.**  Mined from c17's
+own games with two detector upgrades -- the gift counter-class (the
+missing other side of the wager-discard boundary, after c17's clutch
+training over-generalized and regressed the founding gift probe) and
+late-deck stall coverage -- the corr18 corpus (67k labels) fine-tuned
+c17 into c18: **53.5% +- 1.6 (+5.2 points/game) as raw policies** and
+**51.88% +- 3.5 over 800 games** at the full match spec.  best.bin is
+now c18 (c17 preserved as `data/best_pre_c18.bin`); the recommended
+spec string is unchanged.  The suite posts the lowest worse-count in
+the corpus's history -- 319 better / 143 worse against c17's 354/196 --
+with the reviewer's ply-11 wager-clutch probe fixed outright (0/20 to
+20/0), the gift blunder stopped, and premature_B10 healed 19/1; honest
+costs: selk_stall_89 and drawGx_29 regressed, prior_76 dipped, and the
+ply-13 variant of the clutch arc remains the one reliably-wrong member
+of its class.  Two generations in two days, both driven by the same
+human review: new detector classes are what reopens the converged
+corrections loop.
+
 ## Reproducing
 
 ```
