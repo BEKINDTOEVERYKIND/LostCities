@@ -734,6 +734,28 @@ tools/mine.c class 8) -- with the older detector classes measurably
 refilled since c13 by the shaped passes, a fresh corrections cycle has
 material on every front.
 
+**c17: the fourth corrections generation -- and a new champion.**  The
+corrections loop, restarted with the review-derived wager-clutch
+detector (miner class 8) and the discovery that the shaped fine-tunes
+had refilled the older detector classes, mined 400 champion self-play
+games into 53k gate-respecting labels (~250 wclutch corrections per 50
+games) and fine-tuned the champion in dataset mode with symmetry
+augmentation.  The result is the largest gain since the original
+c-series: **59.0% +- 1.6 (+15.4 points/game) as raw policies** over
+1000 validation games, and -- the part that matters -- the gain
+survives the search layer: **54.69% +- 3.4, margin +8.8 over 800
+games** at the full match spec, the first decisive search-level gate
+win since sel_k.  best.bin is now c17 (previous champion preserved as
+`data/best_pre_c17.bin`); the recommended spec string is unchanged.
+The suite record is stated honestly: 354 better / 196 worse against
+the prior champion's 342/186 -- big fixes (the reviewer's fs1_wager_53
+0/20 to 20/0, stall_89, save_17, two long-standing zero-prior probes
+to 20/0) alongside real regressions (selk_gift_13 to 0/20,
+fs1_open_11, drawGx_27), the familiar rebalancing signature of
+corrections training; the regressed rows are the natural targets of
+the next mining round, and the match gate says the trade is strongly
+net-positive.
+
 ## Reproducing
 
 ```
