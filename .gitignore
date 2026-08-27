@@ -25,3 +25,6 @@ data/sw5.bin
 data/sw5sel.bin
 data/c17seg*.bin
 data/c17.bin*
+data/c1[78]*.bin
+data/c1[78]*.bin.it*
+data/c18seg*
