@@ -151,6 +151,30 @@ static int detect(const State *st, const Move *mv, const float *pr, int n)
             }
         }
     }
+    /* 8: wager-clutch -- the mover holds a wager the opponent provably
+     * cannot play (a number is down on their suit expedition) while the
+     * mover's own expedition in the suit is empty and their holding is
+     * thin, yet the policy puts almost no mass on the safe unload.
+     * The 2026-08-25 review flagged this five consecutive turns at ~1%
+     * prior on the correct discard; the label decides keep-vs-unload. */
+    if (st->deck_left >= 6) {
+        for (int i = 0; i < nh; i++) {
+            int c = hc[i];
+            if (!CARD_IS_WAGER(c)) continue;
+            int s = CARD_SUIT(c);
+            if (st->exp_n[p][s] != 0) continue;
+            if (st->exp_top[p ^ 1][s] == 0) continue;
+            int own = 0;
+            for (int k = 0; k < nh; k++)
+                if (!CARD_IS_WAGER(hc[k]) && CARD_SUIT(hc[k]) == s) own++;
+            if (own > 2) continue;
+            float mass = 0.0f;
+            for (int k = 0; k < n; k++)
+                if (mv[k].discard && CARD_IS_WAGER(mv[k].card) &&
+                    CARD_SUIT(mv[k].card) == s) mass += pr[k];
+            if (mass < 0.05f) { cls |= 128; break; }
+        }
+    }
     return cls;
 }
 
@@ -161,7 +185,7 @@ typedef struct {
     FILE *out;
     pthread_mutex_t *lk;
     long flagged, corrected, plies, written;
-    long bycls[7];
+    long bycls[8];
 } Job;
 
 static void *worker(void *arg)
@@ -238,7 +262,7 @@ static void *worker(void *arg)
                     {
                         if (!agree) {
                             j->corrected++;
-                            for (int b = 0; b < 7; b++) if (cls & (1 << b)) j->bycls[b]++;
+                            for (int b = 0; b < 8; b++) if (cls & (1 << b)) j->bycls[b]++;
                         }
                         Sample s;
                         memset(&s, 0, sizeof s);
@@ -400,11 +424,11 @@ int main(int argc, char **argv)
         jobs[i].seed = seed; jobs[i].out = out; jobs[i].lk = &lk;
         pthread_create(&th[i], NULL, worker, &jobs[i]);
     }
-    long fl = 0, co = 0, pl = 0, bc[7] = { 0 };
+    long fl = 0, co = 0, pl = 0, bc[8] = { 0 };
     for (int i = 0; i < nthread; i++) {
         pthread_join(th[i], NULL);
         fl += jobs[i].flagged; co += jobs[i].corrected; pl += jobs[i].plies;
-        for (int b = 0; b < 7; b++) bc[b] += jobs[i].bycls[b];
+        for (int b = 0; b < 8; b++) bc[b] += jobs[i].bycls[b];
     }
     long wr = 0;
     for (int i = 0; i < nthread; i++) wr += jobs[i].written;
@@ -414,8 +438,8 @@ int main(int argc, char **argv)
     fclose(out);
     printf("mine: %d games, %ld plies, %ld flagged (%.1f%%), %ld corrected (%.1f%% of flagged)\n",
            games, pl, fl, 100.0 * fl / (pl ? pl : 1), co, 100.0 * co / (fl ? fl : 1));
-    printf("      by class: skip %ld, pile-refusal %ld, stall %ld, burial %ld, hedge %ld, misorder %ld, deckburn %ld\n",
-           bc[0], bc[1], bc[2], bc[3], bc[4], bc[5], bc[6]);
+    printf("      by class: skip %ld, pile-refusal %ld, stall %ld, burial %ld, hedge %ld, misorder %ld, deckburn %ld, wclutch %ld\n",
+           bc[0], bc[1], bc[2], bc[3], bc[4], bc[5], bc[6], bc[7]);
     printf("      wrote %llu samples (dup %d) to %s\n",
            (unsigned long long)count, dup, outpath);
     return 0;
