@@ -101,7 +101,7 @@ static int detect(const State *st, const Move *mv, const float *pr, int n)
 
     /* 3: top move stalls (pile-draws a card the mover cannot play) with
      * plenty of own plays and deck left */
-    if (mv[top].draw != 0 && st->deck_left >= 8 && nplay >= 3) {
+    if (mv[top].draw != 0 && (st->deck_left >= 8 ? nplay >= 3 : nplay >= 2)) {
         int t = st->pile[mv[top].draw - 1][st->pile_n[mv[top].draw - 1] - 1];
         if (!playable(st, p, t)) cls |= 4;
     }
@@ -175,6 +175,19 @@ static int detect(const State *st, const Move *mv, const float *pr, int n)
             if (mass < 0.05f) { cls |= 128; break; }
         }
     }
+    /* 9: gift -- the top move discards a card the opponent can play right
+     * now AND plausibly wants (a wager, a card onto a wagered expedition,
+     * or value >= 5).  The c17 cycle taught the safe wager unload without
+     * a counter-signal and the gift probe regressed to 0/20; this is the
+     * missing other side of the wager/number discard boundary, and the
+     * label decides case by case (gifts are sometimes right, per the
+     * reviewer -- category bans stay out). */
+    if (mv[top].discard) {
+        int c = mv[top].card, s = CARD_SUIT(c);
+        if (playable(st, p ^ 1, c) &&
+            (CARD_IS_WAGER(c) || st->exp_wager[p ^ 1][s] > 0 || CARD_VALUE(c) >= 5))
+            cls |= 256;
+    }
     return cls;
 }
 
@@ -185,7 +198,7 @@ typedef struct {
     FILE *out;
     pthread_mutex_t *lk;
     long flagged, corrected, plies, written;
-    long bycls[8];
+    long bycls[9];
 } Job;
 
 static void *worker(void *arg)
@@ -262,7 +275,7 @@ static void *worker(void *arg)
                     {
                         if (!agree) {
                             j->corrected++;
-                            for (int b = 0; b < 8; b++) if (cls & (1 << b)) j->bycls[b]++;
+                            for (int b = 0; b < 9; b++) if (cls & (1 << b)) j->bycls[b]++;
                         }
                         Sample s;
                         memset(&s, 0, sizeof s);
@@ -424,11 +437,11 @@ int main(int argc, char **argv)
         jobs[i].seed = seed; jobs[i].out = out; jobs[i].lk = &lk;
         pthread_create(&th[i], NULL, worker, &jobs[i]);
     }
-    long fl = 0, co = 0, pl = 0, bc[8] = { 0 };
+    long fl = 0, co = 0, pl = 0, bc[9] = { 0 };
     for (int i = 0; i < nthread; i++) {
         pthread_join(th[i], NULL);
         fl += jobs[i].flagged; co += jobs[i].corrected; pl += jobs[i].plies;
-        for (int b = 0; b < 8; b++) bc[b] += jobs[i].bycls[b];
+        for (int b = 0; b < 9; b++) bc[b] += jobs[i].bycls[b];
     }
     long wr = 0;
     for (int i = 0; i < nthread; i++) wr += jobs[i].written;
@@ -438,8 +451,8 @@ int main(int argc, char **argv)
     fclose(out);
     printf("mine: %d games, %ld plies, %ld flagged (%.1f%%), %ld corrected (%.1f%% of flagged)\n",
            games, pl, fl, 100.0 * fl / (pl ? pl : 1), co, 100.0 * co / (fl ? fl : 1));
-    printf("      by class: skip %ld, pile-refusal %ld, stall %ld, burial %ld, hedge %ld, misorder %ld, deckburn %ld, wclutch %ld\n",
-           bc[0], bc[1], bc[2], bc[3], bc[4], bc[5], bc[6], bc[7]);
+    printf("      by class: skip %ld, pile-refusal %ld, stall %ld, burial %ld, hedge %ld, misorder %ld, deckburn %ld, wclutch %ld, gift %ld\n",
+           bc[0], bc[1], bc[2], bc[3], bc[4], bc[5], bc[6], bc[7], bc[8]);
     printf("      wrote %llu samples (dup %d) to %s\n",
            (unsigned long long)count, dup, outpath);
     return 0;
