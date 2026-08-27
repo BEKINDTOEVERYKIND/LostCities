@@ -21,3 +21,5 @@ data/*.tmp
 data/st2.bin
 data/sw3.bin
 data/sw4.bin
+data/sw5.bin
+data/sw5sel.bin

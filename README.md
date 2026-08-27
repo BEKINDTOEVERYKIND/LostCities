@@ -714,6 +714,26 @@ wins -- consistent with the earlier dets-192 result, and one more data
 point that this engine's match ceiling is policy-bound, not
 worlds-bound.
 
+**The wager-clutch class resists reward shaping (two measured negatives).**
+The 2026-08-25 review's remaining big class -- clinging to a wager the
+opponent provably cannot play -- got a trainer mechanism (`rl --safewd`,
+a soft bonus for the safe unload, the complement of `--giftpen`) and two
+fine-tune attempts from the stall-stacked champion.  Both failed the
+suite precondition, and the failure mode is the finding: a 40-iteration
+shaped fine-tune moves non-target behavior more than the target class
+gains.  The plain retry reverted the just-adopted stall fixes outright
+(probes 47/49 from 20-for-20 back to 0-for-20); anchoring with an active
+`--stallpen` during the safewd run still let probe 49 revert while
+worse-rates rose elsewhere (342/186 champion vs 345/211 candidate).
+Sequential shaping, in other words, does not compose at this scale --
+each pass pays interference on every previously shaped class.  The
+corrections loop is the tool built against exactly this (search-labeled
+distributions at flagged states, policy-agree anchors everywhere else),
+and the review's class is now its eighth miner detector (wager-clutch,
+tools/mine.c class 8) -- with the older detector classes measurably
+refilled since c13 by the shaped passes, a fresh corrections cycle has
+material on every front.
+
 ## Reproducing
 
 ```
