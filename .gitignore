@@ -28,3 +28,5 @@ data/c17.bin*
 data/c1[78]*.bin
 data/c1[78]*.bin.it*
 data/c18seg*
+data/*.bst
+data/*.bst.tmp
