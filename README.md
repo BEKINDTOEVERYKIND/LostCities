@@ -800,6 +800,29 @@ separate gated question; the earlier hybrid experiment used the wide
 net's un-specialized head and measured neutral, and this one is
 strictly better at the only job the slot has.
 
+**Belief, round two: the history features the snapshot erased.**  The
+State now tracks which player last discarded each card still in a pile
+and how long each player has passed over the current pile tops
+(disc_by/passed, maintained in lc_apply, never read by play logic), and
+an extended-input specialist (`belx`, tools/belief.c) consumes them as
+130 extra feature rows, warm-started from the standard specialist so
+it begins at the identical function.  Training required per-group
+learning rates -- a uniform rate destroyed the inherited representation
+faster than the new signals paid (holdout 6.4% -> 4.1% in two epochs),
+while frozen-base training proved the new features add nothing through
+frozen pathways alone; the working recipe is full rate on the new rows
+with the base at 2% of it.  Final, on the untouched fresh-seed corpus:
+**6.7% skill / AUC 0.654** vs the standard specialist's 6.4%/0.653 and
+the champion head's 4.8%/0.639, with the late game (where sampling
+matters most) improving most: 4.9% -> 7.2%.  The instructive negative:
+discard-origin and decline signals, the intuitive core of human hand
+inference, add only ~0.3 skill points -- self-play pile contents plus
+expedition state already imply most of who discarded what.  Cumulative
+belief arc: +40% relative inference skill over the shipped head, all
+without touching a play decision; `data/belx_final.blx` is the
+artifact, engine integration (world sampling from a BelX net) is the
+scoped follow-up if deployment is wanted.
+
 ## Reproducing
 
 ```
