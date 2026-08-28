@@ -89,6 +89,10 @@ void spec_parse(const char *spec, Agent *a)
              * uninitialized-read of sum[0] in the candidate loop */
             if (a->dets < 1) a->dets = 1;
             if (a->root_width < 1) a->root_width = 1;
+            /* negative draw_filter would read as truthy (= mode 1) in the
+             * expansion filter, silently enabling a restriction next to a
+             * doc that says 0 = expand all */
+            if (a->draw_filter < 0) a->draw_filter = 0;
         } else if (is_policy) {
             if ((v = strtok_r(NULL, ":", &save))) a->temp = (float)atof(v);
         } else if (is_mcts) {

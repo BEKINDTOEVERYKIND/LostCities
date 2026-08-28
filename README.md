@@ -716,7 +716,15 @@ probe decisions, relevant the day a time budget matters), but at fixed
 96-vs-128 worlds the extra determinizations do not convert to match
 wins -- consistent with the earlier dets-192 result, and one more data
 point that this engine's match ceiling is policy-bound, not
-worlds-bound.
+worlds-bound.  Field 23 later gained a terminal value on the reviewer's
+direct instruction: `draw_filter=2` suppresses the expansion entirely,
+so search evaluates only the policy-ranked moves (variants were
+advisory-only -- their sole path to the move was the override -- and
+the corrections labeler keeps the full expansion offline, teaching the
+policy to RANK good draws rather than having match search brute-force
+them; do not combine =2 with ov_draw, which the mode would starve).
+All 18 held-out reviewer probes give byte-identical 20-seed tallies
+under =2 at ~30% less searched-ply time.
 
 **The wager-clutch class resists reward shaping (two measured negatives).**
 The 2026-08-25 review's remaining big class -- clinging to a wager the

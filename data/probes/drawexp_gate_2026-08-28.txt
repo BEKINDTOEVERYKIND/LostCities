@@ -26,4 +26,22 @@ Gate D -- reallocation: freed compute as more worlds, 800 games, seeds 3800-3879
   Declared: >=52% adopt A (strength spec change bar); 49.5-52% neutral,
   keep the faster 96-dets Gate C spec; <49.5% negative, record.
 
+Adversarial pre-gate review (3-agent workflow), key outcomes:
+  - all 18 fs1_* reviewer probes: byte-identical 20-seed tallies OLD vs
+    NEW (every move count, not just the top); NEW ~30% faster per
+    searched ply.  On the ground-truth set the expansion was pure waste.
+  - core correctness verified (indices, 22-field parse, no other
+    draw_filter readers); fixes applied: negative draw_filter clamped,
+    ov_draw incompatibility documented, README field-23 text updated.
+  - suite-comparability caveat: manifest probes whose "better" move is a
+    sub-floor draw variant of the policy-top action (g424_drawY_112,
+    g424_G8Y_118, selk_stall_43/89/91/93) are unreachable under a =2
+    spec by construction; suite aggregates under the new spec are not
+    comparable with pre-field-23 runs.  Those probes remain meaningful
+    for the labeler/analysis configs, which keep the expansion.
+  - tools deliberately unaffected: mine.c labeler and train.c gen keep
+    draw_filter=0 (they NEED variant pricing to generate corrections);
+    analysis -a specs keep the expansion so the viewer still shows
+    draw-variant Q rows; only the -p (play) spec carries =2.
+
 RESULTS: pending

@@ -365,11 +365,13 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
      * sampled world, and those variants are the alternatives an analyst
      * asks about most -- make sure the two top-prior actions have all
      * their legal draw sources on the board.  But each variant still buys
-     * a full dets x playout sweep, and with sel_draw/ov_draw off the only
-     * path from the advisory layer to the move is the full-bar override --
-     * the reviewer's verdict is that pricing every draw source of an
-     * already-chosen action is compute the top policy plays should get
-     * instead (draw_filter=2 drops the expansion entirely). */
+     * a full dets x playout sweep, and the expansion feeds only the
+     * advisory layer, whose sole path to the move is the override (full
+     * bar unless ov_draw discounts it) -- the reviewer's verdict is that
+     * pricing every draw source of an already-chosen action is compute
+     * the top policy plays should get instead (draw_filter=2 drops the
+     * expansion entirely; combining that with ov_draw starves ov_draw of
+     * the very variants it exists to rescue, so don't). */
     if (a->eval_cand > 0 && a->draw_filter < 2) {
         for (int t = 0; t < 2 && t < neval; t++) {
             Move top = mv[order[t]];

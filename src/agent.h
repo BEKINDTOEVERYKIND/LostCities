@@ -159,9 +159,11 @@ typedef struct Agent {
                            grabs -- involved a playable top).  2: no expansion
                            at all; search evaluates only policy-ranked moves
                            (the reviewer's directive: the compute belongs to
-                           the top policy plays, and with sel_draw/ov_draw off
-                           the variants could act only through the full-bar
-                           override anyway).  Cuts per-decision playout cost;
+                           the top policy plays; expansion variants were
+                           advisory-only, reachable solely through the
+                           override).  Do not combine 2 with ov_draw -- the
+                           mode would starve the override of the variants it
+                           exists to rescue.  Cuts per-decision playout cost;
                            the freed budget can be spent as more worlds
                            (higher dets at the same wall-clock).  0 = expand
                            all legal draw sources (previous behavior). */
