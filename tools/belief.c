@@ -504,7 +504,7 @@ static void xeval_net(const BelX *x, const Rec *recs, long nrec, int fromgame, i
 /* full-backprop belief-only training of the BelX net, single-threaded
  * Adam, per-decision 1/n loss scale as everywhere else */
 static void xtrain(BelX *x, const Rec *recs, long nrec, const char *outp,
-                   int epochs, float lr, int holdgames)
+                   int epochs, float lr, float basescale, int holdgames)
 {
     int maxg = 0;
     for (long i = 0; i < nrec; i++) if (recs[i].game > maxg) maxg = recs[i].game;
@@ -526,11 +526,21 @@ static void xtrain(BelX *x, const Rec *recs, long nrec, const char *outp,
     float lg[NCARD];
     float d2[NET_H2_MAX], d1[NET_H1_MAX];
 
+    /* per-group learning rate: inherited parameters (base w1 rows and all
+     * of b1/w2/b2/wb/bb) move at lr*basescale; the NEW feature rows
+     * (w1 rows FEAT_DIM..XDIM) get the full lr.  The uniform-rate run
+     * destroyed the inherited representation faster than the new signals
+     * paid (holdout 6.4%% -> 4.1%% in two epochs). */
+    const size_t newrow_lo = (size_t)FEAT_DIM * x->h1;
+    const size_t newrow_hi = (size_t)XDIM * x->h1;
     #define ADAM(off, g) do { \
         size_t _o = (off); float _g = (g); \
-        m[_o] = 0.9f * m[_o] + 0.1f * _g; \
-        v[_o] = 0.999f * v[_o] + 0.001f * _g * _g; \
-        x->blk[_o] -= lr * m[_o] / (sqrtf(v[_o]) + 1e-8f); \
+        float _lr = (_o >= newrow_lo && _o < newrow_hi) ? lr : lr * basescale; \
+        if (_lr != 0.0f) { \
+            m[_o] = 0.9f * m[_o] + 0.1f * _g; \
+            v[_o] = 0.999f * v[_o] + 0.001f * _g * _g; \
+            x->blk[_o] -= _lr * m[_o] / (sqrtf(v[_o]) + 1e-8f); \
+        } \
     } while (0)
 
     for (int e = 1; e <= epochs; e++) {
@@ -637,17 +647,17 @@ int main(int argc, char **argv)
     } else if (!strcmp(argv[1], "train") && argc >= 8) {
         Rec *r; long n = load_bst(argv[3], &r);
         train_head(&net, r, n, argv[4], atoi(argv[5]), (float)atof(argv[6]), atoi(argv[7]));
-    } else if (!strcmp(argv[1], "xtrain") && argc >= 8) {
-        /* argv[2] = warm-start SPEC net; xtrain SPEC STATES OUT EPOCHS LR HOLD */
+    } else if (!strcmp(argv[1], "xtrain") && argc >= 9) {
+        /* xtrain SPECNET STATES OUT EPOCHS LR BASESCALE HOLD */
         BelX x; belx_from_net(&x, &net);
         Rec *r; long n = load_bst(argv[3], &r);
-        xtrain(&x, r, n, argv[4], atoi(argv[5]), (float)atof(argv[6]), atoi(argv[7]));
-    } else if (!strcmp(argv[1], "xresume") && argc >= 8) {
-        /* xresume BLXFILE STATES OUT EPOCHS LR HOLD (argv[2] reused as blx path) */
+        xtrain(&x, r, n, argv[4], atoi(argv[5]), (float)atof(argv[6]), (float)atof(argv[7]), atoi(argv[8]));
+    } else if (!strcmp(argv[1], "xresume") && argc >= 9) {
+        /* xresume BLXFILE STATES OUT EPOCHS LR BASESCALE HOLD */
         BelX x;
         if (belx_load(&x, argv[2]) != 0) { fprintf(stderr, "cannot load blx %s\n", argv[2]); return 1; }
         Rec *r; long n = load_bst(argv[3], &r);
-        xtrain(&x, r, n, argv[4], atoi(argv[5]), (float)atof(argv[6]), atoi(argv[7]));
+        xtrain(&x, r, n, argv[4], atoi(argv[5]), (float)atof(argv[6]), (float)atof(argv[7]), atoi(argv[8]));
     } else if (!strcmp(argv[1], "xeval") && argc >= 5) {
         BelX x;
         if (belx_load(&x, argv[2]) != 0) { fprintf(stderr, "cannot load blx %s\n", argv[2]); return 1; }
