@@ -123,6 +123,12 @@ int main(int argc, char **argv)
     int nseeds = atoi(argv[3]);
     Agent ag;
     spec_parse(argv[4], &ag);
+    if (ag.bx) {
+        fprintf(stderr, "decreplay: .state files carry no disc_by/passed history; "
+                        "probing a .blx belief spec on zeroed history is "
+                        "off-distribution and would misrepresent play -- refused\n");
+        return 1;
+    }
 
     char keys[64][24];
     int counts[64], nkey = 0;

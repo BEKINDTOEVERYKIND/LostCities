@@ -95,8 +95,9 @@ static int playout(const Net *net, State *s, int p, int prune, Rng *srng,
 static void sample_world(const struct Agent *a, const State *st, int p,
                          Rng *rng, State *out)
 {
+    if (a->no_belief) { determinize_b(st, p, rng, NULL, out); return; }
     if (a->bx) { determinize_bx(st, p, rng, a->bx, out); return; }
-    determinize_b(st, p, rng, a->no_belief ? NULL : (a->net_b ? a->net_b : a->net), out);
+    determinize_b(st, p, rng, a->net_b ? a->net_b : a->net, out);
 }
 
 /* is the top card of discard pile s playable by player p right now?

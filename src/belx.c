@@ -42,10 +42,12 @@ int belx_load(BelX *x, const char *path)
     FILE *f = fopen(path, "rb");
     if (!f) return -1;
     uint32_t h[4];
-    if (fread(h, sizeof h, 1, f) != 1 || h[0] != BELX_MAGIC || h[3] != BELX_XDIM ||
-        h[1] < 1 || h[1] > NET_H1_MAX || h[2] < 1 || h[2] > NET_H2_MAX) {
+    if (fread(h, sizeof h, 1, f) != 1 || h[0] != BELX_MAGIC) { fclose(f); return -2; }
+    if (h[3] != BELX_XDIM || h[1] < 1 || h[1] > NET_H1_MAX || h[2] < 1 || h[2] > NET_H2_MAX) {
+        fprintf(stderr, "belx '%s': dims h1=%u h2=%u xdim=%u vs compiled xdim=%d\n",
+                path, h[1], h[2], h[3], BELX_XDIM);
         fclose(f);
-        return -2;
+        return -4;
     }
     belx_alloc(x, (int)h[1], (int)h[2]);
     if (fread(x->blk, sizeof(float), belx_nfloat(x->h1, x->h2), f) !=

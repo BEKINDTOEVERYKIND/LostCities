@@ -544,7 +544,12 @@ int main(int argc, char **argv)
             if ((v = strtok_r(NULL, ":", &save))) gen.ply_hi = atoi(v);
             if ((v = strtok_r(NULL, ":", &save))) gen.eval_cand = atoi(v);
         } else {
-            spec_parse(gen_spec, &gen);
+            /* parse once: repeated spec_parse leaked a fresh Net (and now
+             * potentially a BelX) every iteration */
+            static Agent gen_cached;
+            static int gen_parsed = 0;
+            if (!gen_parsed) { spec_parse(gen_spec, &gen_cached); gen_parsed = 1; }
+            gen = gen_cached;
             gen.net = net;
         }
 

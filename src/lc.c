@@ -273,6 +273,7 @@ void lc_permute(State *st, const uint8_t map[NCARD])
         st->known[p]  = perm_mask(old.known[p], map);
     }
     st->discarded = perm_mask(old.discarded, map);
+    for (int p = 0; p < 2; p++) st->disc_by[p] = perm_mask(old.disc_by[p], map);
     for (int i = 0; i < NCARD; i++) st->deck[i] = map[old.deck[i]];
     for (int s = 0; s < NSUIT; s++) {
         int sp = map[s * NRANK] / NRANK;
@@ -284,6 +285,7 @@ void lc_permute(State *st, const uint8_t map[NCARD])
             st->exp_top[p][sp]   = old.exp_top[p][s];
             st->exp_n[p][sp]     = old.exp_n[p][s];
             st->exp_sum[p][sp]   = old.exp_sum[p][s];
+            st->passed[p][sp]    = old.passed[p][s];
         }
     }
 }
