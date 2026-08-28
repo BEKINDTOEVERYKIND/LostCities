@@ -774,6 +774,32 @@ of its class.  Two generations in two days, both driven by the same
 human review: new detector classes are what reopens the converged
 corrections loop.
 
+**The belief head, isolated and improved (reviewer-directed).**  The
+opponent-hand inference head had only ever trained as a side objective
+of the policy trainers; `tools/belief.c` isolates it -- corpus
+generation from champion self-play, honest metrics (BCE skill over the
+counting prior and within-decision AUC on the STRICTLY-UNKNOWN card
+set, known-card bookkeeping excluded; adversarially reviewed for
+leakage before any compute), and head-only training on the frozen
+trunk.  Findings, all on an untouched fresh-seed 1000-game test
+corpus: (1) the linear head is already at capacity -- retuning it on
+1.8M samples cannot beat the RL equilibrium (4.8% skill, AUC 0.639) --
+so the bottleneck is the shared trunk representation, not the head;
+(2) a SPECIALIST net (full c18 clone fine-tuned belief-only, pw=0
+vw=0, on 6.75M frozen-champion self-play samples) lifts inference to
+**6.4% skill / AUC 0.653** with gains in every phase (early 2.3->3.7,
+mid 7.7->9.4, late 4.9->6.8) and cleaner calibration; (3) doubling
+the specialist's width from scratch does worse (6.0%, overfits) --
+the warm-started champion trunk, not capacity, carries the signal.
+The winner is committed as `data/belief_best.bin` and deploys without
+touching a single play decision via the hybrid spec
+(`rollouth:data/best.bin:data/belief_best.bin:<usual tail>` -- main
+net keeps priors, candidates and playouts; the specialist only steers
+world sampling).  Whether sharper worlds convert to match wins is a
+separate gated question; the earlier hybrid experiment used the wide
+net's un-specialized head and measured neutral, and this one is
+strictly better at the only job the slot has.
+
 ## Reproducing
 
 ```

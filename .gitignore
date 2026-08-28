@@ -30,3 +30,14 @@ data/c1[78]*.bin.it*
 data/c18seg*
 data/*.bst
 data/*.bst.tmp
+data/beldump.smp*
+data/belnet.bin*
+data/belseg*
+data/junkgen.bin*
+data/best_beltuned.bin
+data/beldump*.smp*
+data/beldumpall.smp
+data/belnet2.bin*
+data/bel2seg*
+data/belwide.bin*
+data/belwseg*
