@@ -1,0 +1,21 @@
+Belief deployment gates -- 2026-08-28
+Champion: data/best.bin (c18).  Baseline spec (adopted):
+  rollout:data/best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1
+Pre-registered verdicts (declared before any gate game ran):
+  >=52%       adopt hybrid as recommended match spec
+  49.5-52%    measured-neutral, keep adopted spec
+  <49.5%      negative, record
+  If both gates >=52%: adopt the higher scorer.
+
+Gate A -- rollouth with belief-specialist standard net (data/belief_best.bin)
+  spec: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1
+  seeds 3200-3279, 80 chunks x 5 matches x 3 rounds = 800 games
+  RESULT: W/L/D 414/377/9  score 52.31% +/- 3.46 (95% CI)
+          points/game 120.33 vs 117.47, margin +2.86
+  Verdict: above the 52% adoption bar (point estimate); held pending Gate B
+  per the both->higher-scorer rule.
+
+Gate B -- rollouth with extended-feature belief net (data/belx_final.blx)
+  spec: rollouth:data/best.bin:data/belx_final.blx:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1
+  seeds 3400-3479, same protocol.
+  RESULT: pending
