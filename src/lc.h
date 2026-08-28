@@ -91,6 +91,16 @@ typedef struct {
     /* match context, fixed for the duration of a round */
     uint8_t round;         /* 0-based round of the match           */
     int16_t cum[2];        /* cumulative score from earlier rounds */
+
+    /* behavioral history for opponent-hand inference: which player last
+     * discarded each card still lying in a pile, and how many completed
+     * turns each player has spent while the current top of each pile sat
+     * available untaken (reset whenever that pile's top changes).  Play
+     * logic never reads these; they exist so belief features can see the
+     * two signals a snapshot otherwise erases -- whose discards the piles
+     * are, and what the opponent has declined. */
+    uint64_t disc_by[2];
+    uint8_t passed[2][NSUIT];
 } State;
 
 /* competitive Lost Cities is played over three rounds, total score wins */

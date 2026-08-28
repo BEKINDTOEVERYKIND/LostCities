@@ -92,6 +92,9 @@ void lc_apply_play(State *st, Move m)
     if (m.discard) {
         st->pile[suit][st->pile_n[suit]++] = m.card;
         st->discarded |= 1ULL << m.card;
+        st->disc_by[p] |= 1ULL << m.card;
+        st->disc_by[p ^ 1] &= ~(1ULL << m.card);
+        st->passed[0][suit] = st->passed[1][suit] = 0;
     } else {
         st->played[p] |= 1ULL << m.card;
         st->exp_n[p][suit]++;
@@ -119,6 +122,20 @@ void lc_apply_draw(State *st, Move m, int card)
         st->hand[p] |= 1ULL << c;
         st->discarded &= ~(1ULL << c);
         st->known[p] |= 1ULL << c;       /* taken face up: everyone saw it */
+        st->disc_by[0] &= ~(1ULL << c);
+        st->disc_by[1] &= ~(1ULL << c);
+        st->passed[0][s] = st->passed[1][s] = 0;
+    }
+    /* the mover completed a turn with these pile tops available and did
+     * not take them; the pile they just discarded to (untakeable by rule)
+     * and the pile they drew from (top changed) were reset above */
+    {
+        int dsuit = m.discard ? CARD_SUIT(m.card) : -1;
+        int drsuit = m.draw > 0 ? m.draw - 1 : -1;
+        for (int s2 = 0; s2 < NSUIT; s2++)
+            if (st->pile_n[s2] > 0 && s2 != dsuit && s2 != drsuit &&
+                st->passed[p][s2] < 250)
+                st->passed[p][s2]++;
     }
     st->hand_n[p]++;
     st->nply++;
