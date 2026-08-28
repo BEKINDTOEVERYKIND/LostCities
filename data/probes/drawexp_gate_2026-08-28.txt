@@ -44,4 +44,11 @@ Adversarial pre-gate review (3-agent workflow), key outcomes:
     analysis -a specs keep the expansion so the viewer still shows
     draw-variant Q rows; only the -p (play) spec carries =2.
 
-RESULTS: pending
+RESULTS:
+Gate C: W/L/D 401/394/5  score 50.44% +/- 3.46 (95% CI)
+        points/game 117.39 vs 116.90, margin +0.49
+  Verdict per pre-registration: >=49.5% -> ADOPTED.  The removal is
+  strength-neutral at equal dets and 1.47x cheaper per game.  New
+  recommended match spec:
+  rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2
+Gate D: pending
