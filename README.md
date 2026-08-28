@@ -488,9 +488,13 @@ search on exhaustion -- an unbounded per-solve version could pin a thread
 for hours on one rare wide-hand endgame.
 
 Recommended settings: **maximum strength**
-`rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1` (search from ply 14,
-four candidates evaluated, dominated discards pruned, 3-SE advisory
-override, 1-SE selection gate);
+`rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1`
+(search from ply 14, four candidates evaluated, dominated discards
+pruned, 3-SE advisory override, 1-SE selection gate, with the belief
+specialist steering world sampling -- adopted at 52.31% over 800 games,
+see the belief-deployment section);
+plain `rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1` when only one
+network file is on hand;
 **gate 0.85 for real-time play**; raw policy for bulk generation.
 Analysis uses `rollout:NET:512:5:0.02:0:1:0:0:4:0:1:3` -- the same
 selection rules at 512 worlds, searched at every ply for display.
@@ -822,6 +826,35 @@ belief arc: +40% relative inference skill over the shipped head, all
 without touching a play decision; `data/belx_final.blx` is the
 artifact, engine integration (world sampling from a BelX net) is the
 scoped follow-up if deployment is wanted.
+
+**Belief deployment gates: sharper worlds DO convert to match wins.**
+Engine integration first: the rollout world sampler dispatches to the
+belief net with the extended-format (`belx`) runtime alongside the
+standard-net path (src/belx.[ch], determinize_bx, spec.c auto-detecting
+.blx files by magic in the `rollouth` slot), adversarially reviewed --
+the one substantive finding, that .state probe files carry no
+disc_by/passed history and would probe a belx spec off-distribution,
+is closed by decreplay refusing such specs.  Then two pre-registered
+800-game gates against the adopted spec, verdicts declared before any
+game ran (>=52% adopt, 49.5-52% neutral, <49.5% negative; both above
+52% -> higher scorer wins).  Gate A, the standard-format specialist
+`data/belief_best.bin` in the hybrid slot: **52.31% +- 3.46, points
+margin +2.86** -- clears the bar.  Gate B, the extended-format
+`data/belx_final.blx` (better at inference: 6.7% vs 6.4% skill):
+**50.88% +- 3.46, margin +0.73** -- measured-neutral, and the history
+features that need live disc_by/passed state buy nothing at 96 worlds
+that the snapshot specialist doesn't already provide.  Per
+pre-registration the recommended match spec is now the Gate A hybrid
+(the first spec-string change since the selection gate era):
+
+    rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1
+
+Same search, same priors, same candidates and playouts -- only the
+sampled opponent hands are drawn from the specialist.  The belief
+program's chain thus closes end-to-end: +33% relative inference skill
+shipped as a +2.3-point match-strength gain with zero play-logic
+changes.  Full protocol and numbers in
+`data/probes/belief_gates_2026-08-28.txt`.
 
 ## Reproducing
 

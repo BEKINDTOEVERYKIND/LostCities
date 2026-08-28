@@ -18,4 +18,12 @@ Gate A -- rollouth with belief-specialist standard net (data/belief_best.bin)
 Gate B -- rollouth with extended-feature belief net (data/belx_final.blx)
   spec: rollouth:data/best.bin:data/belx_final.blx:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1
   seeds 3400-3479, same protocol.
-  RESULT: pending
+  RESULT: W/L/D 405/391/4  score 50.88% +/- 3.46 (95% CI)
+          points/game 116.45 vs 115.72, margin +0.73
+  Verdict: measured-neutral (49.5-52% band).
+
+FINAL VERDICT (per pre-registration): Gate A cleared 52%; Gate B did not
+beat it.  ADOPTED recommended match spec:
+  rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1
+The previous single-net spec remains valid when only best.bin is available:
+  rollout:data/best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1
