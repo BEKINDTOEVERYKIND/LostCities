@@ -160,6 +160,12 @@ typedef struct Agent {
                            budget can be spent as more worlds (higher dets at
                            the same wall-clock).  0 = expand all legal draw
                            sources (previous behavior). */
+    const struct BelX *bx;  /* AG_ROLLOUT hybrid, extended-format flavour:
+                           when set, world sampling uses this belx net's
+                           inference (with the behavioral-history features)
+                           instead of any Net belief head; takes precedence
+                           over net_b.  Set by a rollouth spec whose second
+                           path is a .blx file. */
     const Net *net_b;   /* AG_ROLLOUT hybrid: when set, THIS net's belief
                            head steers world sampling while `net` keeps the
                            policy/priors/playouts (spec kind "rollouth").
@@ -224,5 +230,7 @@ int  sample_index(const float *w, int n, Rng *rng);
  * falls back to uniform. */
 void determinize(const State *st, int p, Rng *rng, State *out);
 void determinize_b(const State *st, int p, Rng *rng, const Net *net, State *out);
+struct BelX;
+void determinize_bx(const State *st, int p, Rng *rng, const struct BelX *bx, State *out);
 
 #endif

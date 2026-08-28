@@ -1,4 +1,5 @@
 #include "agent.h"
+#include "belx.h"
 #include "heuristic.h"
 #include "search.h"
 #include <math.h>
@@ -109,6 +110,58 @@ void determinize_b(const State *st, int p, Rng *rng, const Net *net, State *out)
     out->hand[o] = st->known[o];
     for (int i = 0; i < need; i++) out->hand[o] |= 1ULL << unseen[order[i]];
     /* remaining cards form the deck in random order */
+    out->deck_pos = 0;
+    memset(out->deck, 0, sizeof(out->deck));
+    int d = 0;
+    for (int i = need; i < n; i++) out->deck[d++] = unseen[order[i]];
+    for (int i = d - 1; i > 0; i--) {
+        uint32_t j = rng_below(rng, (uint32_t)i + 1);
+        uint8_t t = out->deck[i]; out->deck[i] = out->deck[j]; out->deck[j] = t;
+    }
+    out->deck_left = (uint8_t)d;
+}
+
+
+/* determinize_b with the extended-format specialist supplying the logits:
+ * identical Gumbel-top-k sampling, only the inference model differs */
+void determinize_bx(const State *st, int p, Rng *rng, const struct BelX *bx, State *out)
+{
+    if (!bx) { determinize(st, p, rng, out); return; }
+    *out = *st;
+    uint8_t unseen[NCARD];
+    int n = 0;
+    lc_unseen(st, p, unseen, &n);
+    const int o = p ^ 1;
+    int need = (int)st->hand_n[o] - __builtin_popcountll(st->known[o]);
+    if (need <= 0 || n == 0) { determinize(st, p, rng, out); return; }
+
+    Features f;
+    BelXFeat xf;
+    NetAct act;
+    belx_feat(st, p, &f, &xf);
+    belx_trunk(bx, &f, &xf, &act);
+    float logit[NCARD];
+    belx_logits(bx, &act, unseen, n, logit);
+
+    float key[NCARD];
+    int order[NCARD];
+    for (int i = 0; i < n; i++) {
+        float u = rng_float(rng);
+        if (u < 1e-7f) u = 1e-7f;
+        if (u > 0.999999f) u = 0.999999f;
+        float l = logit[i];
+        if (l > 15.0f) l = 15.0f;
+        if (l < -15.0f) l = -15.0f;
+        key[i] = l - logf(-logf(u));
+        order[i] = i;
+    }
+    for (int i = 0; i < need; i++) {
+        int best = i;
+        for (int j = i + 1; j < n; j++) if (key[order[j]] > key[order[best]]) best = j;
+        int t = order[i]; order[i] = order[best]; order[best] = t;
+    }
+    out->hand[o] = st->known[o];
+    for (int i = 0; i < need; i++) out->hand[o] |= 1ULL << unseen[order[i]];
     out->deck_pos = 0;
     memset(out->deck, 0, sizeof(out->deck));
     int d = 0;

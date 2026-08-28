@@ -1,4 +1,5 @@
 #include "spec.h"
+#include "belx.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,7 +53,12 @@ void spec_parse(const char *spec, Agent *a)
              * second net's belief head steers world sampling only */
             char *bpath = strtok_r(NULL, ":", &save);
             if (!bpath) { fprintf(stderr, "rollouth needs a second (belief) network path\n"); exit(1); }
-            a->net_b = load_net(bpath);
+            /* extended-format specialist (.blx magic) or a standard net */
+            BelX *bx = (BelX *)malloc(sizeof(BelX));
+            int br = belx_load(bx, bpath);
+            if (br == 0) { a->bx = bx; }
+            else if (br == -2) { free(bx); a->net_b = load_net(bpath); }
+            else { fprintf(stderr, "cannot load belief file '%s'\n", bpath); exit(1); }
         }
         char *v;
         if (is_rollout) {

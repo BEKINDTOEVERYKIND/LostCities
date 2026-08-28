@@ -10,7 +10,7 @@ SRC     := src
 
 HDRS    := $(wildcard $(SRC)/*.h)
 CORE    := $(SRC)/lc.c $(SRC)/features.c $(SRC)/net.c $(SRC)/heuristic.c \
-           $(SRC)/search.c $(SRC)/rollout.c $(SRC)/solver.c $(SRC)/agent.c $(SRC)/match.c $(SRC)/spec.c
+           $(SRC)/search.c $(SRC)/rollout.c $(SRC)/solver.c $(SRC)/agent.c $(SRC)/belx.c $(SRC)/match.c $(SRC)/spec.c
 
 all: $(BIN)/test_engine $(BIN)/arena $(BIN)/train $(BIN)/bench $(BIN)/probe $(BIN)/rl $(BIN)/ladder $(BIN)/play $(BIN)/showgame \
      $(BIN)/analyze $(BIN)/qpair $(BIN)/mine $(BIN)/decreplay

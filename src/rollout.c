@@ -90,6 +90,15 @@ static int playout(const Net *net, State *s, int p, int prune, Rng *srng,
     return sp - so;
 }
 
+
+/* world sampling dispatch: extended-format specialist wins if configured */
+static void sample_world(const struct Agent *a, const State *st, int p,
+                         Rng *rng, State *out)
+{
+    if (a->bx) { determinize_bx(st, p, rng, a->bx, out); return; }
+    determinize_b(st, p, rng, a->no_belief ? NULL : (a->net_b ? a->net_b : a->net), out);
+}
+
 /* is the top card of discard pile s playable by player p right now?
  * (wager: blocked by any own number in the suit; number: blocked by any
  * own played number of equal-or-higher rank) */
@@ -194,7 +203,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             int done = 0;
             for (int d = 0; d < vreps && sbudget > 0; d++) {
                 State world;
-                determinize_b(st, sp, rng, a->no_belief ? NULL : (a->net_b ? a->net_b : a->net), &world);
+                sample_world(a, st, sp, rng, &world);
                 Move bm;
                 int v = lc_solve_root(&world, &sbudget, &bm);
                 if (sbudget <= 0) break;
@@ -249,7 +258,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             for (int i = 0; i < n; i++) swin[i] = 0.0;
             for (int d = 0; d < sreps && solved; d++) {
                 State world;
-                determinize_b(st, sp, rng, a->no_belief ? NULL : (a->net_b ? a->net_b : a->net), &world);
+                sample_world(a, st, sp, rng, &world);
                 for (int i = 0; i < n; i++) {
                     State s = world;
                     lc_apply(&s, mv[i]);
@@ -384,7 +393,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
 
     for (int d = 0; d < reps; d++) {
         State world;
-        determinize_b(st, p, rng, a->no_belief ? NULL : (a->net_b ? a->net_b : a->net), &world);
+        sample_world(a, st, p, rng, &world);
         uint64_t wseed = 0x9E3779B97F4A7C15ULL * (uint64_t)(d + 1) ^ rng->s[0];
         for (int c = 0; c < neval; c++) {
             State s = world;                 /* same world for every candidate */
@@ -542,7 +551,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                 double ds = 0.0;
                 for (int d = 0; d < reps; d++) {
                     State world;
-                    determinize_b(st, p, rng, a->no_belief ? NULL : (a->net_b ? a->net_b : a->net), &world);
+                    sample_world(a, st, p, rng, &world);
                     uint64_t wseed = 0x9E3779B97F4A7C15ULL * (uint64_t)(d + 1) ^ rng->s[0];
                     Rng r1, r2;
                     rng_seed(&r1, wseed);
