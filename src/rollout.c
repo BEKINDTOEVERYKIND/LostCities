@@ -362,10 +362,15 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         neval = a->eval_cand < nsorted ? a->eval_cand : nsorted;
     }
     /* draw-variant expansion: "same action, another draw" shares every
-     * sampled world and costs almost nothing extra, yet those variants are
-     * the alternatives an analyst asks about most -- make sure the two
-     * top-prior actions have all their legal draw sources on the board */
-    if (a->eval_cand > 0) {
+     * sampled world, and those variants are the alternatives an analyst
+     * asks about most -- make sure the two top-prior actions have all
+     * their legal draw sources on the board.  But each variant still buys
+     * a full dets x playout sweep, and with sel_draw/ov_draw off the only
+     * path from the advisory layer to the move is the full-bar override --
+     * the reviewer's verdict is that pricing every draw source of an
+     * already-chosen action is compute the top policy plays should get
+     * instead (draw_filter=2 drops the expansion entirely). */
+    if (a->eval_cand > 0 && a->draw_filter < 2) {
         for (int t = 0; t < 2 && t < neval; t++) {
             Move top = mv[order[t]];
             for (int i = 0; i < n && neval < MAX_CAND; i++) {

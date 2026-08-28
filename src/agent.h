@@ -149,17 +149,22 @@ typedef struct Agent {
                            eligible set and lost to the full-k gate at 96
                            worlds while 512 worlds ranked them first by +6).
                            0 = off (previous behavior). */
-    int draw_filter;    /* AG_ROLLOUT (spec field 23): the advisory
-                           draw-variant expansion adds a pile-draw variant of
-                           a top action only when that pile's top card is
-                           playable by the mover.  The reviewer's ply-18 note:
-                           evaluating every pile draw after a popular play is
-                           pure waste -- and every historical useful-draw win
-                           (takeG6, drawY, the Gx grabs) involved a playable
-                           top.  Cuts per-decision playout cost; the freed
-                           budget can be spent as more worlds (higher dets at
-                           the same wall-clock).  0 = expand all legal draw
-                           sources (previous behavior). */
+    int draw_filter;    /* AG_ROLLOUT (spec field 23): restricts the advisory
+                           draw-variant expansion of top actions, a strength
+                           scale.  1: add a pile-draw variant only when that
+                           pile's top card is playable by the mover (the
+                           reviewer's ply-18 note: evaluating every pile draw
+                           after a popular play is pure waste, and every
+                           historical useful-draw win -- takeG6, drawY, the Gx
+                           grabs -- involved a playable top).  2: no expansion
+                           at all; search evaluates only policy-ranked moves
+                           (the reviewer's directive: the compute belongs to
+                           the top policy plays, and with sel_draw/ov_draw off
+                           the variants could act only through the full-bar
+                           override anyway).  Cuts per-decision playout cost;
+                           the freed budget can be spent as more worlds
+                           (higher dets at the same wall-clock).  0 = expand
+                           all legal draw sources (previous behavior). */
     const struct BelX *bx;  /* AG_ROLLOUT hybrid, extended-format flavour:
                            when set, world sampling uses this belx net's
                            inference (with the behavioral-history features)

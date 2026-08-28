@@ -1,0 +1,29 @@
+Draw-variant expansion removal -- pre-registration, 2026-08-28
+Reviewer directive: search must stop always evaluating every draw source of
+the top play; evaluate only the top policy plays.  Implemented as
+draw_filter=2 (spec field 23): the advisory draw-variant expansion is
+suppressed entirely; the eval set is the policy-ranked candidates alone.
+
+Measured on a fixed seed (4242, 3 rounds, identical trajectories):
+  candidates evaluated per searched ply  6.52 -> 4.26
+  wall-clock per game                    44.0s -> 29.8s  (1.47x)
+
+Gate C -- removal at unchanged dets, 800 games, seeds 3600-3679
+  A: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2
+  B: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1
+  Declared before any game runs:
+    >=49.5%  adopt A (user-directed change; the bar is only that it must
+             not measurably hurt -- the win is the 1.47x compute saving)
+    <49.5%   the removal measurably hurts: do NOT silently adopt; report
+             the evidence to the reviewer (it would mean the full-bar
+             override on draw variants was buying real wins).
+
+Gate D -- reallocation: freed compute as more worlds, 800 games, seeds 3800-3879
+  (runs only if Gate C adopts)
+  A: Gate C spec with dets 96 -> 144 (~wall-clock parity with the OLD
+     96-dets expanded search: 29.8 * 144/96 = 44.7s vs 44.0s)
+  B: the Gate C spec (96 dets)
+  Declared: >=52% adopt A (strength spec change bar); 49.5-52% neutral,
+  keep the faster 96-dets Gate C spec; <49.5% negative, record.
+
+RESULTS: pending
