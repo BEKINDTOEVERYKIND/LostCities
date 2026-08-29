@@ -282,7 +282,22 @@ int main(int argc, char **argv)
         memset(&ss, 0, sizeof ss);
         float sval = 0.0f;
         Move m = rollout_move(&ag, &st, &rng, &sval, &ss);
-        if (playspec) m = agent_move(&play_ag, &st, &rng);
+        /* capture the MATCH agent's own search too: the deep display
+         * search above is not the search that picks the move, and a
+         * reviewer audit of ply 16 (seed 909200) found the played move
+         * inexplicable from the display table alone -- the play-time
+         * 96-world stats are the actual decision record */
+        SearchStats pss;
+        pss.n = 0;
+        if (playspec) {
+            if (play_ag.kind == AG_ROLLOUT) {
+                memset(&pss, 0, sizeof pss);
+                float pv2 = 0.0f;
+                m = rollout_move(&play_ag, &st, &rng, &pv2, &pss);
+            } else {
+                m = agent_move(&play_ag, &st, &rng);
+            }
+        }
 
         int sord[MAX_MOVES];
         for (int i = 0; i < ss.n; i++) sord[i] = i;
@@ -300,6 +315,27 @@ int main(int argc, char **argv)
             fputc('}', pf);
         }
         fputc(']', pf);
+
+        /* the play agent's decision record, when it actually searched
+         * (n <= 1 means the ply window or confidence gate returned the
+         * policy move without a candidate comparison) */
+        if (pss.n > 1) {
+            int pord[MAX_MOVES];
+            for (int i = 0; i < pss.n; i++) pord[i] = i;
+            for (int i = 0; i < pss.n; i++)
+                for (int j = i + 1; j < pss.n; j++)
+                    if (pss.q[pord[j]] > pss.q[pord[i]]) { int t = pord[i]; pord[i] = pord[j]; pord[j] = t; }
+            fprintf(pf, ",\"playsearch\":[");
+            for (int i = 0; i < pss.n; i++) {
+                if (i) fputc(',', pf);
+                int k = pord[i];
+                j_move_open(pf, pss.mv[k]);
+                fprintf(pf, ",\"q\":%.1f,\"se\":%.1f,\"visits\":%.0f,\"chosen\":%s",
+                        pss.q[k], pss.se[k], pss.visits[k], move_eq(pss.mv[k], m) ? "true" : "false");
+                fputc('}', pf);
+            }
+            fputc(']', pf);
+        }
 
         /* the card that will be drawn: read before lc_apply */
         int drawn = m.draw == 0 ? st.deck[st.deck_pos]

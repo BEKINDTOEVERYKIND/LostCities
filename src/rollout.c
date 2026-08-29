@@ -490,6 +490,35 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         }
         best = pick;
     }
+    /* selection confirmation (sel_confirm, spec field 24): a sel_k
+     * qualifier that would override the policy top must also lead it on a
+     * FRESH batch of sampled worlds.  The sel_k bar is one paired SE
+     * tested against up to root_width-1 alternatives on a single world
+     * batch, so ~5-15% of searched plies can still hand the move to a
+     * noise fluke -- the reviewer's ply-16 catch: a variant measuring 1.9
+     * points worse at 512 worlds qualified on one 96-world stream and
+     * played.  An independent retest is the asymmetric filter a stiffer
+     * sel_k is not: a real lead (the +2.61 +- 0.24 safe-wager discard
+     * that motivated the gate) survives any fresh batch, while a one-SE
+     * fluke fails one about half the time.  Same shape as the override
+     * path's sampled confirmation below, and priced only when a
+     * qualifier actually fires. */
+    if (a->sel_confirm && best != 0 && val && reps > 1) {
+        double ds = 0.0;
+        for (int d = 0; d < reps; d++) {
+            State world;
+            sample_world(a, st, p, rng, &world);
+            State sa = world, sb = world;
+            lc_apply(&sa, mv[order[best]]);
+            lc_apply(&sb, mv[order[0]]);
+            ds += playout(a->net, &sa, p, a->prune_dom, NULL, NULL)
+                - playout(a->net, &sb, p, a->prune_dom, NULL, NULL);
+        }
+        if (getenv("LC_OV_DEBUG"))
+            fprintf(stderr, "[selconf] cand %d vs 0: fresh ds %.2f: %s\n",
+                    best, ds / reps, ds <= 0.0 ? "REVERT" : "CONFIRMED");
+        if (ds <= 0.0) best = 0;
+    }
     /* significance-gated override: an advisory candidate may take the move
      * only when its lead over the eligible best exceeds override_k paired
      * standard errors AND override_min points.  The SE gate rejects noise
