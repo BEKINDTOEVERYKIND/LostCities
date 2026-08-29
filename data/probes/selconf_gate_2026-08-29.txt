@@ -63,4 +63,22 @@ measurement beyond 5 spot probes (which were 20-seed inconclusive):
      and report to reviewer with evidence + recommendation; <49.5%
      negative, record.
 
-RESULTS: pending
+RESULTS:
+Round 2 suite (sel_deep, standing spec + :1, 20 seeds, same harness):
+  342 better / 160 worse  vs OFF baseline 341 / 148.
+  Pre-registered precondition was better >= 333 AND worse <= 156:
+  FAILED on the worse count (+12).  Pooling helped nothing on net --
+  the extra batch re-litigates decisions the single batch already got
+  right about as often as it fixes the ones it got wrong, at 1.3-1.5x
+  contested-ply cost.  REFUTED; no Gate G games were played.
+
+Standing verdict for the ply-16 noise class: the sel_k=1 single-batch
+gate remains the measured optimum among {ungated, k=1, k=1.5,
+fresh-batch veto, pooled deepening}.  Its ~5%-tail selection noise on
+states like the reviewer's catch is, on present evidence, the price of
+keeping the small-true-lead overrides that the suite and the k=1
+match gate reward.  Fields 24's mode stays in the engine as an
+experimental knob, NOT in the recommended spec.  What ships from this
+arc: the play-time search is now recorded (analyze playsearch) and
+displayed in the viewer, so every future review audits the search
+that actually chose the move.

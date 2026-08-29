@@ -519,6 +519,24 @@ the objective).  k=1.5 measured 52.0% ± 1.8% over its own 800 games --
 also above parity, but the stricter gate suppresses more of the good
 overrides than it saves in blunders; k=1 stands.
 
+A c20-era reviewer catch (showcase ply 16: a 76%-prior, deep-search-
+best play G8 lost the move to a noise qualifier on one 96-world
+stream, a ~5%-of-seeds tail) prompted two attempts to close the sel_k
+gate's residual noise, both refuted by the probe suite before any
+match gate: a fresh-batch confirmation veto suppressed twelve
+reviewer-verified good overrides to remove six noise cases (the k=1.5
+signature -- real overrides are mostly SMALL true leads that fail an
+independent margin retest nearly as often as flukes), and pooled
+contested-ply deepening (sel_deep, field 24, kept as an experimental
+mode) moved the suite from 341/148 to 342/160.  The single-batch k=1
+gate stands as the measured optimum of five variants; the tail is the
+price of the small-lead overrides.  What shipped instead is audit
+honesty: `analyze -p` now records the play agent's own search
+(`playsearch`) and the viewer displays it as the decision record
+beside the deeper advisory analysis -- the reviewer's confusion came
+from reading a 512-world advisory table as if it had chosen the move.
+Full protocol in `data/probes/selconf_gate_2026-08-29.txt`.
+
 **The solver-vote endgame, measured -- and a divergence worth naming.**
 A reviewer's stall catches were refuted by EXACT solving (8/8 sampled
 worlds at three deck-4/5 positions say draw from the deck) while
