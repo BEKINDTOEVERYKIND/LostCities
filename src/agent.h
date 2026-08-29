@@ -167,17 +167,21 @@ typedef struct Agent {
                            the freed budget can be spent as more worlds
                            (higher dets at the same wall-clock).  0 = expand
                            all legal draw sources (previous behavior). */
-    int sel_confirm;    /* AG_ROLLOUT (spec field 24): a sel_k qualifier
-                           overriding the policy top must also lead it on a
-                           fresh batch of dets sampled worlds (argmax
-                           playouts, paired, margin > 0) or the top plays.
-                           One-batch/one-SE qualification against several
-                           alternatives passes noise on a tail of seeds (the
-                           reviewer's ply-16 catch); an independent retest
-                           removes those flukes without suppressing real
-                           leads, which is what a stiffer sel_k could not do
-                           (k=1.5 measured worse).  Costs one extra world
-                           batch only on plies where a qualifier fires. */
+    int sel_deep;       /* AG_ROLLOUT (spec field 24): when any eligible
+                           candidate outscores the policy top on the first
+                           world batch, run a second batch of dets worlds
+                           and make every selection/override decision on the
+                           pooled 2x statistics.  One-batch/one-SE sel_k
+                           qualification against several alternatives passes
+                           noise on a tail of seeds (the reviewer's ply-16
+                           catch); pooling ADDS DATA instead of raising the
+                           bar, so real small leads qualify more often while
+                           flukes qualify less -- the trade a stiffer sel_k
+                           (k=1.5, measured worse) and a fresh-batch veto
+                           (probe-refuted: suppressed 12 reviewer-verified
+                           good overrides to remove 6 noise cases) both got
+                           wrong.  Costs one extra batch on contested plies
+                           only. */
     const struct BelX *bx;  /* AG_ROLLOUT hybrid, extended-format flavour:
                            when set, world sampling uses this belx net's
                            inference (with the behavioral-history features)

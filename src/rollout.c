@@ -397,25 +397,50 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
     const int p = st->turn;
     int reps = a->dets > 0 ? a->dets : 1;
     int lastround = st->round == MATCH_ROUNDS - 1;
-    double *val = (double *)malloc(sizeof(double) * (size_t)neval * (size_t)reps);
+    /* sel_deep doubles the worlds on contested plies; val is laid out at
+     * the maximum width up front so pooling extends rows in place */
+    const int vstride = a->sel_deep ? reps * 2 : reps;
+    double *val = (double *)malloc(sizeof(double) * (size_t)neval * (size_t)vstride);
 
-    for (int d = 0; d < reps; d++) {
-        State world;
-        sample_world(a, st, p, rng, &world);
-        uint64_t wseed = 0x9E3779B97F4A7C15ULL * (uint64_t)(d + 1) ^ rng->s[0];
-        for (int c = 0; c < neval; c++) {
-            State s = world;                 /* same world for every candidate */
-            lc_apply(&s, mv[order[c]]);
-            double w;
-            Rng pr;
-            if (a->playout_sample) rng_seed(&pr, wseed);   /* same seed per world */
-            int m = playout(a->net, &s, p, a->prune_dom,
-                            a->playout_sample ? &pr : NULL, &w);
-            if (val) val[(size_t)c * reps + d] = m;
-            sum[c] += m;
-            if (w >= 0.0) sumw[c] += w;
+    int want = reps, done = 0;
+    while (done < want) {
+        for (int d = done; d < want; d++) {
+            State world;
+            sample_world(a, st, p, rng, &world);
+            uint64_t wseed = 0x9E3779B97F4A7C15ULL * (uint64_t)(d + 1) ^ rng->s[0];
+            for (int c = 0; c < neval; c++) {
+                State s = world;             /* same world for every candidate */
+                lc_apply(&s, mv[order[c]]);
+                double w;
+                Rng pr;
+                if (a->playout_sample) rng_seed(&pr, wseed);   /* same seed per world */
+                int m = playout(a->net, &s, p, a->prune_dom,
+                                a->playout_sample ? &pr : NULL, &w);
+                if (val) val[(size_t)c * vstride + d] = m;
+                sum[c] += m;
+                if (w >= 0.0) sumw[c] += w;
+            }
+        }
+        done = want;
+        /* contested-ply deepening (sel_deep, spec field 24): when any
+         * eligible candidate outscores the policy top on the first batch,
+         * the selection decision is live -- buy a second batch and decide
+         * everything on pooled statistics.  More data moves the trade the
+         * sel_k bar alone cannot: the pooled SE shrinks, so a candidate
+         * with a real small lead qualifies MORE often while a
+         * single-batch fluke (the reviewer's ply-16 catch: a move 1.9
+         * points worse at 512 worlds played off one 96-world stream)
+         * qualifies less.  A fresh-batch veto was tried first and
+         * refuted on the probe suite -- it suppressed twice as many
+         * reviewer-verified good overrides as the noise it removed, the
+         * same signature that sank sel_k=1.5.  Cost: one extra batch
+         * only on contested plies. */
+        if (a->sel_deep && want == reps) {
+            for (int c = 1; c < ncand; c++)
+                if (sum[c] > sum[0]) { want = reps * 2; break; }
         }
     }
+    reps = done;
 
     /* In the final round the playouts decide the match, so pick by match
      * wins with margin as the tiebreak -- a 5% shot at stealing the match
@@ -461,7 +486,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             if (dm <= 0.0) continue;
             double v2 = 0.0;
             for (int d = 0; d < reps; d++) {
-                double x = val[(size_t)c * reps + d] - val[(size_t)0 * reps + d] - dm;
+                double x = val[(size_t)c * vstride + d] - val[(size_t)0 * vstride + d] - dm;
                 v2 += x * x;
             }
             double sed = sqrt(v2 / (reps - 1) / reps);
@@ -490,35 +515,6 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         }
         best = pick;
     }
-    /* selection confirmation (sel_confirm, spec field 24): a sel_k
-     * qualifier that would override the policy top must also lead it on a
-     * FRESH batch of sampled worlds.  The sel_k bar is one paired SE
-     * tested against up to root_width-1 alternatives on a single world
-     * batch, so ~5-15% of searched plies can still hand the move to a
-     * noise fluke -- the reviewer's ply-16 catch: a variant measuring 1.9
-     * points worse at 512 worlds qualified on one 96-world stream and
-     * played.  An independent retest is the asymmetric filter a stiffer
-     * sel_k is not: a real lead (the +2.61 +- 0.24 safe-wager discard
-     * that motivated the gate) survives any fresh batch, while a one-SE
-     * fluke fails one about half the time.  Same shape as the override
-     * path's sampled confirmation below, and priced only when a
-     * qualifier actually fires. */
-    if (a->sel_confirm && best != 0 && val && reps > 1) {
-        double ds = 0.0;
-        for (int d = 0; d < reps; d++) {
-            State world;
-            sample_world(a, st, p, rng, &world);
-            State sa = world, sb = world;
-            lc_apply(&sa, mv[order[best]]);
-            lc_apply(&sb, mv[order[0]]);
-            ds += playout(a->net, &sa, p, a->prune_dom, NULL, NULL)
-                - playout(a->net, &sb, p, a->prune_dom, NULL, NULL);
-        }
-        if (getenv("LC_OV_DEBUG"))
-            fprintf(stderr, "[selconf] cand %d vs 0: fresh ds %.2f: %s\n",
-                    best, ds / reps, ds <= 0.0 ? "REVERT" : "CONFIRMED");
-        if (ds <= 0.0) best = 0;
-    }
     /* significance-gated override: an advisory candidate may take the move
      * only when its lead over the eligible best exceeds override_k paired
      * standard errors AND override_min points.  The SE gate rejects noise
@@ -534,7 +530,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             if (dm <= 0.0) continue;
             double v2 = 0.0;
             for (int d = 0; d < reps; d++) {
-                double x = val[(size_t)c * reps + d] - val[(size_t)elig * reps + d] - dm;
+                double x = val[(size_t)c * vstride + d] - val[(size_t)elig * vstride + d] - dm;
                 v2 += x * x;
             }
             double sed = sqrt(v2 / (reps - 1) / reps);
@@ -620,8 +616,8 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             if (val && reps > 1) {
                 double mean = (sum[c] - (c == best ? 0.0 : sum[best])) / reps;
                 for (int d = 0; d < reps; d++) {
-                    double x = val[(size_t)c * reps + d]
-                             - (c == best ? 0.0 : val[(size_t)best * reps + d]);
+                    double x = val[(size_t)c * vstride + d]
+                             - (c == best ? 0.0 : val[(size_t)best * vstride + d]);
                     v += (x - mean) * (x - mean);
                 }
                 v = sqrt(v / (reps - 1) / reps);
