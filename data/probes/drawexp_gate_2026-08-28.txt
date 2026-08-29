@@ -51,4 +51,11 @@ Gate C: W/L/D 401/394/5  score 50.44% +/- 3.46 (95% CI)
   strength-neutral at equal dets and 1.47x cheaper per game.  New
   recommended match spec:
   rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2
-Gate D: pending
+Gate D: W/L/D 399/392/9  score 50.44% +/- 3.46 (95% CI)
+        points/game 119.35 vs 117.31, margin +2.04
+  Verdict per pre-registration: 49.5-52% band -> measured-neutral; the
+  96-dets spec stands (it is 1.5x faster at equal strength).  Third
+  consecutive worlds-scaling neutral (dets-192, filter+128, now
+  144-no-expansion): the match ceiling remains policy-bound, not
+  worlds-bound.  Standing recommended match spec:
+  rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2
