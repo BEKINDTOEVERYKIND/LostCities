@@ -500,6 +500,11 @@ when only one network file is on hand;
 **gate 0.85 for real-time play**; raw policy for bulk generation.
 Analysis uses `rollout:NET:512:5:0.02:0:1:0:0:4:0:1:3` -- the same
 selection rules at 512 worlds, searched at every ply for display.
+Showcase/review games are PLAYED at full strength, cost no object
+(reviewer doctrine): the recommended spec with dets raised to 512 --
+`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2`
+-- so a reviewed blunder is a real policy/search failure, never the
+96-world sampling noise the wall-clock tournament spec accepts.
 
 Field 17 (`sel_k`) is the selection gate, added after a reviewer caught
 the showcase game gifting a B wager to an opponent holding a wager-only
