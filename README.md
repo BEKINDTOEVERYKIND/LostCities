@@ -869,6 +869,26 @@ shipped as a +2.3-point match-strength gain with zero play-logic
 changes.  Full protocol and numbers in
 `data/probes/belief_gates_2026-08-28.txt`.
 
+**Corrections gen-6, the belief-labeled round: a clean measured
+negative.**  The natural compounding step -- give the corrections
+labeler the belief specialist for its 256-world sampling
+(`mine --belief`), the same upgrade that won the match gate for search
+-- produced a corpus and a candidate that FAILED at every level.  The
+labeler now disagrees with the policy on 54% of flagged states (36,938
+samples from 200 games, hedge-dominated at 3,654 corrections), the
+anchored fine-tune degrades monotonically past one iteration (it1
++0.75 to it8 -7.29 at 400 policy pairs, while policy CE falls 1.60 to
+1.26 -- memorization, not learning), and the it1 checkpoint lost its
+800-game search gate **47.62% +- 3.46, margin -2.35**
+(`data/c19_cand.bin`, not adopted; c18 stands).  The instructive
+part: sharper worlds make a better SAMPLER but not automatically a
+better TEACHER -- re-judging every mistake class under a different
+world model shifts the label distribution wholesale, and the anchored
+student fights its anchor everywhere at once instead of learning
+targeted corrections.  The control (same recipe, standard labeler) is
+the next measurement: it separates "the belief labeler hurt" from
+"the corrections loop is mined out at c18."
+
 ## Reproducing
 
 ```
