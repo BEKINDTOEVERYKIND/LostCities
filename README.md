@@ -889,6 +889,29 @@ targeted corrections.  The control (same recipe, standard labeler) is
 the next measurement: it separates "the belief labeler hurt" from
 "the corrections loop is mined out at c18."
 
+**The control round rewrites that story: c20, generation six, adopted.**
+The control corpus (standard labeler, seed 20260830) came back
+statistically indistinguishable from the belief-labeled one -- 48.5%
+flagged / 54.7% corrected vs 49.0%/54.3%, matching class counts -- so
+the belief labeler never meaningfully moved the labels; the high
+disagreement is intrinsic to mining the champion's own gen-6 games.
+Training degraded the same way past its peak (it2 50.4% sliding to it8
+46.6%), but the it2 checkpoint told a different story from c19's it1:
+Gate F read **50.25% +- 3.46 over 800 games** (401 W / 397 L,
+statistically neutral) and the suite -- both nets scored under the
+standing no-expansion spec, per the comparability rule -- moved from
+c18's 333 better / 152 worse to **341 better / 148 worse**.  That is
+the pre-registered net-swap bar (neutrality + suite dominance) met on
+both prongs: best.bin is now c20 (c18 preserved as
+`data/best_pre_c20.bin`).  The pair of rounds is the real finding:
+with an identical corpus profile, the c19/c20 difference reduces to
+checkpoint choice and label-world noise -- the loop still pays, but at
+gen 6 its yield has shrunk from c17's +8.8-margin gate win to a suite
+edge inside match noise, and the per-round trainable signal is one to
+two iterations before memorization.  Deeper cycles need a new mistake
+CLASS (a detector the suite doesn't yet check), not another pass of
+the same nine.
+
 ## Reproducing
 
 ```
