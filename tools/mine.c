@@ -193,6 +193,7 @@ static int detect(const State *st, const Move *mv, const float *pr, int n)
 
 typedef struct {
     const Net *net;
+    const Net *net_b;   /* optional belief specialist for labeler worlds */
     int games, thread, nthread, dets, dup, solvedeck;
     uint64_t seed;
     FILE *out;
@@ -209,6 +210,11 @@ static void *worker(void *arg)
 
     Agent lab;
     agent_default(&lab, AG_ROLLOUT, j->net);
+    /* belief-improved labeling (gen-6): the specialist's sharper hand
+     * inference steers the labeler's world sampling, same division of
+     * labor as the adopted rollouth match spec -- policy, priors and
+     * playouts stay the champion's */
+    lab.net_b = j->net_b;
     lab.dets = j->dets;
     lab.root_width = 5;
     lab.gate = 0.0f;
@@ -397,6 +403,7 @@ static int selftarget_mode(const Net *net, const char *inp, const char *outp)
 int main(int argc, char **argv)
 {
     const char *netpath = "data/best.bin", *outpath = "data/corr.smp";
+    const char *beliefpath = NULL;
     const char *filter_in = NULL, *filter_out = NULL, *self_in = NULL, *self_out = NULL;
     int games = 200, nthread = 4, dets = 256, dup = 4, solvedeck = 0;
     uint64_t seed = 20260729;
@@ -409,12 +416,18 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--dup") && i + 1 < argc) dup = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], NULL, 10);
         else if (!strcmp(argv[i], "--solvedeck") && i + 1 < argc) solvedeck = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--belief") && i + 1 < argc) beliefpath = argv[++i];
         else if (!strcmp(argv[i], "--filter") && i + 2 < argc) { filter_in = argv[++i]; filter_out = argv[++i]; }
         else if (!strcmp(argv[i], "--selftarget") && i + 2 < argc) { self_in = argv[++i]; self_out = argv[++i]; }
         else { fprintf(stderr, "usage: %s [--net N] [--out F] [--games G] [--threads T] [--dets D] [--dup K]\n", argv[0]); return 1; }
     }
     Net *net = (Net *)malloc(sizeof(Net));
     if (!net || net_load(net, netpath)) { fprintf(stderr, "mine: cannot load %s\n", netpath); return 1; }
+    Net *net_b = NULL;
+    if (beliefpath) {
+        net_b = (Net *)malloc(sizeof(Net));
+        if (!net_b || net_load(net_b, beliefpath)) { fprintf(stderr, "mine: cannot load %s\n", beliefpath); return 1; }
+    }
     if (filter_in) return filter_mode(net, filter_in, filter_out);
     if (self_in) return selftarget_mode(net, self_in, self_out);
 
@@ -431,7 +444,8 @@ int main(int argc, char **argv)
     if (nthread > 64) nthread = 64;
     for (int i = 0; i < nthread; i++) {
         memset(&jobs[i], 0, sizeof(Job));
-        jobs[i].net = net; jobs[i].games = games; jobs[i].thread = i;
+        jobs[i].net = net; jobs[i].net_b = net_b;
+        jobs[i].games = games; jobs[i].thread = i;
         jobs[i].nthread = nthread; jobs[i].dets = dets; jobs[i].dup = dup;
         jobs[i].solvedeck = solvedeck;
         jobs[i].seed = seed; jobs[i].out = out; jobs[i].lk = &lk;
