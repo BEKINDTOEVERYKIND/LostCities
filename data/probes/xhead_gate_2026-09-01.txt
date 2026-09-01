@@ -32,4 +32,17 @@ Pipeline:
      gate: 800 games, seeds 5000-5079, candidate as main net at the
      standing spec vs c20; net-swap bar: >= 49.5% AND suite dominance.
 
-RESULTS: pending
+RESULTS:
+Step 2 (training, anchored recipe, seed 20260902): policy-vs-c20 at 400 pairs
+  it1 48.3 (-0.31) it2 49.8 (-0.62) it3 50.1 (-0.43) it4 51.9 (+3.36)
+  it5 50.8 (+2.18) it6 50.5 (+1.48) it7 50.3 (+1.03) it8 52.3 (+2.75)
+  -> data/xhead_cand.bin = it8.  Unlike the anchor-only arms (margin ~0),
+  iterations 4-8 carry a consistent positive margin.
+Step 3 (mechanism, fs1_p27): P(draw G | G4 play) 0.455 -> 0.315,
+  P(draw G | R4 discard) 0.456 -> 0.367.  The conditional now depends on
+  the action (5 points apart); c20 was structurally identical across
+  actions.  Referee parity on the v5 file: max |dprob| 1.13e-6.
+Step 5a (raw policy, 1000 games vs policy:c20, seeds 6100):
+  W/L/D 508/488/4, 51.0% +- 1.6, margin +3.54 +- 1.41.
+Step 4 (suite): pending
+Step 5b (Gate J): pending
