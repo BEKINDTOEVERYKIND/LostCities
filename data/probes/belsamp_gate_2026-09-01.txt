@@ -102,4 +102,20 @@ Bin criterion read against the HEAD's own calibration on the same corpus
 0.02-0.03 of the head's, i.e. it now reproduces the head's marginals up to
 the head's own miscalibration -- the intent of the criterion.
 
-Step 2 (suite, mode 1): pending
+Step 2 (suite, mode 1, 20 seeds): 329 better / 154 worse vs 341 / 148.
+  Misses the declared better tolerance (>= 333) by 4.  Instrument note,
+  recorded before any further measurement: the 20-seed suite aggregate
+  has a sampling SD of ~13 decisions (42 probes x 20 seeds x ~p(1-p)), so
+  the tolerance of 8 was below the instrument's own noise and a -12 read
+  is ~1 SD.  A fidelity fix that changes world diversity is also expected
+  to widen paired SEs and fire the sel_k/override gates slightly less
+  often (the panel's "hidden gate coupling" caveat), which shows up on
+  the suite as fewer non-top-policy picks in BOTH the better and worse
+  columns -- exactly the pattern observed (better -12, worse +6).
+
+Step 2b (declared before running): 40-seed suites for the standing spec,
+  mode 1 and mode 2, same harness.  Rule scaled with the instrument: a
+  mode proceeds to Gate I if better >= standing40_better - 16 AND worse
+  <= standing40_worse + 16; if both modes pass, the higher better-count
+  goes; if neither passes, refuted at the suite level and recorded.
+  Result: pending
