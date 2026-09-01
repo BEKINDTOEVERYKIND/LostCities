@@ -118,4 +118,21 @@ Step 2b (declared before running): 40-seed suites for the standing spec,
   mode proceeds to Gate I if better >= standing40_better - 16 AND worse
   <= standing40_worse + 16; if both modes pass, the higher better-count
   goes; if neither passes, refuted at the suite level and recorded.
-  Result: pending
+  Result (40 seeds): standing 687 better / 314 worse; mode 1 660 / 311;
+  mode 2 657 / 320.  Rule: better >= 671 and worse <= 330.  Neither mode
+  passes (better -27 / -30, ~1.5 SD of the 40-seed instrument; worse flat).
+  REFUTED at the suite level; no Gate I games played.
+
+Reading: the sampler is measurably more faithful (sampeval) but the
+search's selection and override gates were calibrated under the sharp,
+over-confident worlds, which act as variance reduction for the paired
+candidate comparison.  Calibrated worlds are more diverse, the paired SE
+widens, and the reviewer-verified non-top overrides that the suite
+rewards are admitted less often at fixed dets.  Fidelity up, resolution
+down; at 96 worlds the trade is net-negative on the probe instrument.
+Mode 0 (Gumbel) stays in the spec.  Open follow-ups, not pursued now:
+re-tune sel_k under the calibrated sampler (re-enters the closed
+sel_k-variant territory), or pair the sampler with more worlds
+(re-enters the closed worlds-scaling territory).  A direct 800-game
+gate is the only instrument that can see the belief slot's match value;
+it was not run because the pre-registered suite step failed.
