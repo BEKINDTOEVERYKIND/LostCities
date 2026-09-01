@@ -43,3 +43,17 @@ Gate H: W/L/D 405/389/6  score 51.00% +/- 3.46 (95% CI)
   REVIEWER DECISION (2026-09-01): adopt -- "obviously everything should
   be symmetrized".  Tournament spec = standing + ":0:8"; full-strength
   review spec = 512-world version + ":0:8".
+
+Extension (2026-09-01, declared before measurement): sym_bel, spec field
+27 -- the belief-head analogue.  The logits that steer world sampling are
+averaged over K random suit/wager relabelings (cached per decision, which
+also removes the per-world trunk forward of the Gumbel path).  Under the
+reviewer's standing rule (respect the rules' symmetries wherever free)
+the bar is non-regression, not gain:
+  1. belief sampeval, mode 0, K=8 vs K=0 on beltest.bst (stride 60):
+     skill and AUC on the unknown set not worse than raw.
+  2. suite, tournament spec + ":8" (field 27), 20 seeds: better >= 390-13
+     and worse <= 151+13 (tolerance = the instrument's SD; a miss inside
+     it gets a 40-seed re-read of both arms).
+  3. Adopt on pass; the tournament string then ends ":2:0:8:0:8".
+Result: pending

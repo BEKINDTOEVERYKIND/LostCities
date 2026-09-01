@@ -279,6 +279,126 @@ static void bs_draw(const BelSampCache *c, const State *st, int o, Rng *rng, Sta
     out->deck_left = (uint8_t)nr;
 }
 
+
+/* ---- symmetrized belief logits (sym_bel, spec field 27) ----
+ * The belief head, like the policy, is only approximately invariant to
+ * relabeling suits and wager copies.  Average its logits over K random
+ * relabelings: permute the state, score the same unseen cards under their
+ * permuted ids, and accumulate per original card.  Wager copies of a suit
+ * are exchangeable, so averaging over copy permutations also equalizes
+ * their marginals.  Cached per decision on the information set, which
+ * also removes the per-world trunk forward of the plain Gumbel path. */
+typedef struct {
+    uint64_t key;
+    int n, valid;
+    uint8_t unseen[NCARD];
+    float logit[NCARD];
+} BelSymCache;
+static _Thread_local BelSymCache bsym_cache;
+
+static void belief_logits_raw(const Net *net, const struct BelX *bx, const State *st, int p,
+                              const uint8_t *cards, int n, float *logit)
+{
+    Features f;
+    NetAct act;
+    if (bx) {
+        BelXFeat xf;
+        belx_feat(st, p, &f, &xf);
+        belx_trunk(bx, &f, &xf, &act);
+        belx_logits(bx, &act, cards, n, logit);
+    } else {
+        feat_extract(st, p, &f);
+        net_trunk(net, &f, &act);
+        net_belief_act(net, &act, cards, n, logit);
+    }
+}
+
+static const float *belief_logits_sym(const Net *net, const struct BelX *bx, const State *st,
+                                      int p, int K, Rng *rng, const uint8_t *unseen, int n)
+{
+    Features f;
+    feat_extract(st, p, &f);
+    uint64_t key = bs_key(&f, p, n, 1000 + K) ^ (bx ? 0x9E3779B97F4A7C15ULL : 0);
+    BelSymCache *c = &bsym_cache;
+    if (c->valid && c->key == key && c->n == n) return c->logit;
+    double acc[NCARD];
+    float tmp[NCARD];
+    belief_logits_raw(net, bx, st, p, unseen, n, tmp);
+    for (int i = 0; i < n; i++) acc[i] = tmp[i];
+    for (int k = 0; k < K; k++) {
+        int sp[NSUIT], wp[NSUIT][WAGERS_PER_SUIT];
+        for (int i = 0; i < NSUIT; i++) sp[i] = i;
+        for (int i = NSUIT - 1; i > 0; i--) { int j = (int)rng_below(rng, (uint32_t)i + 1); int t = sp[i]; sp[i] = sp[j]; sp[j] = t; }
+        for (int su = 0; su < NSUIT; su++) {
+            for (int i = 0; i < WAGERS_PER_SUIT; i++) wp[su][i] = i;
+            for (int i = WAGERS_PER_SUIT - 1; i > 0; i--) { int j = (int)rng_below(rng, (uint32_t)i + 1); int t = wp[su][i]; wp[su][i] = wp[su][j]; wp[su][j] = t; }
+        }
+        uint8_t map[NCARD], pc[NCARD];
+        lc_perm_map(sp, wp, map);
+        State ps = *st;
+        lc_permute(&ps, map);
+        for (int i = 0; i < n; i++) pc[i] = map[unseen[i]];
+        belief_logits_raw(net, bx, &ps, p, pc, n, tmp);
+        for (int i = 0; i < n; i++) acc[i] += tmp[i];
+    }
+    for (int i = 0; i < n; i++) c->logit[i] = (float)(acc[i] / (K + 1));
+    memcpy(c->unseen, unseen, (size_t)n);
+    c->n = n; c->key = key; c->valid = 1;
+    return c->logit;
+}
+
+/* Gumbel-top-k world from a given logit vector (the tail of determinize_b) */
+static void gumbel_fill(const State *st, int o, int need, const uint8_t *unseen, int n,
+                        const float *logit, Rng *rng, State *out)
+{
+    *out = *st;
+    float key[NCARD];
+    int order[NCARD];
+    for (int i = 0; i < n; i++) {
+        float u = rng_float(rng);
+        if (u < 1e-7f) u = 1e-7f;
+        if (u > 0.999999f) u = 0.999999f;
+        float l = logit[i];
+        if (l > 15.0f) l = 15.0f;
+        if (l < -15.0f) l = -15.0f;
+        key[i] = l - logf(-logf(u));
+        order[i] = i;
+    }
+    for (int i = 0; i < need; i++) {
+        int best = i;
+        for (int j = i + 1; j < n; j++) if (key[order[j]] > key[order[best]]) best = j;
+        int t = order[i]; order[i] = order[best]; order[best] = t;
+    }
+    out->hand[o] = st->known[o];
+    for (int i = 0; i < need; i++) out->hand[o] |= 1ULL << unseen[order[i]];
+    out->deck_pos = 0;
+    memset(out->deck, 0, sizeof(out->deck));
+    int d = 0;
+    for (int i = need; i < n; i++) out->deck[d++] = unseen[order[i]];
+    for (int i = d - 1; i > 0; i--) {
+        uint32_t j = rng_below(rng, (uint32_t)i + 1);
+        uint8_t t = out->deck[i]; out->deck[i] = out->deck[j]; out->deck[j] = t;
+    }
+    out->deck_left = (uint8_t)d;
+}
+
+void determinize_bsym(const State *st, int p, Rng *rng, const Net *net,
+                      const struct BelX *bx, int K, State *out)
+{
+    if (K <= 0 || (!net && !bx)) {
+        if (bx) determinize_bx(st, p, rng, bx, out); else determinize_b(st, p, rng, net, out);
+        return;
+    }
+    const int o = p ^ 1;
+    uint8_t unseen[NCARD];
+    int n = 0;
+    lc_unseen(st, p, unseen, &n);
+    int need = (int)st->hand_n[o] - __builtin_popcountll(st->known[o]);
+    if (need <= 0 || n == 0) { determinize(st, p, rng, out); return; }
+    const float *lg = belief_logits_sym(net, bx, st, p, K, rng, unseen, n);
+    gumbel_fill(st, o, need, unseen, n, lg, rng, out);
+}
+
 void determinize_bm(const State *st, int p, Rng *rng, const Net *net,
                     const struct BelX *bx, int mode, State *out)
 {

@@ -226,7 +226,7 @@ static int samp_playable(const State *st, int p, int c)
 }
 
 static void sampeval(const Net *net, const Net *bnet, const Rec *recs, long nrec,
-                     int fromgame, int mode, int M, uint64_t seed, int stride)
+                     int fromgame, int mode, int M, uint64_t seed, int stride, int symk)
 {
     Acc unk = { 0 }, phase[3] = { { 0 } };
     uint8_t cards[NCARD], lab[NCARD], isk[NCARD], ulab[NCARD];
@@ -249,7 +249,8 @@ static void sampeval(const Net *net, const Net *bnet, const Rec *recs, long nrec
             double psum = 0.0;
             for (int m = 0; m < M; m++) {
                 State w;
-                determinize_bm(st, p, &rng, bnet ? bnet : net, NULL, mode, &w);
+                if (symk > 0 && mode == 0) determinize_bsym(st, p, &rng, bnet ? bnet : net, NULL, symk, &w);
+                else determinize_bm(st, p, &rng, bnet ? bnet : net, NULL, mode, &w);
                 uint64_t h = w.hand[o];
                 for (int k = 0; k < n; k++) if ((h >> cards[k]) & 1ULL) cnt[k] += 1.0;
                 int found = 0;
@@ -276,7 +277,7 @@ static void sampeval(const Net *net, const Net *bnet, const Rec *recs, long nrec
             states++;
         }
     }
-    printf("sampeval mode %d, M=%d worlds/state, %ld states (games >= %d):\n", mode, M, states, fromgame);
+    printf("sampeval mode %d symk %d, M=%d worlds/state, %ld states (games >= %d):\n", mode, symk, M, states, fromgame);
     acc_print("unknown", &unk);
     acc_print("  early", &phase[0]);
     acc_print("  mid", &phase[1]);
@@ -564,7 +565,7 @@ int main(int argc, char **argv)
     if (argc < 3) {
         fprintf(stderr, "usage:\n  %s gen NET GAMES SEED OUT.bst\n"
                         "  %s eval NET STATES.bst FROMGAME\n"
-                        "  %s sampeval NET BELNET|- STATES.bst FROMGAME MODE [M] [SEED] [STRIDE]\n"
+                        "  %s sampeval NET BELNET|- STATES.bst FROMGAME MODE [M] [SEED] [STRIDE] [SYMK]\n"
                         "  %s train NET STATES.bst OUT.bin EPOCHS LR HOLDGAMES\n",
                 argv[0], argv[0], argv[0], argv[0]);
         return 1;
@@ -584,7 +585,7 @@ int main(int argc, char **argv)
         Rec *r; long n = load_bst(argv[4], &r);
         sampeval(&net, bn, r, n, atoi(argv[5]), atoi(argv[6]),
                  argc > 7 ? atoi(argv[7]) : 96, argc > 8 ? strtoull(argv[8], NULL, 10) : 4242,
-                 argc > 9 ? atoi(argv[9]) : 1);
+                 argc > 9 ? atoi(argv[9]) : 1, argc > 10 ? atoi(argv[10]) : 0);
     } else if (!strcmp(argv[1], "eval") && argc >= 5) {
         Rec *r; long n = load_bst(argv[3], &r);
         eval_net(&net, r, n, atoi(argv[4]), 1);

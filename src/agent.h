@@ -182,6 +182,12 @@ typedef struct Agent {
                            good overrides to remove 6 noise cases) both got
                            wrong.  Costs one extra batch on contested plies
                            only. */
+    int sym_bel;        /* AG_ROLLOUT (spec field 27): average the belief
+                           logits used for world sampling over this many
+                           random suit/wager relabelings (the belief-head
+                           analogue of sym_k; K trunk forwards per decision,
+                           cached, so it also removes the per-world trunk
+                           forward).  0 = raw logits. */
     int bel_samp;       /* AG_ROLLOUT (spec field 26): belief world sampler.
                            0 = Gumbel-top-k on the belief logits (the
                            original path, a Plackett-Luce draw whose
@@ -278,5 +284,9 @@ void determinize_bx(const State *st, int p, Rng *rng, const struct BelX *bx, Sta
  * when given, else net.  Per-decision cache keyed by the information set. */
 void determinize_bm(const State *st, int p, Rng *rng, const Net *net,
                     const struct BelX *bx, int mode, State *out);
+/* Gumbel-top-k world from belief logits averaged over K random suit/wager
+ * relabelings (Agent.sym_bel), cached per decision.  K<=0 = plain path. */
+void determinize_bsym(const State *st, int p, Rng *rng, const Net *net,
+                      const struct BelX *bx, int K, State *out);
 
 #endif

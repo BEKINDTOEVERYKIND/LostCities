@@ -101,6 +101,10 @@ static void sample_world(const struct Agent *a, const State *st, int p,
         determinize_bm(st, p, rng, a->net_b ? a->net_b : a->net, a->bx, a->bel_samp, out);
         return;
     }
+    if (a->sym_bel > 0) {
+        determinize_bsym(st, p, rng, a->net_b ? a->net_b : a->net, a->bx, a->sym_bel, out);
+        return;
+    }
     if (a->bx) { determinize_bx(st, p, rng, a->bx, out); return; }
     determinize_b(st, p, rng, a->net_b ? a->net_b : a->net, out);
 }

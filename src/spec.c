@@ -88,6 +88,7 @@ void spec_parse(const char *spec, Agent *a)
             if ((v = strtok_r(NULL, ":", &save))) a->sel_deep = atoi(v);
             if ((v = strtok_r(NULL, ":", &save))) a->sym_k = atoi(v);
             if ((v = strtok_r(NULL, ":", &save))) a->bel_samp = atoi(v);
+            if ((v = strtok_r(NULL, ":", &save))) a->sym_bel = atoi(v);
             /* a malformed spec must degrade to a working agent, not to an
              * uninitialized-read of sum[0] in the candidate loop */
             if (a->dets < 1) a->dets = 1;
