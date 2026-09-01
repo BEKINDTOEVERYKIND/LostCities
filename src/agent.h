@@ -182,6 +182,13 @@ typedef struct Agent {
                            good overrides to remove 6 noise cases) both got
                            wrong.  Costs one extra batch on contested plies
                            only. */
+    int sym_k;          /* AG_ROLLOUT (spec field 25): average the policy
+                           prior and value over this many random suit/wager
+                           relabelings before candidates are formed (see
+                           symmetrize_priors in rollout.c).  0 = raw policy.
+                           Removes the residual label noise measured at 25%
+                           argmax flips on the c20 champion; costs K forward
+                           passes per decision. */
     const struct BelX *bx;  /* AG_ROLLOUT hybrid, extended-format flavour:
                            when set, world sampling uses this belx net's
                            inference (with the behavioral-history features)

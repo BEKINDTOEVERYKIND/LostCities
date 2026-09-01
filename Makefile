@@ -13,7 +13,7 @@ CORE    := $(SRC)/lc.c $(SRC)/features.c $(SRC)/net.c $(SRC)/heuristic.c \
            $(SRC)/search.c $(SRC)/rollout.c $(SRC)/solver.c $(SRC)/agent.c $(SRC)/belx.c $(SRC)/match.c $(SRC)/spec.c
 
 all: $(BIN)/test_engine $(BIN)/arena $(BIN)/train $(BIN)/bench $(BIN)/probe $(BIN)/rl $(BIN)/ladder $(BIN)/play $(BIN)/showgame \
-     $(BIN)/analyze $(BIN)/qpair $(BIN)/mine $(BIN)/decreplay
+     $(BIN)/analyze $(BIN)/qpair $(BIN)/mine $(BIN)/decreplay $(BIN)/symtest
 
 $(BIN):
 	mkdir -p $(BIN)
@@ -69,4 +69,7 @@ $(BIN)/decreplay: tools/decreplay.c $(CORE) $(HDRS) | $(BIN)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
 
 $(BIN)/mine: tools/mine.c $(CORE) $(HDRS) | $(BIN)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
+
+$(BIN)/symtest: tools/symtest.c $(CORE) $(HDRS) | $(BIN)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)

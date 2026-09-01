@@ -25,6 +25,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #define MAX_CAND 8
 
@@ -113,6 +114,81 @@ static int pile_top_playable(const State *st, int p, int s)
     return (nums >> (r - 3)) == 0;
 }
 
+
+/* test-time symmetrization (sym_k, spec field 25): the rules are invariant
+ * to relabeling the five suits and a suit's three wager copies, but the
+ * trained net is only approximately so (measured on the c20 champion over
+ * 3,845 argmax self-play states: the top move's probability moves with an
+ * SD of 0.08 across relabelings, the raw argmax flips on 25% of them, and
+ * the K=8-averaged policy disagrees with the raw one on 17% of states --
+ * 36% when the raw top is under 0.40).  Everything downstream -- the
+ * candidate set, the 2% floor, candidate 0's identity for the sel_k gate,
+ * the ply-window policy move -- was inheriting that label noise.  Average
+ * the policy (and value) over K random relabelings, mapping every move
+ * back through the inverse map with wager copies folded; the folded mass
+ * is split evenly over the copies actually held so the dedup fold below
+ * recovers it exactly.  Cost: K forward passes per decision, nothing
+ * beside the playouts.  Playouts themselves stay raw (K forwards per
+ * playout ply would not). */
+static int sym_key(Move m)
+{
+    int c = m.card;
+    if (CARD_IS_WAGER(c)) c = CARD_SUIT(c) * NRANK;
+    return c + 60 * m.discard + 120 * m.draw;
+}
+
+static void symmetrize_priors(const Net *net, const State *st, Rng *rng, int K,
+                              Move *mv, float *prob, int n, float *value)
+{
+    static _Thread_local float acc[720];
+    static _Thread_local uint8_t cnt[720];
+    memset(acc, 0, sizeof acc);
+    memset(cnt, 0, sizeof cnt);
+    for (int i = 0; i < n; i++) { int k = sym_key(mv[i]); acc[k] += prob[i]; cnt[k]++; }
+    double vsum = *value;
+    int m = 1;
+    for (int k = 0; k < K; k++) {
+        int sp[NSUIT], wp[NSUIT][WAGERS_PER_SUIT];
+        for (int i = 0; i < NSUIT; i++) sp[i] = i;
+        for (int i = NSUIT - 1; i > 0; i--) {
+            int j = (int)rng_below(rng, (uint32_t)i + 1);
+            int t = sp[i]; sp[i] = sp[j]; sp[j] = t;
+        }
+        for (int s = 0; s < NSUIT; s++) {
+            for (int i = 0; i < WAGERS_PER_SUIT; i++) wp[s][i] = i;
+            for (int i = WAGERS_PER_SUIT - 1; i > 0; i--) {
+                int j = (int)rng_below(rng, (uint32_t)i + 1);
+                int t = wp[s][i]; wp[s][i] = wp[s][j]; wp[s][j] = t;
+            }
+        }
+        uint8_t map[NCARD], inv[NCARD];
+        lc_perm_map(sp, wp, map);
+        for (int c = 0; c < NCARD; c++) inv[map[c]] = (uint8_t)c;
+        int invsuit[NSUIT];
+        for (int s = 0; s < NSUIT; s++) invsuit[sp[s]] = s;
+        State ps = *st;
+        lc_permute(&ps, map);
+        Move pm[MAX_MOVES];
+        float pp[MAX_MOVES], pv = 0.0f;
+        int pn = policy_probs(net, &ps, pm, pp, &pv);
+        if (pn <= 0) continue;
+        for (int i = 0; i < pn; i++) {
+            Move b;
+            b.card = inv[pm[i].card];
+            b.discard = pm[i].discard;
+            b.draw = pm[i].draw == 0 ? 0 : (uint8_t)(invsuit[pm[i].draw - 1] + 1);
+            acc[sym_key(b)] += pp[i];
+        }
+        vsum += pv;
+        m++;
+    }
+    for (int i = 0; i < n; i++) {
+        int k = sym_key(mv[i]);
+        prob[i] = acc[k] / (float)m / (float)(cnt[k] ? cnt[k] : 1);
+    }
+    *value = (float)(vsum / m);
+}
+
 Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                   float *out_value, SearchStats *stats)
 {
@@ -122,6 +198,8 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
     int n;
     if (a->net) {
         n = policy_probs(a->net, st, mv, prob, &value);
+        if (a->sym_k > 0 && n > 1)
+            symmetrize_priors(a->net, st, rng, a->sym_k, mv, prob, n, &value);
     } else {
         DrawSamples ds;
         draw_samples_init(st, st->turn, rng, 6, &ds);
