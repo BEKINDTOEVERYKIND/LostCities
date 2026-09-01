@@ -182,6 +182,17 @@ typedef struct Agent {
                            good overrides to remove 6 noise cases) both got
                            wrong.  Costs one extra batch on contested plies
                            only. */
+    int bel_samp;       /* AG_ROLLOUT (spec field 26): belief world sampler.
+                           0 = Gumbel-top-k on the belief logits (the
+                           original path, a Plackett-Luce draw whose
+                           inclusion probabilities are NOT the head's trained
+                           marginals -- late-game worlds collapse onto
+                           duplicate over-confident hands, measured); 1 =
+                           fixed-size conditional-Bernoulli on the marginals
+                           shifted to sum to the hand size; 2 = as 1 with the
+                           weights calibrated so inclusion == marginals.  The
+                           per-decision cache also removes the per-world trunk
+                           forward.  See determinize_bm. */
     int sym_k;          /* AG_ROLLOUT (spec field 25): average the policy
                            prior and value over this many random suit/wager
                            relabelings before candidates are formed (see
@@ -261,5 +272,11 @@ void determinize(const State *st, int p, Rng *rng, State *out);
 void determinize_b(const State *st, int p, Rng *rng, const Net *net, State *out);
 struct BelX;
 void determinize_bx(const State *st, int p, Rng *rng, const struct BelX *bx, State *out);
+/* belief world with the sampler selected by mode (Agent.bel_samp): 0 = the
+ * Gumbel-top-k draws above (bit-identical), 1 = conditional-Bernoulli on
+ * the shifted marginals, 2 = the same with calibrated weights.  Uses bx
+ * when given, else net.  Per-decision cache keyed by the information set. */
+void determinize_bm(const State *st, int p, Rng *rng, const Net *net,
+                    const struct BelX *bx, int mode, State *out);
 
 #endif

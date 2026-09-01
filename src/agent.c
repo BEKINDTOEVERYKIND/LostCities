@@ -124,6 +124,198 @@ void determinize_b(const State *st, int p, Rng *rng, const Net *net, State *out)
 
 /* determinize_b with the extended-format specialist supplying the logits:
  * identical Gumbel-top-k sampling, only the inference model differs */
+
+/* ---- calibrated fixed-size belief sampling (bel_samp, spec field 26) ----
+ *
+ * The belief head is trained as per-card Bernoulli marginals: sigma(l_c) is
+ * "the probability the opponent holds c".  Gumbel-top-k on those logits is
+ * a Plackett-Luce draw of `need` cards, whose INCLUSION probabilities are
+ * not the marginals -- they are odds-shaped and, when need is a large share
+ * of the unseen pool, pile mass onto the head's favourites (measured on the
+ * c20 champion: per-card |sampled inclusion - sigma| 0.011 early / 0.028
+ * mid / 0.054 late; ~25% duplicate hands per 96 late draws; sampled
+ * opponents holding ~9% more playable-now cards than real ones; late-phase
+ * sampled skill ~0 against the head's ~5%).  The fix is a fixed-size
+ * conditional-Bernoulli draw: shift the logits so the marginals sum to
+ * `need`, take w = pi/(1-pi), and draw sequentially with suffix elementary
+ * symmetric polynomials so every world has exactly `need` cards and the
+ * inclusion probabilities are (mode 1) close to, or (mode 2, weights
+ * iteratively calibrated) equal to, the shifted marginals.  The shift, the
+ * weights and the ESP table depend only on the mover's information set, so
+ * they are computed once per decision and cached across the world batch --
+ * which also removes the trunk forward the old path repeated per world. */
+
+#define BS_MAXN 64
+#define BS_MAXK 10
+
+typedef struct {
+    uint64_t key;
+    int n, need, mode;
+    uint8_t unseen[NCARD];
+    double w[BS_MAXN];
+    double S[BS_MAXN][BS_MAXK];   /* suffix ESPs of w */
+    int valid;
+} BelSampCache;
+
+static _Thread_local BelSampCache bs_cache;
+
+static uint64_t bs_key(const Features *f, int p, int need, int mode)
+{
+    uint64_t h = 1469598103934665603ULL;
+#define MIX(b) (h = (h ^ (uint64_t)(b)) * 1099511628211ULL)
+    MIX(p); MIX(need); MIX(mode); MIX(f->nidx);
+    for (int i = 0; i < f->nidx; i++) MIX(f->idx[i]);
+    const unsigned char *d = (const unsigned char *)f->dense;
+    for (size_t i = 0; i < sizeof(f->dense); i++) MIX(d[i]);
+#undef MIX
+    return h;
+}
+
+static void bs_suffix_esp(const double *w, int n, int k, double S[BS_MAXN][BS_MAXK])
+{
+    for (int j = 0; j <= k; j++) S[n][j] = (j == 0) ? 1.0 : 0.0;
+    for (int m = n - 1; m >= 0; m--) {
+        S[m][0] = 1.0;
+        for (int j = 1; j <= k; j++) S[m][j] = S[m + 1][j] + w[m] * S[m + 1][j - 1];
+    }
+}
+
+/* inclusion probabilities of the sequential draw with weights w, size k */
+static void bs_incl(const double *w, int n, int k, double *pi)
+{
+    double P[BS_MAXN][BS_MAXK], S[BS_MAXN][BS_MAXK];
+    for (int j = 0; j <= k; j++) P[0][j] = (j == 0) ? 1.0 : 0.0;
+    for (int m = 1; m <= n; m++) {
+        P[m][0] = 1.0;
+        for (int j = 1; j <= k; j++) P[m][j] = P[m - 1][j] + w[m - 1] * P[m - 1][j - 1];
+    }
+    bs_suffix_esp(w, n, k, S);
+    double ek = S[0][k];
+    for (int c = 0; c < n; c++) {
+        double f = 0.0;
+        for (int i = 0; i <= k - 1; i++) f += P[c][i] * S[c + 1][k - 1 - i];
+        pi[c] = ek > 0 ? w[c] * f / ek : 0.0;
+    }
+}
+
+/* build the cache: shifted marginals -> weights (optionally calibrated so
+ * the draw's inclusion probabilities match them) -> suffix ESPs.
+ * Returns 0 when the draw is degenerate (fall back to the Gumbel path). */
+static int bs_build(BelSampCache *c, const float *logit, const uint8_t *unseen,
+                    int n, int need, int mode)
+{
+    if (n > BS_MAXN - 1 || need >= n || need < 1 || need > BS_MAXK - 2) return 0;
+    double pi[BS_MAXN];
+    /* logit shift so the marginals sum to need (bisection) */
+    double lo = -20.0, hi = 20.0;
+    for (int it = 0; it < 60; it++) {
+        double d = 0.5 * (lo + hi), sum = 0.0;
+        for (int i = 0; i < n; i++) {
+            float l = logit[i];
+            if (l > 15.0f) l = 15.0f;
+            if (l < -15.0f) l = -15.0f;
+            sum += 1.0 / (1.0 + exp(-((double)l + d)));
+        }
+        if (sum > need) hi = d; else lo = d;
+    }
+    double d = 0.5 * (lo + hi);
+    for (int i = 0; i < n; i++) {
+        float l = logit[i];
+        if (l > 15.0f) l = 15.0f;
+        if (l < -15.0f) l = -15.0f;
+        pi[i] = 1.0 / (1.0 + exp(-((double)l + d)));
+        if (pi[i] < 1e-3) pi[i] = 1e-3;
+        if (pi[i] > 1.0 - 1e-3) pi[i] = 1.0 - 1e-3;
+        c->w[i] = pi[i] / (1.0 - pi[i]);
+    }
+    if (mode >= 2) {
+        double ph[BS_MAXN];
+        for (int it = 0; it < 40; it++) {
+            bs_incl(c->w, n, need, ph);
+            double md = 0.0, g = 0.0;
+            for (int i = 0; i < n; i++) {
+                double dd = fabs(ph[i] - pi[i]);
+                if (dd > md) md = dd;
+                if (ph[i] > 1e-12) c->w[i] *= pi[i] / ph[i];
+                g += log(c->w[i]);
+            }
+            g = exp(-g / n);
+            for (int i = 0; i < n; i++) c->w[i] *= g;
+            if (md < 1e-6) break;
+        }
+    }
+    bs_suffix_esp(c->w, n, need, c->S);
+    if (!(c->S[0][need] > 0.0)) return 0;
+    memcpy(c->unseen, unseen, (size_t)n);
+    c->n = n; c->need = need; c->mode = mode; c->valid = 1;
+    return 1;
+}
+
+/* one world from the cache: exactly `need` cards for the opponent, the
+ * rest of the unseen pool as a uniformly shuffled deck */
+static void bs_draw(const BelSampCache *c, const State *st, int o, Rng *rng, State *out)
+{
+    *out = *st;
+    out->hand[o] = st->known[o];
+    uint8_t rest[NCARD];
+    int nr = 0, r = c->need;
+    for (int m = 0; m < c->n; m++) {
+        int take = 0;
+        if (r > 0) {
+            double den = c->S[m][r];
+            double pin = den > 0.0 ? c->w[m] * c->S[m + 1][r - 1] / den : 0.0;
+            if (rng_float(rng) < pin) take = 1;
+        }
+        if (take) { out->hand[o] |= 1ULL << c->unseen[m]; r--; }
+        else rest[nr++] = c->unseen[m];
+    }
+    out->deck_pos = 0;
+    memset(out->deck, 0, sizeof(out->deck));
+    for (int i = 0; i < nr; i++) out->deck[i] = rest[i];
+    for (int i = nr - 1; i > 0; i--) {
+        uint32_t j = rng_below(rng, (uint32_t)i + 1);
+        uint8_t t = out->deck[i]; out->deck[i] = out->deck[j]; out->deck[j] = t;
+    }
+    out->deck_left = (uint8_t)nr;
+}
+
+void determinize_bm(const State *st, int p, Rng *rng, const Net *net,
+                    const struct BelX *bx, int mode, State *out)
+{
+    if (mode <= 0 || (!net && !bx)) {
+        if (bx) determinize_bx(st, p, rng, bx, out);
+        else determinize_b(st, p, rng, net, out);
+        return;
+    }
+    const int o = p ^ 1;
+    uint8_t unseen[NCARD];
+    int n = 0;
+    lc_unseen(st, p, unseen, &n);
+    int need = (int)st->hand_n[o] - __builtin_popcountll(st->known[o]);
+    if (need <= 0 || n == 0) { determinize(st, p, rng, out); return; }
+
+    Features f;
+    BelXFeat xf;
+    if (bx) belx_feat(st, p, &f, &xf); else feat_extract(st, p, &f);
+    uint64_t key = bs_key(&f, p, need, mode) ^ (bx ? 0x9E3779B97F4A7C15ULL : 0);
+    BelSampCache *c = &bs_cache;
+    if (!(c->valid && c->key == key)) {
+        float logit[NCARD];
+        NetAct act;
+        if (bx) { belx_trunk(bx, &f, &xf, &act); belx_logits(bx, &act, unseen, n, logit); }
+        else    { net_trunk(net, &f, &act);     net_belief_act(net, &act, unseen, n, logit); }
+        c->valid = 0;
+        if (!bs_build(c, logit, unseen, n, need, mode)) {
+            /* degenerate pool (need >= n etc.): the Gumbel path handles it */
+            if (bx) determinize_bx(st, p, rng, bx, out);
+            else determinize_b(st, p, rng, net, out);
+            return;
+        }
+        c->key = key;
+    }
+    bs_draw(c, st, o, rng, out);
+}
+
 void determinize_bx(const State *st, int p, Rng *rng, const struct BelX *bx, State *out)
 {
     if (!bx) { determinize(st, p, rng, out); return; }

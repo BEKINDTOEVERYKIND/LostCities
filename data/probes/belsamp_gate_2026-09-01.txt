@@ -1,0 +1,35 @@
+Calibrated belief world sampler (bel_samp, spec field 26) -- pre-registration
+2026-09-01, declared before any measurement with the engine build.
+
+Defect (found by the upgrade panel's critics, reproduced on the engine's own
+determinize_b code): Gumbel-top-k on the belief logits is a Plackett-Luce
+draw whose inclusion probabilities are not the per-card sigmoid marginals
+the head is trained on.  Late in the round (need ~7 of ~15 unseen) the
+sampled worlds collapse onto over-confident copies of the head's favourite
+hand: per-card |inclusion - sigma| 0.011/0.028/0.054 early/mid/late, ~25%
+duplicate hands per 96 late draws, sampled opponents holding ~9% more
+playable-now cards than real ones, late sampled skill ~0 vs the head's ~5%.
+The trunk was also recomputed per world on an unchanged root state.
+
+Fix: shift logits so the marginals sum to the hand size; w = pi/(1-pi);
+sequential fixed-size conditional-Bernoulli draw via suffix ESPs (mode 1),
+optionally with weights calibrated so inclusion == marginals (mode 2);
+deck order uniform as before; everything but the per-world draw cached per
+decision on the information set.  Mode 0 is the old path, bit-identical.
+
+Pipeline (fidelity fix -> the project's fidelity bar, not the strength bar):
+  1. belief sampeval on data/beltest.bst (fresh-seed corpus): modes 0/1/2,
+     96 worlds/state.  Proceed only if a CB mode's late-phase sampled skill
+     is >= 4% (from ~0 under mode 0) and its calibration bins sit within
+     0.03 of the diagonal.  Pick mode 1 unless mode 2 is clearly better.
+  2. Suite under the standing spec + ":0:0:<mode>" (fields 24-26), 20
+     seeds: not worse than 341/148 (better >= 333, worse <= 156); record
+     paired-SE / gate fire-rate deltas.
+  3. Gate I, 800 games, seeds 4800-4879, A = standing + ":0:0:<mode>" vs
+     B = standing: >= 49.5% AND suite non-regression adopts (fidelity
+     rule, as draw_filter=2 and the belief hybrid were adopted); >= 52% is
+     a bonus; < 49.5% negative, record.
+  4. If adopted, Gate B' (belx_final.blx under the new sampler) is a
+     separate follow-up.
+
+RESULTS: pending

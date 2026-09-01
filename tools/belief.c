@@ -211,6 +211,89 @@ static void eval_net(const Net *net, const Rec *recs, long nrec, int fromgame, i
     }
 }
 
+
+/* sampeval: does the WORLD SAMPLER reproduce what the head knows?  For each
+ * held-out state, draw M worlds with determinize_bm under the given mode
+ * and score the per-card inclusion FREQUENCY against the true opponent
+ * hand exactly as eval scores the head's marginals (BCE skill over the
+ * counting prior, within-decision AUC, calibration), on the strictly
+ * unknown card set, by deck phase.  Also reports duplicate-hand rate and
+ * the mean number of playable-now cards in sampled vs real hands. */
+static int samp_playable(const State *st, int p, int c)
+{
+    int s = CARD_SUIT(c);
+    return CARD_IS_WAGER(c) ? (st->exp_top[p][s] == 0) : (CARD_VALUE(c) > st->exp_top[p][s]);
+}
+
+static void sampeval(const Net *net, const Net *bnet, const Rec *recs, long nrec,
+                     int fromgame, int mode, int M, uint64_t seed, int stride)
+{
+    Acc unk = { 0 }, phase[3] = { { 0 } };
+    uint8_t cards[NCARD], lab[NCARD], isk[NCARD], ulab[NCARD];
+    float freq[NCARD], up[NCARD];
+    double dup[3] = { 0 }, dupn[3] = { 0 }, play_s[3] = { 0 }, play_t[3] = { 0 };
+    Rng rng; rng_seed(&rng, seed);
+    long states = 0;
+    for (long i = 0; i < nrec; i += (stride > 0 ? stride : 1)) {
+        if (recs[i].game < fromgame) continue;
+        const State *st = &recs[i].st;
+        for (int p = 0; p < 2; p++) {
+            int o = p ^ 1;
+            int n = cand_set(st, p, cards, lab, isk);
+            if (n < 2) continue;
+            int need = (int)st->hand_n[o] - __builtin_popcountll(st->known[o]);
+            if (need <= 0) continue;
+            double cnt[NCARD] = { 0 };
+            uint64_t seen_hands[256];
+            int nseen = 0, dups = 0;
+            double psum = 0.0;
+            for (int m = 0; m < M; m++) {
+                State w;
+                determinize_bm(st, p, &rng, bnet ? bnet : net, NULL, mode, &w);
+                uint64_t h = w.hand[o];
+                for (int k = 0; k < n; k++) if ((h >> cards[k]) & 1ULL) cnt[k] += 1.0;
+                int found = 0;
+                for (int q = 0; q < nseen; q++) if (seen_hands[q] == h) { found = 1; break; }
+                if (found) dups++; else if (nseen < 256) seen_hands[nseen++] = h;
+                uint64_t hh = h;
+                while (hh) { int c = __builtin_ctzll(hh); hh &= hh - 1; psum += samp_playable(st, o, c); }
+            }
+            int ph = st->deck_left >= 30 ? 0 : (st->deck_left >= 15 ? 1 : 2);
+            dup[ph] += (double)dups / M; dupn[ph] += 1.0;
+            play_s[ph] += psum / M;
+            { uint64_t hh = st->hand[o]; double t = 0; while (hh) { int c = __builtin_ctzll(hh); hh &= hh - 1; t += samp_playable(st, o, c); } play_t[ph] += t; }
+            int un = 0, uheld = 0;
+            for (int k = 0; k < n; k++) {
+                if (isk[k]) continue;
+                freq[k] = (float)(cnt[k] / M);
+                up[un] = freq[k]; ulab[un] = lab[k]; uheld += lab[k]; un++;
+            }
+            if (un >= 2) {
+                float uprior = (float)uheld / (float)un;
+                acc_add(&unk, up, ulab, un, uprior);
+                acc_add(&phase[ph], up, ulab, un, uprior);
+            }
+            states++;
+        }
+    }
+    printf("sampeval mode %d, M=%d worlds/state, %ld states (games >= %d):\n", mode, M, states, fromgame);
+    acc_print("unknown", &unk);
+    acc_print("  early", &phase[0]);
+    acc_print("  mid", &phase[1]);
+    acc_print("  late", &phase[2]);
+    const char *pn[3] = { "early", "mid", "late" };
+    for (int b = 0; b < 3; b++)
+        if (dupn[b] > 0)
+            printf("  %-5s duplicate-hand rate %.3f  playable-now cards: sampled %.2f vs real %.2f\n",
+                   pn[b], dup[b] / dupn[b], play_s[b] / dupn[b], play_t[b] / dupn[b]);
+    printf("  calibration (unknown set, sampled frequency -> observed):\n");
+    for (int b = 0; b < 10; b++)
+        if (unk.caln[b] >= 200)
+            printf("    %.1f-%.1f: n=%-8ld mean %.3f  observed %.3f\n",
+                   b / 10.0, (b + 1) / 10.0, unk.caln[b],
+                   unk.calp[b] / unk.caln[b], unk.calh[b] / unk.caln[b]);
+}
+
 static void train_head(Net *net, const Rec *recs, long nrec, const char *outp,
                        int epochs, float lr, int holdgames)
 {
@@ -481,8 +564,9 @@ int main(int argc, char **argv)
     if (argc < 3) {
         fprintf(stderr, "usage:\n  %s gen NET GAMES SEED OUT.bst\n"
                         "  %s eval NET STATES.bst FROMGAME\n"
+                        "  %s sampeval NET BELNET|- STATES.bst FROMGAME MODE [M] [SEED] [STRIDE]\n"
                         "  %s train NET STATES.bst OUT.bin EPOCHS LR HOLDGAMES\n",
-                argv[0], argv[0], argv[0]);
+                argv[0], argv[0], argv[0], argv[0]);
         return 1;
     }
     Net net;
@@ -490,6 +574,17 @@ int main(int argc, char **argv)
     if (needs_net && net_load(&net, argv[2]) != 0) { fprintf(stderr, "cannot load %s\n", argv[2]); return 1; }
     if (!strcmp(argv[1], "gen") && argc >= 6) {
         gen(&net, atoi(argv[3]), strtoull(argv[4], NULL, 10), argv[5]);
+    } else if (!strcmp(argv[1], "sampeval") && argc >= 7) {
+        /* sampeval NET BELNET|- STATES.bst FROMGAME MODE [M] [SEED] */
+        Net *bn = NULL;
+        if (strcmp(argv[3], "-")) {
+            bn = (Net *)malloc(sizeof(Net));
+            if (net_load(bn, argv[3])) { fprintf(stderr, "cannot load %s\n", argv[3]); return 1; }
+        }
+        Rec *r; long n = load_bst(argv[4], &r);
+        sampeval(&net, bn, r, n, atoi(argv[5]), atoi(argv[6]),
+                 argc > 7 ? atoi(argv[7]) : 96, argc > 8 ? strtoull(argv[8], NULL, 10) : 4242,
+                 argc > 9 ? atoi(argv[9]) : 1);
     } else if (!strcmp(argv[1], "eval") && argc >= 5) {
         Rec *r; long n = load_bst(argv[3], &r);
         eval_net(&net, r, n, atoi(argv[4]), 1);
