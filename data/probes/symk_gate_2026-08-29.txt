@@ -40,3 +40,6 @@ Gate H: W/L/D 405/389/6  score 51.00% +/- 3.46 (95% CI)
   far outside noise and the mechanism is a true invariance of the rules;
   the match read is +1.0 point above parity with a +0.3 margin at +1%
   cost.  Adoption is the reviewer's call under the 52% spec-change rule.
+  REVIEWER DECISION (2026-09-01): adopt -- "obviously everything should
+  be symmetrized".  Tournament spec = standing + ":0:8"; full-strength
+  review spec = 512-world version + ":0:8".

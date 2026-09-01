@@ -488,15 +488,22 @@ search on exhaustion -- an unbounded per-solve version could pin a thread
 for hours on one rare wide-hand endgame.
 
 Recommended settings: **maximum strength**
-`rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2`
+`rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8`
 (search from ply 14, four candidates evaluated, dominated discards
 pruned, 3-SE advisory override, 1-SE selection gate, belief specialist
 steering world sampling -- adopted at 52.31% over 800 games, see the
-belief-deployment section -- and no draw-variant expansion: search
-evaluates only policy-ranked moves, adopted on the reviewer's directive
-at 50.44%/800 games, 1.47x cheaper);
-plain `rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2`
+belief-deployment section -- no draw-variant expansion (search evaluates
+only policy-ranked moves, adopted on the reviewer's directive at
+50.44%/800 games, 1.47x cheaper), and the policy prior symmetrized over
+8 suit/wager relabelings before candidates form (`sym_k`, field 25:
+record suite 390/151, 51.00%/800 games, +1% cost -- adopted on the
+reviewer's standing rule that the agent must respect the rules'
+symmetries wherever that is free));
+plain `rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8`
 when only one network file is on hand;
+**review games** are played at full strength, cost no object:
+`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8`
+(the same rules at 512 worlds);
 **gate 0.85 for real-time play**; raw policy for bulk generation.
 Analysis uses `rollout:NET:512:5:0.02:0:1:0:0:4:0:1:3` -- the same
 selection rules at 512 worlds, searched at every ply for display.
@@ -951,7 +958,9 @@ K random relabelings before candidates form costs +1% wall-clock and
 posts **the best suite aggregate on record, 390 better / 151 worse vs
 341/148**, yet the 800-game gate reads **51.00% +- 3.46, margin +0.31**
 -- above parity, inside the neutral band, short of the 52% spec-change
-bar.  Held pending the reviewer's call; the mechanism and tool stay.
+bar.  Adopted on the reviewer's call: the agent must respect the rules'
+symmetries wherever doing so is free, and the 52% bar exists to keep
+noise out of the spec, not to keep correctness out of it.
 
 *Calibrated belief sampling* (`bel_samp`, field 26): the panel's critics
 reproduced a real defect -- Gumbel-top-k on the belief logits is a
