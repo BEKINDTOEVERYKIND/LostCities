@@ -1,0 +1,35 @@
+Play x draw interaction head (net v5, NET_XR=16) -- pre-registration
+2026-09-01, declared before any training run.
+
+Structure: the factored policy head is logit = play[card,disp] + draw[src],
+so P(draw source | action) is identical across actions up to legality --
+the net cannot say "take the Green wager if I discard R4, not if I play G4
+onto Green".  tools/mine.c dropped draw-only corrections for exactly this
+reason (any draw pressure became a global reweighting, measured as ply
+inflation and a 17-point collapse).  v5 adds g = W_g a2 (16 gates) and
+logit += sum_j g_j U[action][j] V[src][j], with U zero at init: a v4 file
+loads as the identical function (verified byte-identical replay) and
+dU = d g V is non-zero from the first step.
+
+Pipeline:
+  1. Function preservation: v4 best.bin through the v5 loader replays the
+     probe tallies byte-identically (done: fs1_p70 12 seeds identical).
+  2. Train with the anchored recipe (panel rank 4, arms A/B measured flat,
+     no slide): train --init data/best.bin --data data/corr20a.smp
+     (anchor 171,908 + corr20 36,766, draw-only labels retained) --aug 1
+     --vw 0 --pw 1 --bw 1 --lr 1e-4 --steps 1500 --batch 512 --iters 8
+     --ref policy:data/best.bin --eval 400.  Select the checkpoint by
+     the 400-pair policy eval.
+  3. Mechanism: on fs1_p27 P(take G | disc R4) must exceed
+     P(take G | play G4) by a wide margin (tools/policydump); ply count per
+     match unchanged (no global-reweighting signature).
+  4. Suite under the standing spec with the candidate as main net: draw
+     rows are the target set (fs1_drawGx_27/29, g424_drawY_112,
+     g424_G8Y_118, g424_takeG6_126, c13m_grab_20); overall not worse than
+     341/148 (20 seeds; tolerance one probe = 8, noting the instrument SD
+     ~13 -- a miss inside 13 gets a 40-seed re-read, declared now).
+  5. Raw-policy 1000-game arena vs policy:data/best.bin, then the search
+     gate: 800 games, seeds 5000-5079, candidate as main net at the
+     standing spec vs c20; net-swap bar: >= 49.5% AND suite dominance.
+
+RESULTS: pending

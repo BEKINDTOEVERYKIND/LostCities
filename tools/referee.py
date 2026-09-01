@@ -33,6 +33,7 @@ SUIT_FEATS = 24
 GLOBAL_FEATS = 16
 FEAT_DENSE = NSUIT * SUIT_FEATS + GLOBAL_FEATS  # 136
 FEAT_DIM = FEAT_BIN + FEAT_DENSE        # 556
+XR = 16          # rank of the v5 play x draw interaction
 NDRAW = NSUIT + 1
 VAL_SCALE = np.float32(50.0)
 NET_MAGIC = 0x4C435651
@@ -305,8 +306,13 @@ class Net:
             if feat_dim != FEAT_DIM or nplay != NCARD * 2:
                 raise ValueError(f"{path}: unexpected FEAT_DIM/NPLAY {feat_dim}/{nplay}")
             self.h1, self.h2 = h1, h2
+            version = int(hdr[5])
             n_floats = (feat_dim * h1 + h1 + h1 * h2 + h2 + h2 + 1
                         + nplay * h2 + nplay + NDRAW * h2 + NDRAW)
+            if version >= 4:
+                n_floats += NCARD * h2 + NCARD
+            if version >= 5:
+                n_floats += XR * h2 + nplay * XR + NDRAW * XR
             w = np.fromfile(fp, dtype=np.float32, count=n_floats)
             if len(w) != n_floats:
                 raise ValueError(f"{path}: truncated")
@@ -329,6 +335,14 @@ class Net:
         self.bplay = take(nplay)
         self.wdraw = take(NDRAW, h2)
         self.bdraw = take(NDRAW)
+        self.wg = self.xu = self.xv = None
+        if version >= 4:
+            self.wbel = take(NCARD, h2)
+            self.bbel = take(NCARD)
+        if version >= 5:
+            self.wg = take(XR, h2)
+            self.xu = take(nplay, XR)
+            self.xv = take(NDRAW, XR)
         assert pos == n_floats
         self.w1_dense = self.w1[FEAT_BIN:]
 
@@ -353,6 +367,9 @@ class Net:
         dr = np.array([s for _, _, s in mv])
         lg = (self.bplay[ip] + self.wplay[ip] @ a2
               + self.bdraw[dr] + self.wdraw[dr] @ a2).astype(np.float32)
+        if self.xu is not None and np.any(self.xu != 0):
+            g = (self.wg @ a2).astype(np.float32)               # [XR]
+            lg = lg + np.einsum("j,mj,mj->m", g, self.xu[ip], self.xv[dr]).astype(np.float32)
         e = np.exp(lg - lg.max(), dtype=np.float32)
         prob = e / e.sum(dtype=np.float32)
         return mv, prob, float(value)

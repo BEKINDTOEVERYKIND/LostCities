@@ -381,6 +381,10 @@ class Net{
     this.wdraw=take(NDRAW*h2);this.bdraw=take(NDRAW);
     this.hasBelief=pos+NCARD*h2+NCARD<=f.length;
     if(this.hasBelief){this.wbel=take(NCARD*h2);this.bbel=take(NCARD);}
+    const XR=16;this.XR=XR;
+    this.hasX=pos+XR*h2+nplay*XR+NDRAW*XR<=f.length;
+    if(this.hasX){this.wg=take(XR*h2);this.xu=take(nplay*XR);this.xv=take(NDRAW*XR);
+      this.xOn=false;for(let i=0;i<nplay*XR;i++)if(this.xu[i]!==0){this.xOn=true;break;}}
     this._a1=new Float32Array(h1);this._a2=new Float32Array(h2);
   }
   trunk(idx,dense){
@@ -416,6 +420,8 @@ class Net{
       let l=this.bplay[ip]+this.bdraw[dr];
       const bp=ip*h2,bd=dr*h2;
       for(let k=0;k<h2;k++)l+=a2[k]*(this.wplay[bp+k]+this.wdraw[bd+k]);
+      if(this.xOn){if(!g){g=new Float32Array(this.XR);for(let j=0;j<this.XR;j++){let v=0;const gb=j*h2;for(let k=0;k<h2;k++)v+=this.wg[gb+k]*a2[k];g[j]=v;}}
+        const ub=ip*this.XR,vb=dr*this.XR;for(let j=0;j<this.XR;j++)l+=g[j]*this.xu[ub+j]*this.xv[vb+j];}
       lg[i]=l;
     }
     let mx=-Infinity;

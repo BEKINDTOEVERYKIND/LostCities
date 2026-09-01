@@ -12,7 +12,8 @@ static size_t net_nfloat(int h1, int h2)
          + h2 + 1
          + (size_t)NET_NPLAY * h2 + NET_NPLAY
          + (size_t)NET_NDRAW * h2 + NET_NDRAW
-         + (size_t)NCARD * h2 + NCARD;
+         + (size_t)NCARD * h2 + NCARD
+         + (size_t)NET_XR * h2 + (size_t)NET_NPLAY * NET_XR + (size_t)NET_NDRAW * NET_XR;
 }
 
 static void net_wire(Net *n)
@@ -30,6 +31,9 @@ static void net_wire(Net *n)
     n->bdraw = p; p += NET_NDRAW;
     n->wbel = p;  p += (size_t)NCARD * n->h2;
     n->bbel = p;  p += NCARD;
+    n->wg = p;    p += (size_t)NET_XR * n->h2;
+    n->xu = p;    p += (size_t)NET_NPLAY * NET_XR;
+    n->xv = p;    p += (size_t)NET_NDRAW * NET_XR;
     n->nfloat = (size_t)(p - n->blk);
 }
 
@@ -61,6 +65,7 @@ void net_copy(Net *dst, const Net *src)
     memcpy(dst->blk, src->blk, src->nfloat * sizeof(float));
 }
 
+static void net_init_xhead(Net *n, uint64_t seed);
 static float gauss(Rng *r)
 {
     float u1 = rng_float(r) + 1e-7f, u2 = rng_float(r);
@@ -95,6 +100,7 @@ void net_init(Net *n, uint64_t seed)
         for (int h = 0; h < H2; h++) n->wbel[(size_t)i * H2 + h] = gauss(&r) * s4;
         n->bbel[i] = 0.0f;
     }
+    net_init_xhead(n, seed ^ 0x5848ULL);
 }
 
 /* random-init only the belief head (for upgrading older files) */
@@ -107,6 +113,18 @@ static void net_init_belief(Net *n, uint64_t seed)
         for (int h = 0; h < H2; h++) n->wbel[(size_t)i * H2 + h] = gauss(&r) * s4;
         n->bbel[i] = 0.0f;
     }
+}
+
+/* interaction head init: V and the gate rows at the head scale, U zero so
+ * the term contributes nothing until training moves it */
+static void net_init_xhead(Net *n, uint64_t seed)
+{
+    const int H2 = n->h2;
+    Rng r; rng_seed(&r, seed);
+    float s4 = 0.1f * sqrtf(1.0f / (float)H2);
+    for (size_t i = 0; i < (size_t)NET_XR * H2; i++) n->wg[i] = gauss(&r) * s4;
+    for (size_t i = 0; i < (size_t)NET_NPLAY * NET_XR; i++) n->xu[i] = 0.0f;
+    for (size_t i = 0; i < (size_t)NET_NDRAW * NET_XR; i++) n->xv[i] = gauss(&r) * 0.1f;
 }
 
 void net_zero(Net *n)
@@ -156,6 +174,14 @@ static inline float dot_h2(const float *w, const float *a, int h2)
     return o;
 }
 
+/* is any U entry non-zero?  Called only when the cheap sentinel entries are
+ * zero, i.e. on freshly extended nets, where it is a 1920-float scan. */
+static int net_xu_nonzero(const Net *n)
+{
+    for (size_t i = 0; i < (size_t)NET_NPLAY * NET_XR; i++) if (n->xu[i] != 0.0f) return 1;
+    return 0;
+}
+
 void net_policy_act(const Net *n, const NetAct *act, const uint16_t *mv, int nmv, float *logits)
 {
     const int H2 = n->h2;
@@ -167,6 +193,26 @@ void net_policy_act(const Net *n, const NetAct *act, const uint16_t *mv, int nmv
         if (!hp[ip]) { pl[ip] = n->bplay[ip] + dot_h2(n->wplay + (size_t)ip * H2, act->a2, H2); hp[ip] = 1; }
         if (!hd[id]) { dr[id] = n->bdraw[id] + dot_h2(n->wdraw + (size_t)id * H2, act->a2, H2); hd[id] = 1; }
         logits[i] = pl[ip] + dr[id];
+    }
+    /* play x draw interaction: the additive head cannot say "take the Green
+     * wager if I discard R4 but not if I play G4 onto Green" -- P(draw |
+     * action) is identical across actions up to legality.  A rank-NET_XR
+     * bilinear term gated by the state gives each (action, draw) pair its
+     * own conditional at +NET_XR MACs per move.  Skipped entirely while
+     * the U block is all-zero (a freshly extended v4 net), which keeps
+     * such a net bit-identical to its v4 self. */
+    if (n->xu[0] != 0.0f || n->xu[1] != 0.0f || n->xu[NET_NPLAY * NET_XR - 1] != 0.0f ||
+        net_xu_nonzero(n)) {
+        float g[NET_XR];
+        for (int j = 0; j < NET_XR; j++) g[j] = dot_h2(n->wg + (size_t)j * H2, act->a2, H2);
+        for (int i = 0; i < nmv; i++) {
+            int ip = MOVE_CARD(mv[i]) * 2 + MOVE_DISC(mv[i]);
+            int id = MOVE_DRAW(mv[i]);
+            const float *u = n->xu + (size_t)ip * NET_XR, *v = n->xv + (size_t)id * NET_XR;
+            float x = 0.0f;
+            for (int j = 0; j < NET_XR; j++) x += g[j] * u[j] * v[j];
+            logits[i] += x;
+        }
     }
 }
 
@@ -232,6 +278,33 @@ void net_backward(const Net *n, const Features *f, const NetAct *act,
             const float *w = n->wdraw + (size_t)id * H2;
             g->bdraw[id] += d;
             for (int h = 0; h < H2; h++) { gw[h] += d * act->a2[h]; d2[h] += d * w[h]; }
+        }
+        /* play x draw interaction gradients: dU[ip][j] += d g_j V[id][j],
+         * dV[id][j] += d g_j U[ip][j], dg_j = sum_m d_m U V, then dW_g and
+         * the trunk share.  Always computed in training: U grows from zero
+         * through exactly this path. */
+        {
+            float gv[NET_XR], dg[NET_XR];
+            for (int j = 0; j < NET_XR; j++) { gv[j] = dot_h2(n->wg + (size_t)j * H2, act->a2, H2); dg[j] = 0.0f; }
+            for (int i = 0; i < nmv; i++) {
+                float d = dlogit[i];
+                if (d == 0.0f) continue;
+                int ip = MOVE_CARD(mv[i]) * 2 + MOVE_DISC(mv[i]);
+                int id = MOVE_DRAW(mv[i]);
+                const float *u = n->xu + (size_t)ip * NET_XR, *v = n->xv + (size_t)id * NET_XR;
+                float *gu = g->xu + (size_t)ip * NET_XR, *gvv = g->xv + (size_t)id * NET_XR;
+                for (int j = 0; j < NET_XR; j++) {
+                    gu[j] += d * gv[j] * v[j];
+                    gvv[j] += d * gv[j] * u[j];
+                    dg[j] += d * u[j] * v[j];
+                }
+            }
+            for (int j = 0; j < NET_XR; j++) {
+                if (dg[j] == 0.0f) continue;
+                float *gw = g->wg + (size_t)j * H2;
+                const float *w = n->wg + (size_t)j * H2;
+                for (int h = 0; h < H2; h++) { gw[h] += dg[j] * act->a2[h]; d2[h] += dg[j] * w[h]; }
+            }
         }
     }
     if (dbel) {
@@ -299,7 +372,7 @@ int net_save(const Net *n, const char *path)
 {
     FILE *fp = fopen(path, "wb");
     if (!fp) return -1;
-    uint32_t hdr[6] = { NET_MAGIC, FEAT_DIM, (uint32_t)n->h1, (uint32_t)n->h2, NET_NPLAY, 4 };
+    uint32_t hdr[6] = { NET_MAGIC, FEAT_DIM, (uint32_t)n->h1, (uint32_t)n->h2, NET_NPLAY, 5 };
     fwrite(hdr, sizeof(hdr), 1, fp);
     fwrite(n->blk, n->nfloat * sizeof(float), 1, fp);
     fclose(fp);
@@ -317,16 +390,24 @@ int net_load(Net *n, const char *path)
     if (hdr[0] != NET_MAGIC || hdr[1] != FEAT_DIM ||
         hdr[4] != NET_NPLAY) { fclose(fp); return -2; }
     if (net_alloc(n, (int)hdr[2], (int)hdr[3]) != 0) { fclose(fp); return -3; }
-    if (hdr[5] >= 4) {
+    size_t xsec = (size_t)NET_XR * n->h2 + (size_t)NET_NPLAY * NET_XR + (size_t)NET_NDRAW * NET_XR;
+    if (hdr[5] >= 5) {
         if (fread(n->blk, n->nfloat * sizeof(float), 1, fp) != 1) {
             fclose(fp); net_free(n); return -1;
         }
+    } else if (hdr[5] >= 4) {
+        /* v4: no interaction section -- load the prefix, seed V and W_g,
+         * leave U zero so the function is unchanged */
+        size_t prefix = (n->nfloat - xsec) * sizeof(float);
+        if (fread(n->blk, prefix, 1, fp) != 1) { fclose(fp); net_free(n); return -1; }
+        net_init_xhead(n, 0x58484541ULL);
     } else {
         /* older file without the belief head: load the prefix, init the rest */
         size_t belief = (size_t)NCARD * n->h2 + NCARD;
-        size_t prefix = (n->nfloat - belief) * sizeof(float);
+        size_t prefix = (n->nfloat - belief - xsec) * sizeof(float);
         if (fread(n->blk, prefix, 1, fp) != 1) { fclose(fp); net_free(n); return -1; }
         net_init_belief(n, 0xBE11EFULL);
+        net_init_xhead(n, 0x58484541ULL);
     }
     fclose(fp);
     return 0;

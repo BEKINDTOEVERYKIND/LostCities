@@ -46,6 +46,7 @@
 #define NET_NPLAY (NCARD * 2)    /* card x (play|discard) */
 #define NET_NDRAW (NSUIT + 1)    /* deck or one of five piles */
 #define VAL_SCALE 50.0f
+#define NET_XR 16                /* rank of the play x draw interaction */
 
 typedef struct {
     int h1, h2;
@@ -63,6 +64,13 @@ typedef struct {
     float *bdraw;    /* [NET_NDRAW] */
     float *wbel;     /* [NCARD][h2], appended last so files without it load */
     float *bbel;     /* [NCARD] */
+    /* v5: state-gated low-rank play x draw interaction (see net_policy_act):
+     *   g = wg a2 (NET_XR gates), logit(m) += sum_j g_j U[ip][j] V[id][j].
+     * U is zero at init so a v4 file loads as the identical function and
+     * the term is trainable from the first step (dU = d * g * V != 0). */
+    float *wg;       /* [NET_XR][h2] */
+    float *xu;       /* [NET_NPLAY][NET_XR] */
+    float *xv;       /* [NET_NDRAW][NET_XR] */
 } Net;
 
 typedef struct {
