@@ -935,6 +935,43 @@ two iterations before memorization.  Deeper cycles need a new mistake
 CLASS (a detector the suite doesn't yet check), not another pass of
 the same nine.
 
+**The upgrade panel (2026-09-01) and its first two experiments.**  A
+four-lens proposal panel with hostile critics (protocol and ranked plan
+in `data/probes/upgrade_panel_2026-09-01.md`) put two search-side items
+at the top; both were built and measured the same day, both against the
+c20 champion at the standing spec.
+
+*Test-time symmetrization* (`sym_k`, spec field 25): the rules are
+invariant to relabeling suits and wager copies but the trained policy is
+not -- `tools/symtest` measures the c20 champion's raw argmax flipping on
+25% of relabelings and the K=8-averaged policy disagreeing with the raw
+one on 17% of states (36% when the raw top is under 0.40; only 0.7% of
+decisions are above 0.95 any more).  Averaging the prior and value over
+K random relabelings before candidates form costs +1% wall-clock and
+posts **the best suite aggregate on record, 390 better / 151 worse vs
+341/148**, yet the 800-game gate reads **51.00% +- 3.46, margin +0.31**
+-- above parity, inside the neutral band, short of the 52% spec-change
+bar.  Held pending the reviewer's call; the mechanism and tool stay.
+
+*Calibrated belief sampling* (`bel_samp`, field 26): the panel's critics
+reproduced a real defect -- Gumbel-top-k on the belief logits is a
+Plackett-Luce draw whose inclusion probabilities are not the head's
+trained marginals, so late-round worlds collapse onto duplicate
+over-confident hands (`belief sampeval`: late-phase sampled skill -1.8%,
+below the counting prior; top calibration bin 0.96 predicted -> 0.83
+observed; 28% duplicate hands per 96 draws).  A fixed-size conditional-
+Bernoulli draw on the shifted marginals restores late skill to +5.2%
+with calibration within 0.03 of the head's own -- and then LOSES on the
+40-seed suite (660/311 and 657/320 vs the standing 687/314, worse
+column flat).  The over-confident worlds had been acting as variance
+reduction for the paired candidate comparison: calibrated worlds widen
+the paired SE, the sel_k and override gates fire less, and fewer of the
+reviewer-verified non-top overrides get through at fixed worlds.
+Fidelity up, resolution down; refuted at the suite step, no match gate
+run.  Both modes stay in the engine as documented knobs (protocols in
+`data/probes/symk_gate_2026-08-29.txt` and
+`data/probes/belsamp_gate_2026-09-01.txt`).
+
 ## Reproducing
 
 ```

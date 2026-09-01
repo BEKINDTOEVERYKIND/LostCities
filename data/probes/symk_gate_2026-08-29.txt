@@ -32,4 +32,11 @@ Suite (standing + :0:8, 20 seeds): 390 better / 151 worse vs 341 / 148.
   suite aggregate in the project's record.  Gate H launched
   (seeds 4600-4679).
 Wall-clock: 30 searched decisions 13.48 s (off) vs 13.62 s (K=8), +1%.
-Gate H: pending
+Gate H: W/L/D 405/389/6  score 51.00% +/- 3.46 (95% CI)
+        points/game 117.76 vs 117.45, margin +0.31
+  Verdict per pre-registration: 49.5-52% band -> standing spec kept;
+  reported to the reviewer with the suite evidence and a recommendation.
+  The suite gain (+49 better at 20 seeds, ~3.7 SD of that instrument) is
+  far outside noise and the mechanism is a true invariance of the rules;
+  the match read is +1.0 point above parity with a +0.3 margin at +1%
+  cost.  Adoption is the reviewer's call under the 52% spec-change rule.
