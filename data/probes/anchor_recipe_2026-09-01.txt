@@ -1,0 +1,58 @@
+Anchored corrections recipe (panel rank 4) -- four arms, 2026-09-01
+Recipe: train --init data/best.bin (c20) --data <corpus> --ref policy:data/best.bin
+        --iters 8 --steps S --batch 512 --lr 1e-4 --aug 1 --vw 0 --pw 1 --bw 1 --eval 400 --seed 20260901
+Anchor corpus: 171,908 samples from 600 c20 self-play games (selfpolicy, --sample-plies 80);
+corr20: 36,766 gen-6 correction samples; merged 4.7:1.
+
+Arm A (anchor + corr20, 1500 steps): per-iteration policy-vs-c20 at 400 pairs
+  margin +0.05 +- 1.36, score 50.4%, plies 139
+  margin -1.92 +- 1.33, score 48.8%, plies 139
+  margin +0.87 +- 1.39, score 50.9%, plies 139
+  margin -0.19 +- 1.37, score 51.5%, plies 139
+  margin +2.56 +- 1.38, score 50.4%, plies 139
+  margin -0.15 +- 1.36, score 49.9%, plies 139
+  margin -0.25 +- 1.41, score 48.8%, plies 139
+  margin +3.25 +- 1.52, score 52.8%, plies 139
+
+Arm B (anchor only, 1500 steps): per-iteration policy-vs-c20 at 400 pairs
+  margin +0.38 +- 1.41, score 48.9%, plies 138
+  margin -0.95 +- 1.40, score 50.6%, plies 139
+  margin +0.68 +- 1.38, score 52.6%, plies 139
+  margin +1.40 +- 1.41, score 53.0%, plies 139
+  margin +3.46 +- 1.49, score 53.4%, plies 139
+  margin -1.44 +- 1.44, score 49.2%, plies 139
+  margin +0.41 +- 1.55, score 50.9%, plies 139
+  margin +2.25 +- 1.59, score 52.6%, plies 139
+
+Arm C (corr20 alone, 1500 steps (control)): per-iteration policy-vs-c20 at 400 pairs
+  margin -1.68 +- 1.45, score 48.4%, plies 139
+  margin -2.60 +- 1.37, score 47.4%, plies 139
+  margin -2.46 +- 1.46, score 51.2%, plies 139
+  margin -2.86 +- 1.55, score 47.0%, plies 139
+  margin -2.87 +- 1.49, score 48.3%, plies 139
+  margin -3.34 +- 1.62, score 47.8%, plies 140
+  margin -3.61 +- 1.72, score 48.6%, plies 140
+  margin -3.12 +- 1.72, score 47.4%, plies 140
+
+Arm D (corr20 alone, 300 steps (slow control)): per-iteration policy-vs-c20 at 400 pairs
+  margin -0.81 +- 1.33, score 48.9%, plies 139
+  margin +0.55 +- 1.34, score 51.0%, plies 139
+  margin -1.01 +- 1.12, score 48.6%, plies 139
+  margin -1.63 +- 1.28, score 48.9%, plies 139
+  margin -0.29 +- 1.38, score 50.2%, plies 139
+  margin -0.48 +- 1.35, score 50.2%, plies 139
+  margin -0.51 +- 1.44, score 47.0%, plies 139
+  margin -0.75 +- 1.49, score 49.2%, plies 139
+
+Pre-registered readouts:
+  (1) curve signature: anchor arms A and B stay flat around parity with no
+      peak-then-slide; the corr20-alone control C slides monotonically in
+      margin (-1.7 -> -3.6) at 47-48%, reproducing the gen-6 degradation.
+      VERDICT: the degradation was interference from training on the
+      flagged distribution alone; anchoring on the play distribution
+      removes it.
+  (2) trigger for a match gate: any anchor-arm checkpoint >= 56% at 400
+      pairs.  Best reads: A it8 52.8%, B it5 53.4% -- below the trigger.
+      No gate.  The anchor adds no signal on its own (as the panel's
+      MAYBE critic predicted): it is a recipe component, not a champion.
+  Use: the recipe now trains the v5 play x draw head (xhead_gate file).

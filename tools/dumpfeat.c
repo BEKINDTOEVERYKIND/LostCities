@@ -38,7 +38,7 @@ int main(int argc, char **argv)
     State st;
     lc_deal(&st, &rng);
 
-    printf("DIMS %d %d %d %d\n", FEAT_DIM, NET_H1, NET_H2, NET_NPLAY);
+    printf("DIMS %d %d %d %d\n", FEAT_DIM, net->h1, net->h2, NET_NPLAY);
     printf("DEAL");
     for (int i = 0; i < NCARD; i++) printf(" %d", st.deck[i]);
     printf("\n");
