@@ -56,4 +56,7 @@ the bar is non-regression, not gain:
      and worse <= 151+13 (tolerance = the instrument's SD; a miss inside
      it gets a 40-seed re-read of both arms).
   3. Adopt on pass; the tournament string then ends ":2:0:8:0:8".
-Result: pending
+Step 1 result (sampeval mode 0, K=8 vs K=0, beltest stride 60):
+  unknown skill 2.8% -> 3.8%, AUC 0.6440 -> 0.6466; early 2.0 -> 2.3;
+  mid 6.3 -> 6.9; late -1.8 -> +1.1 (AUC 0.6666 -> 0.6713).  Passes.
+Step 2 (suite, tournament spec + ":8"): pending
