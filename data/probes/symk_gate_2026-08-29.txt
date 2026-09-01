@@ -31,4 +31,5 @@ Suite (standing + :0:8, 20 seeds): 390 better / 151 worse vs 341 / 148.
   Precondition met on both prongs (better +49, worse +3).  The largest
   suite aggregate in the project's record.  Gate H launched
   (seeds 4600-4679).
+Wall-clock: 30 searched decisions 13.48 s (off) vs 13.62 s (K=8), +1%.
 Gate H: pending
