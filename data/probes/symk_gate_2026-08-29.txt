@@ -26,4 +26,9 @@ Pipeline:
      >=52% adopt A (report exact string); 49.5-52% keep standing spec,
      report with suite evidence; <49.5% negative, record.
 
-RESULTS: pending
+RESULTS:
+Suite (standing + :0:8, 20 seeds): 390 better / 151 worse vs 341 / 148.
+  Precondition met on both prongs (better +49, worse +3).  The largest
+  suite aggregate in the project's record.  Gate H launched
+  (seeds 4600-4679).
+Gate H: pending
