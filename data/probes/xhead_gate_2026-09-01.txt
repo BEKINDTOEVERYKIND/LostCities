@@ -54,4 +54,16 @@ Step 4 (suite, 20 seeds, candidate as main net): 384 better / 154 worse
     fs1_drawGx_27        better  1/20  worse  2/20  other 17  FAIL
     fs1_drawGx_29        better  4/20  worse 16/20  other  0  FAIL
   Gate J launched (seeds 5000-5079).
-Step 5b (Gate J): pending
+Step 5b (Gate J, 800 games, seeds 5000-5079, candidate as main net vs
+  c20, both arms at the pre-symmetrization standing spec):
+  W/L/D 392/404/4, 49.25% +- 3.46, margin +0.52.
+  Verdict: below the 49.5% net-swap bar by 0.25 -- NOT adopted; c20
+  stands.  The raw-policy gain (+3.54 +- 1.41) and the suite gain (+43
+  better) did not survive the search layer -- the c9 pattern (the
+  paired-world search already extracts what the policy fix supplies).
+  The head, the anchored trainer and the tools stay in the engine; a v4
+  champion loads through them unchanged.  Open door, not pursued now:
+  the head only saw an 8-iteration anchored fine-tune; its natural home
+  is PPO from the extended net (the closed raw-self-play direction was
+  closed for the OLD head, which could not express state-specific
+  draws at all).

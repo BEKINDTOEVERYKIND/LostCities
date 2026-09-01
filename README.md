@@ -985,6 +985,30 @@ run.  Both modes stay in the engine as documented knobs (protocols in
 `data/probes/symk_gate_2026-08-29.txt` and
 `data/probes/belsamp_gate_2026-09-01.txt`).
 
+**The play x draw head (net v5), measured.**  The factored policy head
+could not condition the draw source on the action at all -- P(draw |
+action) was identical across actions up to legality, which is why the
+corrections miner had to drop draw-only labels (any draw pressure
+became a global reweighting).  v5 adds sixteen state gates and a
+rank-16 bilinear play x draw term with U zero at init, so every
+existing champion loads as the identical function (verified
+byte-identical) while the term trains from the first step.  An
+8-iteration anchored fine-tune from c20 (`data/xhead_cand.bin`; the
+anchored recipe itself measured on four arms in
+`data/probes/anchor_recipe_2026-09-01.txt`: it removes the gen-6
+interference and adds no signal alone) gave the head exactly the
+capability it was built for -- on the reviewer's fs1_p27 the draw
+conditional now depends on the action (0.315 vs 0.367 for taking the
+Green wager after playing G4 vs discarding R4; c20 was 0.455/0.456) --
+and the raw policy scores **51.0% +- 1.6, +3.54 +- 1.41 points/game**
+over c20 with the suite at 384/154 vs 341/148.  Under search it reads
+**49.25% +- 3.46, margin +0.52** over 800 games: a quarter-point under
+the net-swap bar, not adopted.  The c9 lesson again -- a policy-level
+gain the paired-world search already extracts.  Everything stays
+(referee and browser ports included); the open door is PPO from the
+extended net, which the closed raw-self-play result never had.
+Protocol in `data/probes/xhead_gate_2026-09-01.txt`.
+
 ## Reproducing
 
 ```
