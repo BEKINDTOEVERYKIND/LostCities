@@ -488,7 +488,7 @@ search on exhaustion -- an unbounded per-solve version could pin a thread
 for hours on one rare wide-hand endgame.
 
 Recommended settings: **maximum strength**
-`rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8`
+`rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8:0:8`
 (search from ply 14, four candidates evaluated, dominated discards
 pruned, 3-SE advisory override, 1-SE selection gate, belief specialist
 steering world sampling -- adopted at 52.31% over 800 games, see the
@@ -498,11 +498,15 @@ only policy-ranked moves, adopted on the reviewer's directive at
 8 suit/wager relabelings before candidates form (`sym_k`, field 25:
 record suite 390/151, 51.00%/800 games, +1% cost -- adopted on the
 reviewer's standing rule that the agent must respect the rules'
-symmetries wherever that is free));
-plain `rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8`
+symmetries wherever that is free), and the belief logits that sample
+opponent hands symmetrized the same way (`sym_bel`, field 27: inference
+skill up in every phase, suite within the declared non-regression
+tolerance at 40 seeds, cached per decision so it is slightly cheaper
+than the raw path));
+plain `rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8:0:8`
 when only one network file is on hand;
 **review games** are played at full strength, cost no object:
-`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8`
+`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8:0:8`
 (the same rules at 512 worlds);
 **gate 0.85 for real-time play**; raw policy for bulk generation.
 Analysis uses `rollout:NET:512:5:0.02:0:1:0:0:4:0:1:3` -- the same

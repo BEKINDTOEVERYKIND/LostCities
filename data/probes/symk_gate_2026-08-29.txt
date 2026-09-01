@@ -62,4 +62,15 @@ Step 1 result (sampeval mode 0, K=8 vs K=0, beltest stride 60):
 Step 2 (suite, 20 seeds): 368 better / 162 worse vs 390 / 151 -- better
   misses the 377 bar by 9, inside the instrument SD; per the declared
   procedure a 40-seed re-read of both arms decides.
-Step 2b (40 seeds, both arms): pending
+Step 2b (40 seeds, both arms): sym_k 741 better / 313 worse; sym_k+sym_bel
+  721 / 319.  Declared rule (proportional tolerance 26): better >= 715 and
+  worse <= 339 -> PASS.  Recorded honestly: the better count is lower on
+  both reads (-22 at 20 seeds, -20 at 40, ~1.1 SD each) -- the same
+  world-diversity coupling seen with the calibrated sampler (less extreme
+  logits -> more diverse worlds -> wider paired SE -> fewer non-top
+  picks), while the inference metrics improved in every phase.  Adopted
+  under the reviewer's standing symmetry rule.
+  TOURNAMENT SPEC:
+  rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8:0:8
+  REVIEW SPEC (512 worlds):
+  rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8:0:8

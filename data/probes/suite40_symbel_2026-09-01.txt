@@ -1,0 +1,51 @@
+wager_open_w2        legacy (.moves row), skipped
+wager_open_w3        legacy (.moves row), skipped
+skip_cost_B8         legacy (.moves row), skipped
+skip_cost_B10        legacy (.moves row), skipped
+dead_discard         legacy (.moves row), skipped
+gift_discard         legacy (.moves row), skipped
+stall_habit          legacy (.moves row), skipped
+suit_order_72        better  9/40  worse 31/40  other  0  FAIL
+premature_B10        better 37/40  worse  3/40  other  0  ok
+bank_vs_wait_75      better  1/40  worse 39/40  other  0  FAIL
+g424_policy_G5       better 40/40  worse  0/40  other  0  PASS
+g424_skip_B7         better 34/40  worse  0/40  other  6  PASS
+g424_stall_38        better 36/40  worse  2/40  other  2  ok
+g424_stall_43        better  9/40  worse  0/40  other 31  PASS
+g424_Y3_play         better 40/40  worse  0/40  other  0  PASS
+g424_det_bias        better 40/40  worse  0/40  other  0  PASS
+g424_G10_111         better 40/40  worse  0/40  other  0  PASS
+g424_drawY_112       better 33/40  worse  0/40  other  7  PASS
+g424_G8Y_118         better  8/40  worse  0/40  other 32  PASS
+g424_takeG6_126      better 13/40  worse  4/40  other 23  ok
+c13m_gift_19         better  4/40  worse  0/40  other 36  PASS
+c13m_grab_20         better  6/40  worse 11/40  other 23  FAIL
+selk_gift_13         better  9/40  worse  0/40  other 31  PASS
+selk_open_7          better 12/40  worse  1/40  other 27  ok
+selk_tempo_23        better  6/40  worse 17/40  other 17  FAIL
+selk_deny_33         better  3/40  worse  7/40  other 30  FAIL
+selk_stall_43        better 40/40  worse  0/40  other  0  PASS
+selk_stall_89        better 29/40  worse 11/40  other  0  ok
+selk_stall_91        better  2/40  worse  1/40  other 37  ok
+selk_stall_93        better 36/40  worse  0/40  other  4  PASS
+selk_open_59         better 39/40  worse  0/40  other  1  PASS
+fs1_open_9           better  0/40  worse  0/40  other 40  ok
+fs1_open_11          better  0/40  worse  0/40  other 40  ok
+fs1_wager_13         better  0/40  worse 40/40  other  0  FAIL
+fs1_open_15          better  6/40  worse  1/40  other 33  ok
+fs1_save_17          better 11/40  worse 23/40  other  6  FAIL
+fs1_gift_21          better 18/40  worse  2/40  other 20  ok
+fs1_disc_25          better  6/40  worse 18/40  other 16  FAIL
+fs1_disc_26          better  9/40  worse  0/40  other 31  PASS
+fs1_drawGx_27        better 13/40  worse 18/40  other  9  FAIL
+fs1_drawGx_29        better  5/40  worse 30/40  other  5  FAIL
+fs1_stall_47         better 40/40  worse  0/40  other  0  PASS
+fs1_stall_49         better 40/40  worse  0/40  other  0  PASS
+fs1_stall_51         better  0/40  worse  0/40  other 40  ok
+fs1_wager_53         better 15/40  worse  0/40  other 25  PASS
+fs1_play_70          better  6/40  worse 26/40  other  8  FAIL
+fs1_play_71          better 17/40  worse  8/40  other 15  ok
+fs1_prior_76         better  9/40  worse 26/40  other  5  FAIL
+fs1_last_96          better  0/40  worse  0/40  other 40  ok
+
+42 probes: better 721, worse 319 (43% / 19% of decisions)
