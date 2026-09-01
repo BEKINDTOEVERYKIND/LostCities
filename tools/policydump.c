@@ -93,7 +93,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < n; i++) ord[i] = i;
     for (int i = 0; i < n; i++) for (int j = i + 1; j < n; j++) if (pr[ord[j]] > pr[ord[i]]) { int t = ord[i]; ord[i] = ord[j]; ord[j] = t; }
     const char *S = "YBWGR";
-    printf("value %.1f  (%d legal moves after folding)\n", v * VAL_SCALE, n);
+    printf("value %.1f pts  (%d legal moves after folding)\n", v, n);
     for (int i = 0; i < n; i++) {
         char nm[8]; lc_card_name(mv[ord[i]].card, nm);
         printf("  %-3s %-7s draw-%c  %.4f\n", nm, mv[ord[i]].discard ? "discard" : "play",
