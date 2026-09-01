@@ -44,5 +44,14 @@ Step 3 (mechanism, fs1_p27): P(draw G | G4 play) 0.455 -> 0.315,
   actions.  Referee parity on the v5 file: max |dprob| 1.13e-6.
 Step 5a (raw policy, 1000 games vs policy:c20, seeds 6100):
   W/L/D 508/488/4, 51.0% +- 1.6, margin +3.54 +- 1.41.
-Step 4 (suite): pending
+Step 4 (suite, 20 seeds, candidate as main net): 384 better / 154 worse
+  vs c20 341 / 148 -- precondition met (better +43, worse +6).
+  Draw-target rows:
+    g424_drawY_112       better 15/20  worse  2/20  other  3  ok
+    g424_G8Y_118         better  4/20  worse  0/20  other 16  PASS
+    g424_takeG6_126      better  2/20  worse  0/20  other 18  PASS
+    c13m_grab_20         better  1/20  worse  0/20  other 19  PASS
+    fs1_drawGx_27        better  1/20  worse  2/20  other 17  FAIL
+    fs1_drawGx_29        better  4/20  worse 16/20  other  0  FAIL
+  Gate J launched (seeds 5000-5079).
 Step 5b (Gate J): pending
