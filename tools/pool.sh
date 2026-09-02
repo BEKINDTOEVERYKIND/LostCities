@@ -24,12 +24,12 @@ run() {  # name spec games-per-chunk chunks seedbase
     i=$((i+1))
   done
 }
-run big1    "rollout:data/big1.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1"     5 40 7000
-run s2      "rollout:data/s2.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1"       5 40 7100
-run sym1    "rollout:data/sym1.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1"     5 40 7200
-run oldbest "rollout:data/old_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1" 5 40 7300
-run m0      "rollout:data/m0.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1"       5 20 7400
-run heur    "heur"                                                            5 20 7500
+run big1    "rollout:data/big1.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1"     5 20 7000
+run s2      "rollout:data/s2.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1"       5 20 7100
+run sym1    "rollout:data/sym1.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1"     5 20 7200
+run oldbest "rollout:data/old_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1" 5 20 7300
+run m0      "rollout:data/m0.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1"       5 10 7400
+run heur    "heur"                                                            5 10 7500
 python3 - "$WD" "$SPEC" > "$OUT" <<'PY'
 import sys, glob, re, math, os
 wd, spec = sys.argv[1], sys.argv[2]
