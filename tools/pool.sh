@@ -11,8 +11,9 @@
 #   tools/pool.sh SPEC OUTFILE [WORKDIR]
 #
 # Resumable: one chunk file per (opponent, seed); rerun to fill gaps.
-# Chunks are one paired deal (2 games) so progress survives short
-# compute windows; big1 keeps its 20 five-pair chunks (same 200 games).
+# Chunks are four paired deals (8 games, one per core, ~1-2 min) so
+# progress survives short compute windows; big1 keeps its 20 five-pair
+# chunks (the same 200 games).
 set -u
 SPEC=$1; OUT=$2; WD=${3:-/tmp/lc_pool}
 mkdir -p "$WD"
@@ -27,11 +28,11 @@ run() {  # name spec games-per-chunk chunks seedbase
   done
 }
 run big1    "rollout:data/big1.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1"     5 20 7000
-run s2      "rollout:data/s2.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1"       1 100 7100
-run sym1    "rollout:data/sym1.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1"     1 100 7200
-run oldbest "rollout:data/old_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1" 1 100 7300
-run m0      "rollout:data/m0.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1"       1 50 7400
-run heur    "heur"                                                            1 50 7500
+run s2      "rollout:data/s2.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1" 4 25 7100
+run sym1    "rollout:data/sym1.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1" 4 25 7200
+run oldbest "rollout:data/old_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1" 4 25 7300
+run m0      "rollout:data/m0.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1" 4 13 7400
+run heur    "heur" 4 13 7500
 python3 - "$WD" "$SPEC" > "$OUT" <<'PY'
 import sys, glob, re, math, os
 wd, spec = sys.argv[1], sys.argv[2]
