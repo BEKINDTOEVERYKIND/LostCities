@@ -183,4 +183,11 @@ the match Rng).  Rule: exact stands under the symmetry rule at >= 49.5%
 (CI +/- 3.46); below 49.5% the label noise carried real value and the
 next step is the principled source of that value (the arbitrary status
 quo among near-tied priors in the sel_k gate), not a return to noise.
-Gate K result: pending
+Gate K result (2026-09-02 05:49 UTC, 800 games, seeds 5100-5179):
+  W/L/D 402/396/2  score 50.38% +/- 3.46 (95% CI); paired margin -2.00 +/- 1.56 pts/game; points/game 115.72 vs 117.72
+  Verdict per pre-registration: >= 49.5% -> exact stands under the
+  symmetry rule.  Match-neutral (inside the CI on both wins and paired
+  margin) while the suite read -46 better: the suite's reading was the
+  instrument bias described above, not a strength loss.  FINAL:
+  TOURNAMENT: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:0:120
+  REVIEW:     rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:0:120

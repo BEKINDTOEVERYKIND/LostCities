@@ -991,8 +991,20 @@ to 99.4% agreement, 0.004 TV and 0.06 points -- the remainder is the
 sampled wager-copy relabeling, which the nets see as distinct cards
 and which is pooled exactly afterwards.  Cost: 120 policy and 120
 belief forwards per decision, ~13 us each, inside run-to-run timing
-noise.  Adopted as the exact form of the standing rule; protocol,
-per-probe table and measurements in
+noise.  Adopted as the exact form of the standing rule.  The 20-seed
+suite then read 322/175 against 368/162, and the diagnosis is a
+finding about the instrument: on the probes that moved, the 96-world
+search's own best is the policy top under raw, sampled and exact
+symmetrization alike; the reviewer's move sits second in a near-tied
+prior, and the old sampled relabelings had been randomizing which
+near-tied move became candidate 0, kept by the sel_k gate's status
+quo.  The suite is built from positions where the policy top was
+wrong, so it rewards deviation from the policy top -- noise included
+-- and penalizes noise removal (sel_deep and the calibrated sampler
+showed the same signature).  **Gate K**, 800 games, exact vs the
+sampled-8 regime, pre-registered at a 49.5% floor: **50.38% +/-
+3.46, paired margin -2.00 +/- 1.56** -- match-neutral, exact stands.
+Protocol, per-probe table and measurements in
 `data/probes/symk_gate_2026-08-29.txt`.
 
 *Calibrated belief sampling* (`bel_samp`, field 26): the panel's critics
