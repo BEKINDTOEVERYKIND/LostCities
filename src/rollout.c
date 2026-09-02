@@ -145,11 +145,19 @@ static int sym_key(Move m)
     return c + 60 * m.discard + 120 * m.draw;
 }
 
-static void symmetrize_priors(const Net *net, const State *st, Rng *rng, int K,
+static void symmetrize_priors(const Net *net, const State *st, Rng *rng_unused, int K,
                               Move *mv, float *prob, int n, float *value)
 {
     static _Thread_local float acc[720];
     static _Thread_local uint8_t cnt[720];
+    /* relabelings are drawn from a stream seeded by the information set:
+     * the symmetrized prior is then a fixed function of the state (a
+     * display and the decision agree exactly) and the match Rng stream is
+     * not consumed by symmetrization */
+    (void)rng_unused;
+    Rng lrng;
+    rng_seed(&lrng, infoset_hash(st, st->turn) ^ (0x9E3779B97F4A7C15ULL * (uint64_t)(K + 1)));
+    Rng *rng = &lrng;
     memset(acc, 0, sizeof acc);
     memset(cnt, 0, sizeof cnt);
     for (int i = 0; i < n; i++) { int k = sym_key(mv[i]); acc[k] += prob[i]; cnt[k]++; }
@@ -201,6 +209,43 @@ static void symmetrize_priors(const Net *net, const State *st, Rng *rng, int K,
  * sees them: raw policy_probs, symmetrized over sym_k relabelings when the
  * agent is configured so.  For displays that must show what the deciding
  * agent used rather than the raw head. */
+/* The value head from perspective q, with the real player to move, averaged
+ * over the same state-seeded relabelings when sym_k is set.  (Flipping the
+ * turn to q and reading the mover's value is a different, off-distribution
+ * quantity: +3-4 points on average.) */
+float agent_value(const struct Agent *a, const State *st, int q)
+{
+    Features f;
+    feat_extract(st, q, &f);
+    double v = net_value(a->net, &f) * VAL_SCALE;
+    int K = a->sym_k;
+    if (K <= 0) return (float)v;
+    Rng lrng;
+    rng_seed(&lrng, infoset_hash(st, q) ^ (0xC2B2AE3D27D4EB4FULL * (uint64_t)(K + 1)));
+    for (int k = 0; k < K; k++) {
+        int sp[NSUIT], wp[NSUIT][WAGERS_PER_SUIT];
+        for (int i = 0; i < NSUIT; i++) sp[i] = i;
+        for (int i = NSUIT - 1; i > 0; i--) {
+            int j = (int)rng_below(&lrng, (uint32_t)i + 1);
+            int t = sp[i]; sp[i] = sp[j]; sp[j] = t;
+        }
+        for (int su = 0; su < NSUIT; su++) {
+            for (int i = 0; i < WAGERS_PER_SUIT; i++) wp[su][i] = i;
+            for (int i = WAGERS_PER_SUIT - 1; i > 0; i--) {
+                int j = (int)rng_below(&lrng, (uint32_t)i + 1);
+                int t = wp[su][i]; wp[su][i] = wp[su][j]; wp[su][j] = t;
+            }
+        }
+        uint8_t map[NCARD];
+        lc_perm_map(sp, wp, map);
+        State ps = *st;
+        lc_permute(&ps, map);
+        feat_extract(&ps, q, &f);
+        v += net_value(a->net, &f) * VAL_SCALE;
+    }
+    return (float)(v / (K + 1));
+}
+
 int agent_policy_probs(const struct Agent *a, const State *st, Rng *rng,
                        Move *mv, float *prob, float *value)
 {

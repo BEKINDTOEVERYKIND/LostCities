@@ -217,12 +217,7 @@ int main(int argc, char **argv)
          * two identical wager copies shown at different probabilities */
         const Agent *dsp = playspec ? &play_ag : &ag;
         float v[2];
-        for (int q = 0; q < 2; q++) {
-            State sq = st; sq.turn = (uint8_t)q;
-            Move tmv[MAX_MOVES]; float tpr[MAX_MOVES], tv = 0.0f;
-            agent_policy_probs(dsp, &sq, &rng, tmv, tpr, &tv);
-            v[q] = tv;
-        }
+        for (int q = 0; q < 2; q++) v[q] = agent_value(dsp, &st, q);
         fprintf(pf, ",\"values\":[%.1f,%.1f]", v[0], v[1]);
 
         /* belief head from the MOVER's perspective: for every card whose

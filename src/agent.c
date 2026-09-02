@@ -171,6 +171,18 @@ static uint64_t bs_key(const Features *f, int p, int need, int mode)
     return h;
 }
 
+/* hash of player p's information set at st: everything the agent may
+ * legitimately condition on.  Symmetrization draws its random relabelings
+ * from an Rng seeded by this, so the averaged prior/belief is a fixed
+ * function of the state -- a display and the decision it explains compute
+ * literally the same numbers, and the game's own Rng stream is untouched. */
+uint64_t infoset_hash(const State *st, int p)
+{
+    Features f;
+    feat_extract(st, p, &f);
+    return bs_key(&f, p, 0, 7);
+}
+
 static void bs_suffix_esp(const double *w, int n, int k, double S[BS_MAXN][BS_MAXK])
 {
     for (int j = 0; j <= k; j++) S[n][j] = (j == 0) ? 1.0 : 0.0;
@@ -318,9 +330,19 @@ static const float *belief_logits_sym(const Net *net, const struct BelX *bx, con
 {
     Features f;
     feat_extract(st, p, &f);
-    uint64_t key = bs_key(&f, p, n, 1000 + K) ^ (bx ? 0x9E3779B97F4A7C15ULL : 0);
+    uint64_t base = bs_key(&f, p, n, 1000 + K);
+    /* the cache key tells belief sources apart; the relabeling seed must
+     * NOT (pointer values differ run to run and would make the averaged
+     * beliefs irreproducible across processes) */
+    uint64_t key = base ^ (bx ? (uint64_t)(uintptr_t)bx * 0x9E3779B97F4A7C15ULL
+                              : (uint64_t)(uintptr_t)net * 0xC2B2AE3D27D4EB4FULL);
     BelSymCache *c = &bsym_cache;
     if (c->valid && c->key == key && c->n == n) return c->logit;
+    /* relabelings come from a state-seeded stream, not the caller's Rng:
+     * deterministic per information set, and the match Rng is untouched */
+    Rng lrng;
+    rng_seed(&lrng, base ^ 0x5851F42D4C957F2DULL);
+    rng = &lrng;
     double acc[NCARD];
     float tmp[NCARD];
     belief_logits_raw(net, bx, st, p, unseen, n, tmp);
@@ -409,9 +431,19 @@ int agent_belief_logits(const struct Agent *a, const State *st, int p, Rng *rng,
     if (n == 0) return 0;
     const Net *bnet = a->net_b ? a->net_b : a->net;
     if (a->no_belief || (!bnet && !a->bx)) {
-        for (int i = 0; i < n; i++) logit[i] = 0.0f;
+        /* uniform sampler: every unseen card is held with probability
+         * need/n -- report that marginal, not p=0.5 */
+        int need = (int)st->hand_n[p ^ 1] - __builtin_popcountll(st->known[p ^ 1]);
+        float q = n > 0 ? (float)need / (float)n : 0.5f;
+        if (q < 1e-4f) q = 1e-4f;
+        if (q > 1.0f - 1e-4f) q = 1.0f - 1e-4f;
+        for (int i = 0; i < n; i++) logit[i] = logf(q / (1.0f - q));
         return n;
     }
+    /* bel_samp modes (field 26) additionally shift these logits so the
+     * marginals sum to the hand size before sampling; the display shows
+     * the unshifted head, which is the deciding quantity for the adopted
+     * spec (bel_samp=0) */
     if (a->sym_bel > 0) {
         const float *lg = belief_logits_sym(bnet, a->bx, st, p, a->sym_bel, rng, unseen, n);
         for (int i = 0; i < n; i++) logit[i] = lg[i];
