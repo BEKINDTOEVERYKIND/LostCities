@@ -74,3 +74,13 @@ Step 2b (40 seeds, both arms): sym_k 741 better / 313 worse; sym_k+sym_bel
   rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8:0:8
   REVIEW SPEC (512 worlds):
   rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8:0:8
+
+Post-adoption sampler change (2026-09-02, declared before measurement):
+the symmetrized belief path now pools the wager copies of a suit exactly
+and draws its relabelings from a stream seeded by the information set
+(deterministic per state; the match Rng is no longer consumed).  This
+is the exact form of the adopted rule, not a new mechanism.  Sanity
+re-read: 20-seed suite of the final tournament string vs the 20-seed
+sym_bel read (368/162): record; a drop beyond the instrument SD (13)
+on either column triggers a 40-seed re-read before anything else.
+Result: pending
