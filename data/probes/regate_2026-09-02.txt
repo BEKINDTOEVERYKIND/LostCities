@@ -42,4 +42,19 @@ Gate L result (2026-09-02 06:54 UTC, 800 games, seeds 5200-5279):
   Clears the 52% bar.  Per protocol the adoption of bel_samp=1 waits
   for Gate M: if M also clears, Gate N decides the combined string;
   otherwise bel_samp=1 is adopted alone.
-Gate M result: pending
+Gate M result (2026-09-02 08:12 UTC, 800 games, seeds 5300-5379):
+  W/L/D 409/382/9  score 51.69% +/- 3.46 (95% CI); paired margin +3.62 +/- 1.51 pts/game; points/game 117.24 vs 113.62; chunks 80
+  Neutral band (49.5-52%): NOT adopted per the rule.  Recorded honestly:
+  the paired points margin is positive at 2.4 SE while the win rate
+  misses the bar, and the arm costs ~1.7x wall-clock per game (chunks
+  with sel_deep on one side ran 58.4 s vs 43.4 s for the reference
+  gate) -- a compute-for-points trade the 96-world tournament budget
+  does not grant.  Open to a reviewer's call if the tournament has no
+  time limit.
+Decision: bel_samp=1 adopted alone (Gate L 52.56%).  Wall-clock of the
+adopted string vs standing, decreplay user CPU, 40 searched decisions:
+
+FINAL STRINGS (fields 25-27 = 120:1:120):
+  TOURNAMENT: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120
+  REVIEW:     rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120
+  ANALYSIS:   rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:0:0:4:0:1:3:4:0:0:0:0:0:0:0:0:0:0:0:120:1:120
