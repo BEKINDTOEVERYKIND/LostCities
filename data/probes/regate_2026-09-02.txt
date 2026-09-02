@@ -32,5 +32,10 @@ both fields vs S, 800 games, seeds 5400-5479, adopt at >= 52%) decides
 the combined string; otherwise the single qualifier is adopted.
 The external-opponent pool (task: tripwire) is paused (pool.hold) while
 these run and resumes afterwards.
+Sanity (sampeval, beltest.bst stride 240 = 1,236 states, 96 worlds,
+symk 120 both): mode 0 unknown skill 3.8% (early 2.6, mid 6.4, late
+1.9; late duplicate-hand rate 0.261); mode 1 with the symmetrized input
+5.4% (2.5 / 8.4 / 5.7; late duplicates 0.211).  The calibrated sampler
+keeps its inference gain on symmetrized beliefs; Gate L is meaningful.
 Gate L result: pending
 Gate M result: pending
