@@ -37,5 +37,9 @@ symk 120 both): mode 0 unknown skill 3.8% (early 2.6, mid 6.4, late
 1.9; late duplicate-hand rate 0.261); mode 1 with the symmetrized input
 5.4% (2.5 / 8.4 / 5.7; late duplicates 0.211).  The calibrated sampler
 keeps its inference gain on symmetrized beliefs; Gate L is meaningful.
-Gate L result: pending
+Gate L result (2026-09-02 06:54 UTC, 800 games, seeds 5200-5279):
+  W/L/D 420/379/1  score 52.56% +/- 3.46 (95% CI); paired margin +0.38 +/- 1.52 pts/game; points/game 116.33 vs 115.95; chunks 80
+  Clears the 52% bar.  Per protocol the adoption of bel_samp=1 waits
+  for Gate M: if M also clears, Gate N decides the combined string;
+  otherwise bel_samp=1 is adopted alone.
 Gate M result: pending
