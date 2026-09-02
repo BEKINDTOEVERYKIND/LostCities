@@ -502,7 +502,11 @@ symmetries wherever that is free), and the belief logits that sample
 opponent hands symmetrized the same way (`sym_bel`, field 27: inference
 skill up in every phase, suite within the declared non-regression
 tolerance at 40 seeds, cached per decision so it is slightly cheaper
-than the raw path));
+than the raw path; the three wager copies of a suit are additionally
+pooled exactly, since random relabelings only approximate copy
+symmetry -- a reviewer caught two Yx copies displayed 5 points
+apart));  the analysis dump and viewer show these symmetrized beliefs,
+priors and values from the deciding agent, not the raw head;
 plain `rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8:0:8`
 when only one network file is on hand;
 **review games** are played at full strength, cost no object:

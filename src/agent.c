@@ -342,6 +342,19 @@ static const float *belief_logits_sym(const Net *net, const struct BelX *bx, con
         for (int i = 0; i < n; i++) acc[i] += tmp[i];
     }
     for (int i = 0; i < n; i++) c->logit[i] = (float)(acc[i] / (K + 1));
+    /* exact copy symmetry: the three wager copies of a suit are the same
+     * card, so a belief that one copy is held is a belief about any of
+     * them -- K random relabelings only approximate that (copies landed
+     * 0.01-0.02 apart in probability); pooling the averaged logits over
+     * the unseen copies of each suit makes it exact at no cost */
+    for (int su = 0; su < NSUIT; su++) {
+        double sum = 0.0; int cnt = 0;
+        for (int i = 0; i < n; i++)
+            if (CARD_IS_WAGER(unseen[i]) && CARD_SUIT(unseen[i]) == su) { sum += c->logit[i]; cnt++; }
+        if (cnt > 1)
+            for (int i = 0; i < n; i++)
+                if (CARD_IS_WAGER(unseen[i]) && CARD_SUIT(unseen[i]) == su) c->logit[i] = (float)(sum / cnt);
+    }
     memcpy(c->unseen, unseen, (size_t)n);
     c->n = n; c->key = key; c->valid = 1;
     return c->logit;
@@ -380,6 +393,32 @@ static void gumbel_fill(const State *st, int o, int need, const uint8_t *unseen,
         uint8_t t = out->deck[i]; out->deck[i] = out->deck[j]; out->deck[j] = t;
     }
     out->deck_left = (uint8_t)d;
+}
+
+/* The belief logits the agent's world sampler uses at this state, for
+ * every card the mover cannot place (lc_unseen order): the agent's belief
+ * source (belx / belief net / main net) and, when sym_bel is set, the
+ * relabeling-averaged logits -- so a display built on this shows exactly
+ * what the deciding agent believes, wager copies included (identical
+ * copies must carry identical probability; the raw head does not). */
+int agent_belief_logits(const struct Agent *a, const State *st, int p, Rng *rng,
+                        uint8_t *unseen, float *logit)
+{
+    int n = 0;
+    lc_unseen(st, p, unseen, &n);
+    if (n == 0) return 0;
+    const Net *bnet = a->net_b ? a->net_b : a->net;
+    if (a->no_belief || (!bnet && !a->bx)) {
+        for (int i = 0; i < n; i++) logit[i] = 0.0f;
+        return n;
+    }
+    if (a->sym_bel > 0) {
+        const float *lg = belief_logits_sym(bnet, a->bx, st, p, a->sym_bel, rng, unseen, n);
+        for (int i = 0; i < n; i++) logit[i] = lg[i];
+    } else {
+        belief_logits_raw(bnet, a->bx, st, p, unseen, n, logit);
+    }
+    return n;
 }
 
 void determinize_bsym(const State *st, int p, Rng *rng, const Net *net,

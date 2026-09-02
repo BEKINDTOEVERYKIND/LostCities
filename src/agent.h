@@ -286,6 +286,10 @@ void determinize_bm(const State *st, int p, Rng *rng, const Net *net,
                     const struct BelX *bx, int mode, State *out);
 /* Gumbel-top-k world from belief logits averaged over K random suit/wager
  * relabelings (Agent.sym_bel), cached per decision.  K<=0 = plain path. */
+int  agent_belief_logits(const struct Agent *a, const State *st, int p, Rng *rng,
+                         uint8_t *unseen, float *logit);
+int  agent_policy_probs(const struct Agent *a, const State *st, Rng *rng,
+                        Move *mv, float *prob, float *value);
 void determinize_bsym(const State *st, int p, Rng *rng, const Net *net,
                       const struct BelX *bx, int K, State *out);
 

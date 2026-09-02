@@ -211,11 +211,17 @@ int main(int argc, char **argv)
         j_piles(pf, &st);
 
         /* value head from each perspective, in points */
-        Features feat;
+        /* every displayed quantity comes from the agent that DECIDES (the
+         * -p match agent when given): its belief source and its
+         * symmetrization, not the raw analysis net -- a reviewer caught
+         * two identical wager copies shown at different probabilities */
+        const Agent *dsp = playspec ? &play_ag : &ag;
         float v[2];
         for (int q = 0; q < 2; q++) {
-            feat_extract(&st, q, &feat);
-            v[q] = net_value(ag.net, &feat) * VAL_SCALE;
+            State sq = st; sq.turn = (uint8_t)q;
+            Move tmv[MAX_MOVES]; float tpr[MAX_MOVES], tv = 0.0f;
+            agent_policy_probs(dsp, &sq, &rng, tmv, tpr, &tv);
+            v[q] = tv;
         }
         fprintf(pf, ",\"values\":[%.1f,%.1f]", v[0], v[1]);
 
@@ -226,14 +232,8 @@ int main(int argc, char **argv)
         {
             int mp = st.turn, mo = mp ^ 1;
             uint8_t bcards[NCARD];
-            int nb = 0;
-            lc_unseen(&st, mp, bcards, &nb);
-            Features bf;
-            feat_extract(&st, mp, &bf);
-            NetAct bact;
-            net_trunk(ag.net, &bf, &bact);
             float blg[NCARD];
-            net_belief_act(ag.net, &bact, bcards, nb, blg);
+            int nb = agent_belief_logits(dsp, &st, mp, &rng, bcards, blg);
             int bord[NCARD];
             for (int i = 0; i < nb; i++) bord[i] = i;
             for (int i = 0; i < nb; i++)
@@ -260,7 +260,7 @@ int main(int argc, char **argv)
          * except this dump */
         Move pmv[MAX_MOVES];
         float prob[MAX_MOVES], pv;
-        int nleg = policy_probs(ag.net, &st, pmv, prob, &pv);
+        int nleg = agent_policy_probs(dsp, &st, &rng, pmv, prob, &pv);
         int nfold = nleg > 1 ? lc_dedup_wagers(&st, pmv, prob, nleg, 1) : nleg;
         int ord[MAX_MOVES];
         for (int i = 0; i < nfold; i++) ord[i] = i;

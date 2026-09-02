@@ -197,6 +197,20 @@ static void symmetrize_priors(const Net *net, const State *st, Rng *rng, int K,
     *value = (float)(vsum / m);
 }
 
+/* The policy prior (and value) exactly as this agent's candidate stage
+ * sees them: raw policy_probs, symmetrized over sym_k relabelings when the
+ * agent is configured so.  For displays that must show what the deciding
+ * agent used rather than the raw head. */
+int agent_policy_probs(const struct Agent *a, const State *st, Rng *rng,
+                       Move *mv, float *prob, float *value)
+{
+    float v = 0.0f;
+    int n = policy_probs(a->net, st, mv, prob, &v);
+    if (a->sym_k > 0 && n > 1) symmetrize_priors(a->net, st, rng, a->sym_k, mv, prob, n, &v);
+    if (value) *value = v;
+    return n;
+}
+
 Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                   float *out_value, SearchStats *stats)
 {
