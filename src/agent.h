@@ -187,7 +187,9 @@ typedef struct Agent {
                            random suit/wager relabelings (the belief-head
                            analogue of sym_k; K trunk forwards per decision,
                            cached, so it also removes the per-world trunk
-                           forward).  0 = raw logits. */
+                           forward).  0 = raw logits.  >= 120 (LC_SYM_EXACT)
+                           enumerates the 120 suit relabelings: exactly
+                           suit-invariant, copies still sampled then pooled. */
     int bel_samp;       /* AG_ROLLOUT (spec field 26): belief world sampler.
                            0 = Gumbel-top-k on the belief logits (the
                            original path, a Plackett-Luce draw whose
@@ -205,7 +207,12 @@ typedef struct Agent {
                            symmetrize_priors in rollout.c).  0 = raw policy.
                            Removes the residual label noise measured at 25%
                            argmax flips on the c20 champion; costs K forward
-                           passes per decision. */
+                           passes per decision.  >= 120 (LC_SYM_EXACT)
+                           enumerates the 120 suit relabelings instead of
+                           sampling them: the prior and value are then exactly
+                           suit-invariant (wager-copy relabelings stay sampled
+                           from the state-seeded stream; copies are folded
+                           exactly by sym_key). */
     const struct BelX *bx;  /* AG_ROLLOUT hybrid, extended-format flavour:
                            when set, world sampling uses this belx net's
                            inference (with the behavioral-history features)

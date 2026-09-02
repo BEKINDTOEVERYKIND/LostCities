@@ -188,4 +188,48 @@ void lc_unseen(const State *st, int p, uint8_t *out, int *n);
 const char *lc_card_name(int card, char *buf);
 void lc_move_name(const State *st, Move m, char *buf);
 
+/* ---- symmetry relabelings ---------------------------------------------
+ * The rules are invariant to relabeling the five suits (120 permutations)
+ * and, within a suit, its three wager copies.  Test-time symmetrization
+ * averages a net over relabelings produced by this helper: the k-th of K.
+ * K >= LC_SYM_EXACT enumerates the 120 suit permutations (the k-th in
+ * lexicographic order), so the average is exactly suit-invariant; a
+ * smaller K draws each suit permutation at random.  Wager-copy
+ * permutations are always drawn from the stream: the nets see copies as
+ * distinct cards, so their effect is averaged over the relabelings and
+ * the consumers pool copies exactly afterwards. */
+#define LC_SYM_EXACT 120
+static inline int lc_sym_count(int K) { return K >= LC_SYM_EXACT ? LC_SYM_EXACT : K; }
+static inline void lc_sym_relabel(Rng *r, int K, int k,
+                                  int sp[NSUIT], int wp[NSUIT][WAGERS_PER_SUIT])
+{
+    if (K >= LC_SYM_EXACT) {
+        /* Lehmer unranking of permutation k of NSUIT elements */
+        int pool[NSUIT], np = NSUIT, idx = k % LC_SYM_EXACT, fact = 1;
+        for (int i = 1; i < NSUIT; i++) fact *= i;
+        for (int i = 0; i < NSUIT; i++) pool[i] = i;
+        for (int i = 0; i < NSUIT; i++) {
+            int j = idx / fact;
+            idx %= fact;
+            sp[i] = pool[j];
+            for (int t = j; t < np - 1; t++) pool[t] = pool[t + 1];
+            np--;
+            if (NSUIT - 1 - i > 0) fact /= (NSUIT - 1 - i);
+        }
+    } else {
+        for (int i = 0; i < NSUIT; i++) sp[i] = i;
+        for (int i = NSUIT - 1; i > 0; i--) {
+            int j = (int)rng_below(r, (uint32_t)i + 1);
+            int t = sp[i]; sp[i] = sp[j]; sp[j] = t;
+        }
+    }
+    for (int s = 0; s < NSUIT; s++) {
+        for (int i = 0; i < WAGERS_PER_SUIT; i++) wp[s][i] = i;
+        for (int i = WAGERS_PER_SUIT - 1; i > 0; i--) {
+            int j = (int)rng_below(r, (uint32_t)i + 1);
+            int t = wp[s][i]; wp[s][i] = wp[s][j]; wp[s][j] = t;
+        }
+    }
+}
+
 #endif /* LC_H */

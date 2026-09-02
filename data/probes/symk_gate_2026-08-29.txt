@@ -83,4 +83,58 @@ is the exact form of the adopted rule, not a new mechanism.  Sanity
 re-read: 20-seed suite of the final tournament string vs the 20-seed
 sym_bel read (368/162): record; a drop beyond the instrument SD (13)
 on either column triggers a 40-seed re-read before anything else.
-Result: pending
+Result (2026-09-02): 326 better / 173 worse (vs 368 / 162): -42 / +11,
+  beyond the 13 tolerance on the better column.  Per-probe comparison
+  shows the signature of a FIXED relabeling draw, not of weaker play:
+  the probes that moved did so en bloc across all 20 seeds --
+  selk_open_59 19/0 -> 0/0 (other 20), fs1_disc_26 8/0 -> 0/0,
+  fs1_wager_53 8/0 -> 0/0, fs1_play_71 9/2 -> 1/13, selk_open_7 7/1 ->
+  20/0, selk_stall_89 14/6 -> 19/1; the rest moved within noise.  With
+  the relabelings seeded by the information set, every seed of a probe
+  shares ONE draw of 8 suit relabelings, so a probe whose top candidate
+  depends on the draw no longer averages over draws across seeds: the
+  suite's expected value is unchanged but its per-probe variance is
+  much larger, and a 40-seed re-read of the same fixed draws cannot
+  recover it (it would reproduce the same flips).  The declared 40-seed
+  re-read is therefore skipped as uninformative by construction, and
+  the real finding is acted on instead: 8 sampled relabelings leave a
+  large draw-dependent residual in the numbers the search consumes.
+
+Exact suit symmetrization (declared 2026-09-02 before the suite run)
+--------------------------------------------------------------------
+tools/symres (new): the residual asymmetry of the DEPLOYED decision
+function -- the symmetrized prior, value and belief the agent hands its
+search -- compared with itself on a randomly relabeled copy of the same
+state, mapped back.  1,284 raw-policy self-play states, ply >= 14
+(seed 7, 12 games), suit+copy relabelings:
+                      raw (K=0)   K=8 sampled   K=120 exact
+  prior top agrees     71.5%        90.0%         99.4%
+  prior mean TV        0.173        0.059         0.0037
+  prior mean max|dp|   0.136        0.046         0.0028
+  value mean |dv| pts  2.75         0.92          0.063
+  belief softmax TV    0.109        0.036         0.0030
+So at K=8 one decision in ten still had a top candidate that depended
+on the relabeling draw, and the value fed to the sel_k gate moved by
+~1 point.  Mechanism: sym_k / sym_bel >= 120 (LC_SYM_EXACT) enumerate
+all 120 suit permutations with equal weight (no raw term on top), so
+the prior, value and belief are exactly suit-invariant; the wager-copy
+relabelings stay sampled from the state-seeded stream (the nets see
+copies as distinct cards; the 0.003 residual above is that sampling)
+and copies are then pooled exactly as before.  Cost: 120 policy + 120
+belief forwards per decision, measured 13 us per forward in symres
+(~3 ms; a 96-world decision is ~200 ms); decreplay user CPU for 40
+searched decisions of fs1_p70: K=8 7.1 / 8.0 / 9.2 s, K=120 7.2 / 8.3
+/ 8.3 s -- inside run-to-run noise.
+Adoption rule: the reviewer's standing symmetry rule (respect the
+rules' symmetries wherever free) -- this is its exact form.  The
+20-seed suite of the new string is a bug tripwire, not a gate:
+consistent if better >= 355 and worse <= 175 (368-13 / 162+13);
+below that, investigate for a defect before anything else.
+New strings (both fields 25 and 27 become 120):
+  TOURNAMENT: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:0:120
+  REVIEW:     rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:0:120
+  ANALYSIS:   rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:0:0:4:0:1:3:4:0:0:0:0:0:0:0:0:0:0:0:120:0:120
+The external-opponent pool baseline of the ":8:0:8" string was stopped
+at 33 of 121 chunks (partial: s2 W54 L37 D1 = 59.2%, big1 W130 L69 D1
+= 65.2%) and restarts from scratch on the new string.
+Suite result: pending

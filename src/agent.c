@@ -345,16 +345,18 @@ static const float *belief_logits_sym(const Net *net, const struct BelX *bx, con
     rng = &lrng;
     double acc[NCARD];
     float tmp[NCARD];
-    belief_logits_raw(net, bx, st, p, unseen, n, tmp);
-    for (int i = 0; i < n; i++) acc[i] = tmp[i];
-    for (int k = 0; k < K; k++) {
+    /* K >= LC_SYM_EXACT enumerates the 120 suit relabelings with equal
+     * weight (no raw term on top): exactly suit-invariant beliefs */
+    const int exact = K >= LC_SYM_EXACT, R = lc_sym_count(K);
+    if (exact) {
+        for (int i = 0; i < n; i++) acc[i] = 0.0;
+    } else {
+        belief_logits_raw(net, bx, st, p, unseen, n, tmp);
+        for (int i = 0; i < n; i++) acc[i] = tmp[i];
+    }
+    for (int k = 0; k < R; k++) {
         int sp[NSUIT], wp[NSUIT][WAGERS_PER_SUIT];
-        for (int i = 0; i < NSUIT; i++) sp[i] = i;
-        for (int i = NSUIT - 1; i > 0; i--) { int j = (int)rng_below(rng, (uint32_t)i + 1); int t = sp[i]; sp[i] = sp[j]; sp[j] = t; }
-        for (int su = 0; su < NSUIT; su++) {
-            for (int i = 0; i < WAGERS_PER_SUIT; i++) wp[su][i] = i;
-            for (int i = WAGERS_PER_SUIT - 1; i > 0; i--) { int j = (int)rng_below(rng, (uint32_t)i + 1); int t = wp[su][i]; wp[su][i] = wp[su][j]; wp[su][j] = t; }
-        }
+        lc_sym_relabel(rng, K, k, sp, wp);
         uint8_t map[NCARD], pc[NCARD];
         lc_perm_map(sp, wp, map);
         State ps = *st;
@@ -363,7 +365,7 @@ static const float *belief_logits_sym(const Net *net, const struct BelX *bx, con
         belief_logits_raw(net, bx, &ps, p, pc, n, tmp);
         for (int i = 0; i < n; i++) acc[i] += tmp[i];
     }
-    for (int i = 0; i < n; i++) c->logit[i] = (float)(acc[i] / (K + 1));
+    for (int i = 0; i < n; i++) c->logit[i] = (float)(acc[i] / (R + (exact ? 0 : 1)));
     /* exact copy symmetry: the three wager copies of a suit are the same
      * card, so a belief that one copy is held is a belief about any of
      * them -- K random relabelings only approximate that (copies landed

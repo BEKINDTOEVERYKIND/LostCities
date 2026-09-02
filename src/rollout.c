@@ -158,25 +158,18 @@ static void symmetrize_priors(const Net *net, const State *st, Rng *rng_unused, 
     Rng lrng;
     rng_seed(&lrng, infoset_hash(st, st->turn) ^ (0x9E3779B97F4A7C15ULL * (uint64_t)(K + 1)));
     Rng *rng = &lrng;
+    /* K >= LC_SYM_EXACT: the 120 suit relabelings are enumerated and the
+     * raw (identity) term is not added on top, so every suit labeling has
+     * the same weight and the prior is exactly suit-invariant */
+    const int exact = K >= LC_SYM_EXACT, R = lc_sym_count(K);
     memset(acc, 0, sizeof acc);
     memset(cnt, 0, sizeof cnt);
-    for (int i = 0; i < n; i++) { int k = sym_key(mv[i]); acc[k] += prob[i]; cnt[k]++; }
-    double vsum = *value;
-    int m = 1;
-    for (int k = 0; k < K; k++) {
+    for (int i = 0; i < n; i++) { int k = sym_key(mv[i]); if (!exact) acc[k] += prob[i]; cnt[k]++; }
+    double vsum = exact ? 0.0 : *value;
+    int m = exact ? 0 : 1;
+    for (int k = 0; k < R; k++) {
         int sp[NSUIT], wp[NSUIT][WAGERS_PER_SUIT];
-        for (int i = 0; i < NSUIT; i++) sp[i] = i;
-        for (int i = NSUIT - 1; i > 0; i--) {
-            int j = (int)rng_below(rng, (uint32_t)i + 1);
-            int t = sp[i]; sp[i] = sp[j]; sp[j] = t;
-        }
-        for (int s = 0; s < NSUIT; s++) {
-            for (int i = 0; i < WAGERS_PER_SUIT; i++) wp[s][i] = i;
-            for (int i = WAGERS_PER_SUIT - 1; i > 0; i--) {
-                int j = (int)rng_below(rng, (uint32_t)i + 1);
-                int t = wp[s][i]; wp[s][i] = wp[s][j]; wp[s][j] = t;
-            }
-        }
+        lc_sym_relabel(rng, K, k, sp, wp);
         uint8_t map[NCARD], inv[NCARD];
         lc_perm_map(sp, wp, map);
         for (int c = 0; c < NCARD; c++) inv[map[c]] = (uint8_t)c;
@@ -198,6 +191,7 @@ static void symmetrize_priors(const Net *net, const State *st, Rng *rng_unused, 
         vsum += pv;
         m++;
     }
+    if (m == 0) return;
     for (int i = 0; i < n; i++) {
         int k = sym_key(mv[i]);
         prob[i] = acc[k] / (float)m / (float)(cnt[k] ? cnt[k] : 1);
@@ -220,22 +214,13 @@ float agent_value(const struct Agent *a, const State *st, int q)
     double v = net_value(a->net, &f) * VAL_SCALE;
     int K = a->sym_k;
     if (K <= 0) return (float)v;
+    const int exact = K >= LC_SYM_EXACT, R = lc_sym_count(K);
+    if (exact) v = 0.0;
     Rng lrng;
     rng_seed(&lrng, infoset_hash(st, q) ^ (0xC2B2AE3D27D4EB4FULL * (uint64_t)(K + 1)));
-    for (int k = 0; k < K; k++) {
+    for (int k = 0; k < R; k++) {
         int sp[NSUIT], wp[NSUIT][WAGERS_PER_SUIT];
-        for (int i = 0; i < NSUIT; i++) sp[i] = i;
-        for (int i = NSUIT - 1; i > 0; i--) {
-            int j = (int)rng_below(&lrng, (uint32_t)i + 1);
-            int t = sp[i]; sp[i] = sp[j]; sp[j] = t;
-        }
-        for (int su = 0; su < NSUIT; su++) {
-            for (int i = 0; i < WAGERS_PER_SUIT; i++) wp[su][i] = i;
-            for (int i = WAGERS_PER_SUIT - 1; i > 0; i--) {
-                int j = (int)rng_below(&lrng, (uint32_t)i + 1);
-                int t = wp[su][i]; wp[su][i] = wp[su][j]; wp[su][j] = t;
-            }
-        }
+        lc_sym_relabel(&lrng, K, k, sp, wp);
         uint8_t map[NCARD];
         lc_perm_map(sp, wp, map);
         State ps = *st;
@@ -243,7 +228,7 @@ float agent_value(const struct Agent *a, const State *st, int q)
         feat_extract(&ps, q, &f);
         v += net_value(a->net, &f) * VAL_SCALE;
     }
-    return (float)(v / (K + 1));
+    return (float)(v / (R + (exact ? 0 : 1)));
 }
 
 int agent_policy_probs(const struct Agent *a, const State *st, Rng *rng,
