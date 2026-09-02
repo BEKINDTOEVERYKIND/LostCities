@@ -488,29 +488,33 @@ search on exhaustion -- an unbounded per-solve version could pin a thread
 for hours on one rare wide-hand endgame.
 
 Recommended settings: **maximum strength**
-`rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8:0:8`
+`rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:0:120`
 (search from ply 14, four candidates evaluated, dominated discards
 pruned, 3-SE advisory override, 1-SE selection gate, belief specialist
 steering world sampling -- adopted at 52.31% over 800 games, see the
 belief-deployment section -- no draw-variant expansion (search evaluates
 only policy-ranked moves, adopted on the reviewer's directive at
-50.44%/800 games, 1.47x cheaper), and the policy prior symmetrized over
-8 suit/wager relabelings before candidates form (`sym_k`, field 25:
-record suite 390/151, 51.00%/800 games, +1% cost -- adopted on the
-reviewer's standing rule that the agent must respect the rules'
-symmetries wherever that is free), and the belief logits that sample
-opponent hands symmetrized the same way (`sym_bel`, field 27: inference
-skill up in every phase, suite within the declared non-regression
-tolerance at 40 seeds, cached per decision so it is slightly cheaper
-than the raw path; the three wager copies of a suit are additionally
-pooled exactly, since random relabelings only approximate copy
-symmetry -- a reviewer caught two Yx copies displayed 5 points
-apart));  the analysis dump and viewer show these symmetrized beliefs,
-priors and values from the deciding agent, not the raw head;
-plain `rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8:0:8`
+50.44%/800 games, 1.47x cheaper), and the policy prior and value
+symmetrized EXACTLY over all 120 suit relabelings before candidates
+form (`sym_k`, field 25 -- 120 or more enumerates the permutations,
+smaller values sample that many: first adopted at K=8 on record suite
+390/151 and 51.00%/800 games under the reviewer's standing rule that
+the agent must respect the rules' symmetries wherever that is free,
+then made exact when `tools/symres` showed the K=8 average still let
+the top candidate depend on the relabeling draw on 10% of states and
+moved the gate value by ~1 point; exact costs ~3 ms per decision), and
+the belief logits that sample opponent hands symmetrized the same way
+(`sym_bel`, field 27: inference skill up in every phase, cached per
+decision so it is slightly cheaper than the raw path; the three wager
+copies of a suit are additionally pooled exactly, since relabelings
+only average copy symmetry -- a reviewer caught two Yx copies
+displayed 5 points apart));  the analysis dump and viewer show these
+symmetrized beliefs, priors and values from the deciding agent, not
+the raw head;
+plain `rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:0:120`
 when only one network file is on hand;
 **review games** are played at full strength, cost no object:
-`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8:0:8`
+`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:0:120`
 (the same rules at 512 worlds);
 **gate 0.85 for real-time play**; raw policy for bulk generation.
 Analysis uses `rollout:NET:512:5:0.02:0:1:0:0:4:0:1:3` -- the same
@@ -969,6 +973,27 @@ posts **the best suite aggregate on record, 390 better / 151 worse vs
 bar.  Adopted on the reviewer's call: the agent must respect the rules'
 symmetries wherever doing so is free, and the 52% bar exists to keep
 noise out of the spec, not to keep correctness out of it.
+
+*Exact symmetrization* (`sym_k`, `sym_bel` = 120): the sampled form
+had a residue that the suite exposed.  Once the relabelings were drawn
+from a stream seeded by the information set (so a display and the
+decision it explains compute the same numbers), every seed of a suite
+probe shared one draw of 8 relabelings, and the 20-seed sanity read
+moved en bloc per probe (326/173 vs 368/162: 19/0 -> 0/0 on one probe,
+7/1 -> 20/0 on another) -- the instrument could no longer average over
+draws, and neither could the agent.  `tools/symres` measures the
+deployed decision function against itself on a relabeled copy of the
+same state: at K=8 the top candidate still depended on the draw on 10%
+of states, the prior moved by 0.06 total variation and the gate value
+by ~1 point; enumerating all 120 suit permutations with equal weight
+(Lehmer unranking in `lc_sym_relabel`, no raw term on top) brings that
+to 99.4% agreement, 0.004 TV and 0.06 points -- the remainder is the
+sampled wager-copy relabeling, which the nets see as distinct cards
+and which is pooled exactly afterwards.  Cost: 120 policy and 120
+belief forwards per decision, ~13 us each, inside run-to-run timing
+noise.  Adopted as the exact form of the standing rule; protocol,
+per-probe table and measurements in
+`data/probes/symk_gate_2026-08-29.txt`.
 
 *Calibrated belief sampling* (`bel_samp`, field 26): the panel's critics
 reproduced a real defect -- Gumbel-top-k on the belief logits is a
