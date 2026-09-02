@@ -1,12 +1,17 @@
 /* policydump -- every legal move's policy probability at a probed state.
  *
- *   policydump NET STATE.state
+ *   policydump NET STATE.state [SPEC]
+ *
+ * With SPEC the prior is the one that agent's candidate stage sees
+ * (agent_policy_probs: symmetrized when the spec says so).
  *
  * The decreplay state loader is reused (same reconstruction).  Output is
  * one line per legal move, probability descending, wager copies folded.
  */
 #include "../src/lc.h"
 #include "../src/net.h"
+#include "../src/agent.h"
+#include "../src/spec.h"
 #include "../src/agent.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,7 +92,15 @@ int main(int argc, char **argv)
     State st;
     if (!load_state(argv[2], &st)) { fprintf(stderr, "bad state file\n"); return 1; }
     Move mv[MAX_MOVES]; float pr[MAX_MOVES], v;
-    int n = policy_probs(net, &st, mv, pr, &v);
+    int n;
+    if (argc > 3) {
+        static Agent ag;
+        spec_parse(argv[3], &ag);
+        Rng rng; rng_seed(&rng, 1);
+        n = agent_policy_probs(&ag, &st, &rng, mv, pr, &v);
+    } else {
+        n = policy_probs(net, &st, mv, pr, &v);
+    }
     n = lc_dedup_wagers(&st, mv, pr, n, 1);
     int ord[MAX_MOVES];
     for (int i = 0; i < n; i++) ord[i] = i;

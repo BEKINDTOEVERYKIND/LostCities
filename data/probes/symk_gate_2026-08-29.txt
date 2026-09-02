@@ -137,4 +137,50 @@ New strings (both fields 25 and 27 become 120):
 The external-opponent pool baseline of the ":8:0:8" string was stopped
 at 33 of 121 chunks (partial: s2 W54 L37 D1 = 59.2%, big1 W130 L69 D1
 = 65.2%) and restarts from scratch on the new string.
-Suite result: pending
+Suite result (exact, 20 seeds): 322 better / 175 worse -- below the
+  tripwire, and the SAME probes as the fixed-draw K=8 read (326/173):
+  fs1_disc_26 8/0 -> 0/0, fs1_wager_53 8/0 -> 0/0, selk_gift_13 5/0 ->
+  0/0, g424_stall_43 5/0 -> 0/0, selk_open_7 7/1 -> 0/0, fs1_play_71
+  9/2 -> 0/14, fs1_gift_21 11/0 -> 4/5.  So the draw-variance story was
+  wrong: exact enumeration has no draw and still lands where the fixed
+  draw did.  Diagnosis (decreplay, 20 seeds each, old engine 9e80a9e
+  rebuilt for the comparison):
+    probe        old K=8 random     new exact          raw (no sym)
+    fs1_p26      R5dY 8, R5dD 6     R5dD 9, B8 8       R5dY 20/20
+    fs1_p53      Y2 12, Wx 8        Y2 20              Y2 20
+    selk_p13     Gx 13, B6 5        Gx 20              Gx 20
+    g424_p43     R2 15, Wx 5        R2 20              R2 20
+    selk_p7      W8 12, Yx 7        W8 20              W8 20
+  With LC_OV_DEBUG the exact runs print no [sel] line on fs1_p53,
+  selk_p13, selk_p7, g424_p43: the 96-world search's own best IS
+  candidate 0 (the policy top).  The reviewer's better move sits second
+  in a near-tied prior (Gx 0.214 vs B6 0.209; W8 0.303 vs Yx 0.271; R2
+  0.276 vs Wx 0.244).  The old sampled relabelings randomized which
+  near-tied move became candidate 0, and the sel_k gate's status quo
+  then kept it: the 5-8 "better" seeds were label noise landing on the
+  reviewer's move, not the search finding it.  fs1_p26 is the other
+  kind: R5dY was 5th in the raw prior (a candidate) and 6th in the
+  exact one (not evaluated; W10 play rises above it).
+  Instrument finding: the suite is built from positions where the
+  policy top was wrong, so any mechanism that deviates from the policy
+  top -- including noise -- scores "better" on it by construction, and
+  any mechanism that removes noise scores lower.  The same signature
+  was already on record for sel_deep (342/160) and the calibrated
+  sampler (660/311), both of which reduce noise; the K=8 adoption read
+  +49 on the suite and 51.00% in 800 games.  The suite stays a
+  regression tripwire for bugs but is not a strength instrument for
+  noise-level changes; a balanced suite with "hold" probes (positions
+  where the policy top is verified right) is the follow-up.
+
+Gate K (pre-registered 2026-09-02 04:55 UTC, before any game): the
+honest strength read.  800 games, seeds 5100-5179 (80 chunks of 5
+paired deals, 3 rounds):
+  A: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:0:120
+  B: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:8:0:8
+B's per-decision distribution equals the adopted random-K=8 regime
+(one relabeling draw per decision, now indexed by the state instead of
+the match Rng).  Rule: exact stands under the symmetry rule at >= 49.5%
+(CI +/- 3.46); below 49.5% the label noise carried real value and the
+next step is the principled source of that value (the arbitrary status
+quo among near-tied priors in the sel_k gate), not a return to noise.
+Gate K result: pending
