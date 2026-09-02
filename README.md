@@ -1024,6 +1024,25 @@ wall-clock -- neutral band, not adopted under the 96-world budget,
 recorded as a compute-for-points trade available if a tournament has
 no time limit.
 
+*External-opponent tripwire pool* (`tools/pool.sh`, record in
+`data/probes/pool_baseline_2026-09.txt`): the adopted string against
+the project's own historical and baseline agents, so a future change
+that helps in self-play but hurts against different play has a
+detector.  Baseline of the adopted string (3-round matches, paired
+deals, 96 worlds both sides where the opponent searches):
+
+| opponent | games | W/L/D | win | margin/game |
+|---|---|---|---|---|
+| big1 (wider net, plain rollout) | 200 | 127/72/1 | 63.7% +/- 6.7 | +24.7 |
+| s2 (earlier champion, plain rollout) | 200 | 123/75/2 | 62.0% +/- 6.7 | +20.1 |
+| sym1 (symmetry-trained net, plain rollout) | 200 | 126/74/0 | 63.0% +/- 6.7 | +18.4 |
+| oldbest (pre-c20 champion, same search) | 200 | 147/53/0 | 73.5% +/- 6.1 | +48.7 |
+| m0 (raw policy, no search) | 104 | 103/1/0 | 99.0% | +226.9 |
+| heur (hand-crafted heuristic) | 104 | 104/0/0 | 100.0% | +350.5 |
+
+A re-run of the pool after any spec or net change that drops a row by
+more than its interval is the tripwire firing.
+
 *Calibrated belief sampling* (`bel_samp`, field 26): the panel's critics
 reproduced a real defect -- Gumbel-top-k on the belief logits is a
 Plackett-Luce draw whose inclusion probabilities are not the head's
