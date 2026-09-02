@@ -52,8 +52,12 @@ Gate M result (2026-09-02 08:12 UTC, 800 games, seeds 5300-5379):
   does not grant.  Open to a reviewer's call if the tournament has no
   time limit.
 Decision: bel_samp=1 adopted alone (Gate L 52.56%).  Wall-clock of the
-adopted string vs standing, decreplay user CPU, 40 searched decisions:
-
+adopted string vs standing, decreplay user CPU, 40 searched decisions
+(0:120 = standing, 1:120 = adopted; inside run-to-run noise):
+fs1_p70 0:120 user 7.936s
+fs1_p70 1:120 user 8.514s
+c13m_p20 0:120 user 8.488s
+c13m_p20 1:120 user 7.278s
 FINAL STRINGS (fields 25-27 = 120:1:120):
   TOURNAMENT: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120
   REVIEW:     rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120

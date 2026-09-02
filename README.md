@@ -488,7 +488,7 @@ search on exhaustion -- an unbounded per-solve version could pin a thread
 for hours on one rare wide-hand endgame.
 
 Recommended settings: **maximum strength**
-`rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:0:120`
+`rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120`
 (search from ply 14, four candidates evaluated, dominated discards
 pruned, 3-SE advisory override, 1-SE selection gate, belief specialist
 steering world sampling -- adopted at 52.31% over 800 games, see the
@@ -510,11 +510,15 @@ copies of a suit are additionally pooled exactly, since relabelings
 only average copy symmetry -- a reviewer caught two Yx copies
 displayed 5 points apart));  the analysis dump and viewer show these
 symmetrized beliefs, priors and values from the deciding agent, not
-the raw head;
-plain `rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:0:120`
+the raw head; and opponent hands sampled by the calibrated
+conditional-Bernoulli draw on those beliefs (`bel_samp`, field 26 = 1:
+the sampler's inclusion probabilities match the head's marginals, late
+worlds no longer collapse onto duplicate hands; adopted at 52.56% over
+800 games once the suite's noise bias was understood -- see Gate L);
+plain `rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120`
 when only one network file is on hand;
 **review games** are played at full strength, cost no object:
-`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:0:120`
+`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120`
 (the same rules at 512 worlds);
 **gate 0.85 for real-time play**; raw policy for bulk generation.
 Analysis uses `rollout:NET:512:5:0.02:0:1:0:0:4:0:1:3` -- the same
@@ -1006,6 +1010,19 @@ sampled-8 regime, pre-registered at a 49.5% floor: **50.38% +/-
 3.46, paired margin -2.00 +/- 1.56** -- match-neutral, exact stands.
 Protocol, per-probe table and measurements in
 `data/probes/symk_gate_2026-08-29.txt`.
+
+*The re-gates* (`data/probes/regate_2026-09-02.txt`): two principled
+mechanisms with measured fidelity gains had been refused only at the
+suite step, which Gate K showed rewards noise.  **Gate L**, the
+calibrated conditional-Bernoulli sampler (now fed the symmetrized,
+copy-pooled beliefs; late-phase sampled inference skill +5.7% vs +1.9%
+for Gumbel on the same beliefs): **52.56% +/- 3.46, margin +0.38 +/-
+1.52** over 800 games -- adopted, field 26 = 1, at no measurable
+wall-clock cost.  **Gate M**, contested-ply deepening (`sel_deep`):
+51.69% +/- 3.46 with a paired margin of +3.62 +/- 1.51 at ~1.7x
+wall-clock -- neutral band, not adopted under the 96-world budget,
+recorded as a compute-for-points trade available if a tournament has
+no time limit.
 
 *Calibrated belief sampling* (`bel_samp`, field 26): the panel's critics
 reproduced a real defect -- Gumbel-top-k on the belief logits is a
