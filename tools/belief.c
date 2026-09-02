@@ -250,7 +250,7 @@ static void sampeval(const Net *net, const Net *bnet, const Rec *recs, long nrec
             for (int m = 0; m < M; m++) {
                 State w;
                 if (symk > 0 && mode == 0) determinize_bsym(st, p, &rng, bnet ? bnet : net, NULL, symk, &w);
-                else determinize_bm(st, p, &rng, bnet ? bnet : net, NULL, mode, &w);
+                else determinize_bm(st, p, &rng, bnet ? bnet : net, NULL, mode, symk, &w);
                 uint64_t h = w.hand[o];
                 for (int k = 0; k < n; k++) if ((h >> cards[k]) & 1ULL) cnt[k] += 1.0;
                 int found = 0;

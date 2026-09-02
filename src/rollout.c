@@ -98,7 +98,7 @@ static void sample_world(const struct Agent *a, const State *st, int p,
 {
     if (a->no_belief) { determinize_b(st, p, rng, NULL, out); return; }
     if (a->bel_samp > 0) {
-        determinize_bm(st, p, rng, a->net_b ? a->net_b : a->net, a->bx, a->bel_samp, out);
+        determinize_bm(st, p, rng, a->net_b ? a->net_b : a->net, a->bx, a->bel_samp, a->sym_bel, out);
         return;
     }
     if (a->sym_bel > 0) {

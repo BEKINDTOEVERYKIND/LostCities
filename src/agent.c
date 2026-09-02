@@ -473,7 +473,7 @@ void determinize_bsym(const State *st, int p, Rng *rng, const Net *net,
 }
 
 void determinize_bm(const State *st, int p, Rng *rng, const Net *net,
-                    const struct BelX *bx, int mode, State *out)
+                    const struct BelX *bx, int mode, int symK, State *out)
 {
     if (mode <= 0 || (!net && !bx)) {
         if (bx) determinize_bx(st, p, rng, bx, out);
@@ -490,13 +490,21 @@ void determinize_bm(const State *st, int p, Rng *rng, const Net *net,
     Features f;
     BelXFeat xf;
     if (bx) belx_feat(st, p, &f, &xf); else feat_extract(st, p, &f);
-    uint64_t key = bs_key(&f, p, need, mode) ^ (bx ? 0x9E3779B97F4A7C15ULL : 0);
+    uint64_t key = bs_key(&f, p, need, mode) ^ (bx ? 0x9E3779B97F4A7C15ULL : 0)
+                   ^ (symK > 0 ? 0xD6E8FEB86659FD93ULL * (uint64_t)(symK + 1) : 0);
     BelSampCache *c = &bs_cache;
     if (!(c->valid && c->key == key)) {
         float logit[NCARD];
-        NetAct act;
-        if (bx) { belx_trunk(bx, &f, &xf, &act); belx_logits(bx, &act, unseen, n, logit); }
-        else    { net_trunk(net, &f, &act);     net_belief_act(net, &act, unseen, n, logit); }
+        if (symK > 0) {
+            /* the sampler's input respects the symmetry rule too: the same
+             * relabeling-averaged, copy-pooled logits the Gumbel path uses */
+            const float *lg = belief_logits_sym(net, bx, st, p, symK, rng, unseen, n);
+            memcpy(logit, lg, sizeof(float) * (size_t)n);
+        } else {
+            NetAct act;
+            if (bx) { belx_trunk(bx, &f, &xf, &act); belx_logits(bx, &act, unseen, n, logit); }
+            else    { net_trunk(net, &f, &act);     net_belief_act(net, &act, unseen, n, logit); }
+        }
         c->valid = 0;
         if (!bs_build(c, logit, unseen, n, need, mode)) {
             /* degenerate pool (need >= n etc.): the Gumbel path handles it */

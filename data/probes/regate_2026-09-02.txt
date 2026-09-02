@@ -1,0 +1,36 @@
+Re-gating the suite-refuted fidelity mechanisms -- pre-registration
+2026-09-02 05:55 UTC, declared before any game.
+
+Why: Gate K (data/probes/symk_gate_2026-08-29.txt) established that the
+decision suite penalizes noise removal by construction (its probes are
+positions where the policy top was wrong, so randomized deviation from
+the policy top scores "better").  Two principled mechanisms with
+measured fidelity gains were refuted ONLY at the suite step and never
+match-gated:
+  bel_samp=1  fixed-size conditional-Bernoulli belief sampler on the
+              head's shifted marginals (late-phase sampled inference
+              skill -1.8% -> +5.2%, calibration within 0.03 of the head;
+              data/probes/belsamp_gate_2026-09-01.txt).  As of this
+              change the sampler's input is the symmetrized, copy-pooled
+              belief (determinize_bm takes sym_bel), so the arm respects
+              the symmetry rule like the standing Gumbel path.
+  sel_deep=1  contested-ply deepening: the candidate batch is doubled and
+              pooled when the paired comparison is contested
+              (data/probes/selconf_gate_2026-08-29.txt round 2).
+Reference S (standing, adopted at Gate K):
+  rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:0:120
+Gate L (bel_samp), 800 games, seeds 5200-5279, 80 chunks of 5 paired deals:
+  A: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120
+  B: S
+Gate M (sel_deep), 800 games, seeds 5300-5379:
+  A: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:1:120:0:120
+  B: S
+Rules (strength claims, so the 52% bar applies): >= 52% adopt, report
+the exact string; 49.5-52% neutral, standing kept, recorded; < 49.5%
+negative, recorded.  If BOTH clear 52%, a confirmation Gate N (S with
+both fields vs S, 800 games, seeds 5400-5479, adopt at >= 52%) decides
+the combined string; otherwise the single qualifier is adopted.
+The external-opponent pool (task: tripwire) is paused (pool.hold) while
+these run and resumes afterwards.
+Gate L result: pending
+Gate M result: pending

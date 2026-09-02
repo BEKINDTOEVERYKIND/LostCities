@@ -290,7 +290,7 @@ void determinize_bx(const State *st, int p, Rng *rng, const struct BelX *bx, Sta
  * the shifted marginals, 2 = the same with calibrated weights.  Uses bx
  * when given, else net.  Per-decision cache keyed by the information set. */
 void determinize_bm(const State *st, int p, Rng *rng, const Net *net,
-                    const struct BelX *bx, int mode, State *out);
+                    const struct BelX *bx, int mode, int symK, State *out);
 /* Gumbel-top-k world from belief logits averaged over K random suit/wager
  * relabelings (Agent.sym_bel), cached per decision.  K<=0 = plain path. */
 uint64_t infoset_hash(const State *st, int p);
