@@ -1,0 +1,40 @@
+Turn-arithmetic features (panel 2, rank 5) -- staged protocol
+2026-09-04.  Stage 1 declared before the probe: build a turn-arithmetic
+feature block only if the policy's endgame error against the exact
+solver is elevated in the turn-sensitive buckets by more than the
+bucket's binomial SE.
+
+Stage 1 (tools/parityprobe, perfect-information solver labels on 3,342
+raw-policy self-play states at deck <= 5; full table in
+data/probes/parity_main_2026-09-04.txt):
+  raw policy top-1 error vs the solver: 11.5% overall, mean loss 1.18
+  pts per state.
+  deck parity: odd (mover draws last) 9.8% vs even 13.7% -- the odd
+    bucket is LOWER by 5.6 SE: parity alone is not the deficit.
+  nplay > turns_left (A) 15.1% vs nplay <= turns_left (B) 4.7%: A is
+    elevated by 13.5 bucket SE (mean loss 1.57 vs 0.45); it stays
+    elevated with the pile-draw cases removed (6.7% vs 2.0% at deck<=3).
+  the concentration: states where the solver's best is a pure stall
+    (an unplayable pile card taken to flip who draws last, 6.3% of
+    states, wanted almost only at even deck counts): 53.6% error, 7.1
+    pts per miss -- about half of all endgame errors and 60% of the
+    point loss.  The policy also over-stalls in odd states (11.6% of
+    its top-1s vs 2.0% wanted).
+  Verdict on the declared rule: PROCEED on the A-vs-B criterion; the
+  block to build is turns_left (both sides), nplay, nplay - turns_left,
+  and who-draws-last-if-I-stall, not a bare parity bit.
+Caveats recorded: the labels know both hands AND the deck order, so
+stall labels are an upper bound (a stall can be "best" only because
+the next deck card is known); exhaustion dropped 26% of deck-5 states.
+The record (README, solver-vote endgame) also says decision-time
+exactness at deck <= 5 did not convert to match wins because those
+games are mostly decided -- the training value of the block lies in
+generalizing turn awareness to deck 6-8.
+Stage 1b (declared, running): (a) the DEPLOYED search agent's error on
+the same states -- if play-time search already fixes the policy's
+endgame errors the block's payoff is only through playouts and labels;
+(b) stall-label robustness under 8 random deck permutations.
+Stage 2 (conditional on 1b): function-preserving v6 feature loader +
+F (rows trainable) vs Z (rows frozen) anchored fine-tunes with the
+held-out correction CE; then the standard raw arena / Gate S ladder.
+Stage 1b result: pending

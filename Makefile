@@ -86,3 +86,7 @@ $(BIN)/policydump: tools/policydump.c $(CORE) $(HDRS) | $(BIN)
 # trunk-kernel identity + timing bench (not in `all`)
 $(BIN)/trunkbench: tools/trunkbench.c $(CORE) $(HDRS) | $(BIN)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
+
+# endgame turn-arithmetic probe: raw policy vs the exact solver at deck <= 5
+$(BIN)/parityprobe: tools/parityprobe.c $(CORE) $(HDRS) | $(BIN)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)

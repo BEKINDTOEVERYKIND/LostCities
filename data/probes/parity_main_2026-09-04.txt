@@ -1,0 +1,46 @@
+parityprobe: net data/best.bin seed 20260904 games 400 (completed 175) maxdeck 5 per-state budget 8000000 nodes, mode hybrid (root solve + top-1 child solve)
+states seen 3583, solved 3342, exhausted 241 (6.73%); cpu 1681.1s (solver 1680.5s), wall 1685s, 1.99 solved states/cpu-s
+nodes: total 3261402422 (910243 per state: root 863845, child 46399); 1790 child solves; legal moves after wager fold 44.6 per state
+per deck_left: d0 seen 0 exh 0 (0.0%) 0.00M nodes/state; d1 seen 584 exh 0 (0.0%) 0.00M nodes/state; d2 seen 746 exh 0 (0.0%) 0.03M nodes/state; d3 seen 844 exh 5 (0.6%) 0.18M nodes/state; d4 seen 732 exh 57 (7.8%) 1.24M nodes/state; d5 seen 677 exh 179 (26.4%) 3.22M nodes/state; 
+policy top-1 == solver PV move: 1570 of 3342 (47.0%); top-1 != PV but value-equal (tie): 1389; child value above root V* (clamped): 67
+
+  bucket                        N    err  top-1 error +/- SE  meanloss  err(>=2pt) +/- SE    ptop  best=pile  best=stall
+  all                        3342    383   11.46% +/-  0.55   1.181    10.62% +/-  0.53   0.535    9.6%    6.3%
+  deck odd (mover last)      1921    189    9.84% +/-  0.68   0.922     8.64% +/-  0.64   0.536    5.4%    3.1%
+  deck even (opp last)       1421    194   13.65% +/-  0.91   1.531    13.30% +/-  0.90   0.533   15.4%   10.6%
+  A: nplay > turns           2176    328   15.07% +/-  0.77   1.574    13.97% +/-  0.74   0.527   13.6%    9.1%
+  B: nplay <= turns          1166     55    4.72% +/-  0.62   0.448     4.37% +/-  0.60   0.550    2.1%    0.9%
+  odd x A                    1174    149   12.69% +/-  0.97   1.201    11.07% +/-  0.92   0.532    7.2%    4.3%
+  odd x B                     747     40    5.35% +/-  0.82   0.483     4.82% +/-  0.78   0.542    2.5%    1.2%
+  even x A                   1002    179   17.86% +/-  1.21   2.010    17.37% +/-  1.20   0.520   21.3%   14.8%
+  even x B                    419     15    3.58% +/-  0.91   0.384     3.58% +/-  0.91   0.563    1.4%    0.5%
+  solver best: pile draw      322    190   59.01% +/-  2.74   7.314    56.52% +/-  2.76   0.404  100.0%   64.9%
+  solver best: deck draw     3020    193    6.39% +/-  0.45   0.527     5.73% +/-  0.42   0.549    0.0%    0.0%
+  solver best: pure stall     209    112   53.59% +/-  3.45   7.129    52.15% +/-  3.46   0.367  100.0%  100.0%
+  policy top-1: pure stall    387     64   16.54% +/-  1.89   1.620    15.25% +/-  1.83   0.280   28.7%   23.3%
+  deck_left = 0                 0      0    0.00% +/-  0.00   0.000     0.00% +/-  0.00   0.000    0.0%    0.0%
+  deck_left = 1               584     26    4.45% +/-  0.85   0.416     3.94% +/-  0.80   0.609    0.0%    0.0%
+  deck_left = 2               746     76   10.19% +/-  1.11   1.275    10.05% +/-  1.10   0.524   18.9%   15.1%
+  deck_left = 3               839     83    9.89% +/-  1.03   0.831     8.58% +/-  0.97   0.481    6.4%    3.3%
+  deck_left = 4               675    118   17.48% +/-  1.46   1.813    16.89% +/-  1.44   0.543   11.6%    5.5%
+  deck_left = 5               498     80   16.06% +/-  1.65   1.669    14.26% +/-  1.57   0.542    9.8%    6.2%
+
+comparisons (rate difference vs the sensitive bucket's own binomial SE, and vs the SE of the difference):
+  deck odd vs even                     9.84% -  13.65% =  -3.81 pts; bucket SE 0.68 (-5.61x), diff SE 1.14 (-3.36x) -> not elevated
+     (errors costing >= 2 pts)         8.64% -  13.30% =  -4.66 pts; bucket SE 0.64 (-7.27x), diff SE 1.11 (-4.21x) -> not elevated
+     (mean point loss)                0.922 vs  1.531
+  A (nplay>turns) vs B                15.07% -   4.72% = +10.36 pts; bucket SE 0.77 (+13.50x), diff SE 0.99 (+10.50x) -> ELEVATED (> 1 bucket SE)
+     (errors costing >= 2 pts)        13.97% -   4.37% =  +9.60 pts; bucket SE 0.74 (+12.91x), diff SE 0.95 (+10.05x) -> ELEVATED (> 1 bucket SE)
+     (mean point loss)                1.574 vs  0.448
+  odd x A vs everything else          12.69% -  10.79% =  +1.90 pts; bucket SE 0.97 (+1.95x), diff SE 1.18 (+1.61x) -> ELEVATED (> 1 bucket SE)
+     (errors costing >= 2 pts)        11.07% -  10.38% =  +0.70 pts; bucket SE 0.92 (+0.76x), diff SE 1.13 (+0.62x) -> not elevated
+     (mean point loss)                1.201 vs  1.170
+  even x A vs everything else         17.86% -   8.72% =  +9.15 pts; bucket SE 1.21 (+7.56x), diff SE 1.34 (+6.81x) -> ELEVATED (> 1 bucket SE)
+     (errors costing >= 2 pts)        17.37% -   7.74% =  +9.63 pts; bucket SE 1.20 (+8.05x), diff SE 1.32 (+7.31x) -> ELEVATED (> 1 bucket SE)
+     (mean point loss)                2.010 vs  0.826
+  solver-best pile draw vs deck       59.01% -   6.39% = +52.62 pts; bucket SE 2.74 (+19.20x), diff SE 2.78 (+18.95x) -> ELEVATED (> 1 bucket SE)
+     (errors costing >= 2 pts)        56.52% -   5.73% = +50.79 pts; bucket SE 2.76 (+18.39x), diff SE 2.79 (+18.17x) -> ELEVATED (> 1 bucket SE)
+     (mean point loss)                7.314 vs  0.527
+  solver-best pure stall vs rest      53.59% -   8.65% = +44.94 pts; bucket SE 3.45 (+13.03x), diff SE 3.49 (+12.89x) -> ELEVATED (> 1 bucket SE)
+     (errors costing >= 2 pts)        52.15% -   7.85% = +44.30 pts; bucket SE 3.46 (+12.82x), diff SE 3.49 (+12.70x) -> ELEVATED (> 1 bucket SE)
+     (mean point loss)                7.129 vs  0.784
