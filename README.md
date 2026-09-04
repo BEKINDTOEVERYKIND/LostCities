@@ -532,7 +532,7 @@ candidate set as the play agent: the policy's top five moves at or
 above the 2% floor, nothing added.
 Showcase/review games are PLAYED at full strength, cost no object
 (reviewer doctrine): the recommended spec with dets raised to 512 --
-`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2`
+`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120`
 -- so a reviewed blunder is a real policy/search failure, never the
 96-world sampling noise the wall-clock tournament spec accepts.
 

@@ -508,6 +508,22 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         if (keep > ncand) keep = ncand;
         while (ncand > keep && prob[order[ncand - 1]] < floor_p) ncand--;
     }
+    /* a lone candidate has no decision to make: return it without the world
+     * sweep (decision-preserving -- the sweep could only confirm it; ~3% of
+     * searched plies at the 2% floor) */
+    if (ncand <= 1 && a->eval_cand <= 0) {
+        if (out_value) *out_value = value;
+        if (stats) {
+            stats->n = 1;
+            stats->mv[0] = mv[order[0]];
+            stats->visits[0] = 0;
+            stats->q[0] = value;
+            stats->se[0] = 0.0; stats->qw[0] = -1.0;
+            stats->prio[0] = prob[order[0]];
+            stats->value = value;
+        }
+        return mv[order[0]];
+    }
     /* advisory candidates: evaluated and reported but never selected, so an
      * analysis dump can show what the search thinks of moves the policy has
      * written off without letting that opinion change the game (forcing the
