@@ -122,4 +122,20 @@ the last iteration, so the same recipe continues from it8 for 8 more
 iterations (same holdout split, seed 20260906); checkpoint = the
 held-out CE minimum over all 16; ONE new 1000-game raw arena (seed
 5791) on that checkpoint decides the search gate at the same 54% bar.
-Continuation result: pending
+Continuation (8 more iterations from it8; note the holdout's
+"correction" class is re-classified against the init net, so its subset
+is the 602 held-out corrections the it8 net still gets wrong, and its
+it0 line is the it8 net on that subset):
+it0 held-out: corr ce 1.689 top1 0.0% (n=602) | rest ce 1.306 top1 87.1% (n=9936) || train: corr ce 1.615 top1
+it1 held-out: corr ce 1.687 top1 6.3% (n=602) | rest ce 1.307 top1 86.4% (n=9936) || train: corr ce 1.594 top1
+it2 held-out: corr ce 1.677 top1 8.5% (n=602) | rest ce 1.309 top1 86.3% (n=9936) || train: corr ce 1.567 top1
+it3 held-out: corr ce 1.670 top1 9.3% (n=602) | rest ce 1.310 top1 86.1% (n=9936) || train: corr ce 1.555 top1
+it4 held-out: corr ce 1.668 top1 11.3% (n=602) | rest ce 1.311 top1 85.7% (n=9936) || train: corr ce 1.541 top
+it5 held-out: corr ce 1.656 top1 10.6% (n=602) | rest ce 1.312 top1 85.3% (n=9936) || train: corr ce 1.527 top
+it6 held-out: corr ce 1.657 top1 13.0% (n=602) | rest ce 1.312 top1 85.3% (n=9936) || train: corr ce 1.510 top
+it7 held-out: corr ce 1.643 top1 13.6% (n=602) | rest ce 1.314 top1 85.3% (n=9936) || train: corr ce 1.504 top
+it8 held-out: corr ce 1.646 top1 15.6% (n=602) | rest ce 1.314 top1 85.1% (n=9936) || train: corr ce 1.488 top
+  On that common subset the CE falls 1.689 -> 1.643 (minimum at global
+  it15; it16 1.646) while anchor agreement drifts 87.1% -> ~85%.
+  Checkpoint by rule: global it15 (data/c21_cand2.bin).  Raw arena
+  (1000 games, seed 5791) on it: pending
