@@ -46,3 +46,5 @@ data/c19.bin*
 data/c20.bin*
 gmon.out
 .claude/worktrees/
+data/c21.bin
+data/c21.bin.it*
