@@ -32,6 +32,16 @@ Gate O (strength read of the directive, 800 games, seeds 5500-5579):
 Rule: the directive stands regardless (reviewer's call); the gate is
 reported with its CI and the wall-clock saving.  A result below 49.5%
 is reported as the cost of the directive, not reverted silently.
+Independent code audit (2026-09-04, three lenses, every finding
+adversarially verified): under all three strings the evaluated set is
+exactly the top root_width prefix at or above the floor after wager
+dedup and dominated-discard pruning; the draw-variant expansion block
+(rollout.c, guard eval_cand > 0 && draw_filter < 2) is the only site
+that ever wrote past the sorted prefix and is dead; the eval_cand
+widening only re-admits floor-cut moves inside the prefix and is dead
+at 0; the override loop has an empty range; "search"/"playsearch" in
+the analysis dump are exactly the evaluated candidates.  No code
+change needed beyond the strings.
 Gate O result: pending
 
 Action-level candidates (draw_filter 3) -- pre-registered 2026-09-04,
