@@ -98,4 +98,28 @@ Confirmation pass result (mine --confirm, seed 777, cfloor 2):
 Training launched on data/corr21a.smp (anchor_c20 + corr21c) with the
 pre-integration trainer (v5 files; the turn-feature rows are a separate
 experiment), --holdout 0.1, 8 iterations.
-Training result: pending
+Training result (8 iterations, 1500 steps, lr 1e-4, anchor + confirmed
+corrections, 10% deal-keyed holdout):
+it0 held-out: corr ce 1.754 top1 0.0% (n=698) | rest ce 1.294 top1 98.2% (n=9840) || train: corr ce 1.792 top1 0.0% (n=7
+it1 held-out: corr ce 1.659 top1 19.1% (n=698) | rest ce 1.297 top1 89.7% (n=9840) || train: corr ce 1.656 top1 19.0% (n
+it2 held-out: corr ce 1.630 top1 21.2% (n=698) | rest ce 1.301 top1 88.7% (n=9840) || train: corr ce 1.601 top1 23.6% (n
+it3 held-out: corr ce 1.608 top1 25.2% (n=698) | rest ce 1.303 top1 87.7% (n=9840) || train: corr ce 1.566 top1 25.9% (n
+it4 held-out: corr ce 1.586 top1 27.9% (n=698) | rest ce 1.305 top1 87.5% (n=9840) || train: corr ce 1.529 top1 26.2% (n
+it5 held-out: corr ce 1.582 top1 28.4% (n=698) | rest ce 1.307 top1 87.1% (n=9840) || train: corr ce 1.505 top1 29.5% (n
+it6 held-out: corr ce 1.577 top1 27.9% (n=698) | rest ce 1.309 top1 86.4% (n=9840) || train: corr ce 1.479 top1 31.0% (n
+it7 held-out: corr ce 1.556 top1 31.8% (n=698) | rest ce 1.311 top1 86.2% (n=9840) || train: corr ce 1.450 top1 33.2% (n
+it8 held-out: corr ce 1.551 top1 29.5% (n=698) | rest ce 1.312 top1 85.9% (n=9840) || train: corr ce 1.434 top1 33.4% (n
+  Held-out correction CE falls monotonically 1.754 -> 1.551 (top-1 0% ->
+  ~32%) while anchor agreement erodes 98.2% -> ~86%: the confirmed gen-7
+  corrections carry generalizable signal, unlike the gen-6 corpus.
+  Checkpoint by rule: it8 (the minimum, still falling).
+  Raw arena, 1000 games vs policy:data/best.bin (seed 5790):
+  W/L/D 519/475/6   score 52.2% +- 1.6%
+  points/game 104.0 vs 101.6   plies/game 138.3
+  Below the 54% bar for the search gate.
+Continuation (declared before running): the CE was still falling at
+the last iteration, so the same recipe continues from it8 for 8 more
+iterations (same holdout split, seed 20260906); checkpoint = the
+held-out CE minimum over all 16; ONE new 1000-game raw arena (seed
+5791) on that checkpoint decides the search gate at the same 54% bar.
+Continuation result: pending
