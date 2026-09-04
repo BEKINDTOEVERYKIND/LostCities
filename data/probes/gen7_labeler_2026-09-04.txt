@@ -90,4 +90,12 @@ the unstable ones.  The full corpus is confirmed the same way
 Full-run result (400 games, seed 20260905): 57,281 plies, 28,648 flagged,
   1,405 corrected (4.9% of flagged), 5,493 hedged.
   corr21 full run: 28648 flagged, 1405 corrections; median lead 5.43 pts, median lead/SE 2.58, >= 2 SE 73%; deck<=8 29%, 9-16 14%, 17+ 57%; classes {'hedge': 427, 'deckburn': 315, 'skip': 253, 'pile-refusal': 235, 'gift': 158, 'burial': 130, 'wclutch': 120, 'stall': 120, 'misorder': 21}
-Confirmation pass result: pending
+Confirmation pass result (mine --confirm, seed 777, cfloor 2):
+  mine --confirm: 1405 distinct corrections seen, 678 confirmed (48.3%), 711 dropped by flip (fresh gated choice differs), 16 dropped by floor (same choice, fresh lead < 2.0)
+  fresh lead of the stored move over candidate 0, all corrections (1405): median 3.34, share >= 2: 62%, share >= 4: 45%
+  fresh lead of the stored move over candidate 0, confirmed set (678): median 5.95, share >= 2: 100%, share >= 4: 77%
+  wrote 24462 of 27370 samples to data/corr21c.smp.tmp
+Training launched on data/corr21a.smp (anchor_c20 + corr21c) with the
+pre-integration trainer (v5 files; the turn-feature rows are a separate
+experiment), --holdout 0.1, 8 iterations.
+Training result: pending
