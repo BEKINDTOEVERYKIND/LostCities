@@ -54,8 +54,8 @@ int main(int argc, char **argv)
         printf("  %d games (%d paired deals) in %.1fs (%.1f games/s)\n",
                r.games, r.pairs, secs, r.games / secs);
         printf("  margin/game %+.2f +- %.2f\n", r.margin, r.margin_se);
-        printf("  W/L/D %.0f/%.0f/%.0f   score %.1f%% +- %.1f%%\n",
-               r.wins, r.losses, r.draws, 100 * r.winrate, 100 * r.winrate_se);
+        printf("  W/L/D %.0f/%.0f/%.0f   score %.1f%% +- %.1f%% (paired SE %.1f%%)\n",
+               r.wins, r.losses, r.draws, 100 * r.winrate, 100 * r.winrate_se, 100 * r.winrate_se_paired);
         printf("  points/game %.1f vs %.1f   plies/game %.1f\n", r.points_a, r.points_b, r.plies);
     }
     return 0;

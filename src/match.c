@@ -8,6 +8,7 @@ typedef struct {
     int pairs, thread, nthread, rounds;
     uint64_t seed;
     double sum, sumsq, wins, losses, draws, points_a, points_b, plies;
+    double wsum, wsumsq;    /* per-pair win score (0, .25, .5, .75, 1) */
     int done;
     int *next;          /* shared pair counter: threads pull pairs dynamically */
 } Job;
@@ -61,17 +62,20 @@ static void *worker(void *arg)
             }
         }
         int s0, s1;
-        double pair = 0.0;
+        double pair = 0.0, ws = 0.0;
         play_one(j->a, j->b, j->rounds, decks, &rng, &s0, &s1, &j->plies);
         j->points_a += s0; j->points_b += s1;
         pair += s0 - s1;
-        if (s0 > s1) j->wins++; else if (s0 < s1) j->losses++; else j->draws++;
+        if (s0 > s1) { j->wins++; ws += 1.0; } else if (s0 < s1) j->losses++; else { j->draws++; ws += 0.5; }
         play_one(j->b, j->a, j->rounds, decks, &rng, &s0, &s1, &j->plies);
         j->points_a += s1; j->points_b += s0;
         pair += s1 - s0;
-        if (s1 > s0) j->wins++; else if (s1 < s0) j->losses++; else j->draws++;
+        if (s1 > s0) { j->wins++; ws += 1.0; } else if (s1 < s0) j->losses++; else { j->draws++; ws += 0.5; }
         j->sum += pair;
         j->sumsq += pair * pair;
+        ws *= 0.5;
+        j->wsum += ws;
+        j->wsumsq += ws * ws;
         j->done++;
     }
     return NULL;
@@ -95,10 +99,11 @@ void match_run_r(const Agent *a, const Agent *b, int pairs, int nthread,
     for (int i = 0; i < nthread; i++) pthread_create(&th[i], NULL, worker, &jobs[i]);
     for (int i = 0; i < nthread; i++) pthread_join(th[i], NULL);
 
-    double sum = 0, sumsq = 0, w = 0, l = 0, d = 0, pa = 0, pb = 0, pl = 0;
+    double sum = 0, sumsq = 0, w = 0, l = 0, d = 0, pa = 0, pb = 0, pl = 0, ws = 0, wss = 0;
     int done = 0;
     for (int i = 0; i < nthread; i++) {
         sum += jobs[i].sum; sumsq += jobs[i].sumsq;
+        ws += jobs[i].wsum; wss += jobs[i].wsumsq;
         w += jobs[i].wins; l += jobs[i].losses; d += jobs[i].draws;
         pa += jobs[i].points_a; pb += jobs[i].points_b; pl += jobs[i].plies;
         done += jobs[i].done;
@@ -115,6 +120,11 @@ void match_run_r(const Agent *a, const Agent *b, int pairs, int nthread,
     out->margin_se = sqrt(var / done) / 2.0;
     out->winrate = (w + 0.5 * d) / ngames;
     out->winrate_se = sqrt(out->winrate * (1.0 - out->winrate) / ngames);
+    {
+        double m = ws / done, v = done > 1 ? (wss - done * m * m) / (done - 1) : 0.0;
+        if (v < 0) v = 0;
+        out->winrate_se_paired = sqrt(v / done);
+    }
     out->points_a = pa / ngames;
     out->points_b = pb / ngames;
     out->plies = pl / ngames;

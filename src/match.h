@@ -7,7 +7,9 @@
 typedef struct {
     int pairs, games;
     double margin, margin_se;   /* per game, from agent a's point of view */
-    double winrate, winrate_se;
+    double winrate, winrate_se;         /* binomial SE over games (the record's convention) */
+    double winrate_se_paired;           /* SE from the per-pair win scores: pairs are the
+                                           independent units, so this is the honest one */
     double points_a, points_b, plies;
     double wins, losses, draws;
 } MatchResult;
