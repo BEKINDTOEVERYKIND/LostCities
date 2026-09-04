@@ -138,4 +138,18 @@ it8 held-out: corr ce 1.646 top1 15.6% (n=602) | rest ce 1.314 top1 85.1% (n=993
   On that common subset the CE falls 1.689 -> 1.643 (minimum at global
   it15; it16 1.646) while anchor agreement drifts 87.1% -> ~85%.
   Checkpoint by rule: global it15 (data/c21_cand2.bin).  Raw arena
-  (1000 games, seed 5791) on it: pending
+  (1000 games, seed 5791) on it: W/L/D 525/468/7   score 52.8% +- 1.6%; margin/game +3.52 +- 1.27
+  (the it8 checkpoint read 52.2% +/- 1.6, margin +2.35 +/- 1.37).
+  A real but small raw-policy gain (margin 2.8 SE); below the 54% bar
+  that earns an 800-game search gate (the record's raw-to-search ratio:
+  c18 53.5% raw -> 51.9% search).  data/c21_cand.bin is the it15 net.
+Corpus growth (declared 2026-09-04 22:0x, before running): the confirmed
+corpus is small (678 corrections against 86k anchors).  Mine 400 more
+c20 self-play games with the same gated labeler (seed 20260907 ->
+data/corr22.smp), confirm (-> corr22c), merge anchor_c20 + corr21c +
+corr22c (-> data/corr22a.smp), retrain from c20 with the same recipe for
+16 iterations (--holdout 0.1, checkpoint = held-out correction CE
+minimum), ONE 1000-game raw arena (seed 5792); >= 54% -> Gate Q as
+declared; below -> the loop's yield at this generation is recorded and
+the corrections direction is parked in favor of the feature block.
+Corpus-growth result: pending
