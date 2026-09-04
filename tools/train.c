@@ -479,6 +479,16 @@ static int sample_policy(const Net *net, const Sample *s, Move *mv, float *prob,
     return n;
 }
 
+/* deck buckets for the --holdout-buckets breakdown: the turn-arithmetic
+ * probe's regions (deck <= 8 where the endgame errors concentrate, 9-14,
+ * and the bulk of the game above) */
+#define NBUCKET 3
+static int deck_bucket(const State *st)
+{
+    return st->deck_left <= 8 ? 0 : (st->deck_left <= 14 ? 1 : 2);
+}
+static const char *bucket_name[NBUCKET] = { "deck<=8", "deck 9-14", "deck>14" };
+
 typedef struct {
     const Net *net;
     const Replay *rp;
@@ -488,6 +498,8 @@ typedef struct {
     int classify;
     double ce[3];
     long n[3], agree[3];
+    double ce_b[3][NBUCKET];            /* the same, split by deck bucket */
+    long n_b[3][NBUCKET], agree_b[3][NBUCKET];
 } EvalJob;
 
 static void *eval_worker(void *arg)
@@ -515,9 +527,14 @@ static void *eval_worker(void *arg)
         double ce;
         int n = sample_policy(e->net, s, mv, prob, &ce);
         if (n <= 0) continue;
+        int agree = same_action(target_top(s), fold_top(&s->st, mv, prob, n));
+        int b = deck_bucket(&s->st);
         e->ce[c] += ce;
         e->n[c]++;
-        e->agree[c] += same_action(target_top(s), fold_top(&s->st, mv, prob, n));
+        e->agree[c] += agree;
+        e->ce_b[c][b] += ce;
+        e->n_b[c][b]++;
+        e->agree_b[c][b] += agree;
     }
     return NULL;
 }
@@ -545,12 +562,18 @@ static void eval_run(const Net *net, const Replay *rp, const size_t *idx, size_t
         for (int i = 0; i < nt; i++)
             for (int c = 0; c < 3; c++) {
                 out->ce[c] += ej[i].ce[c]; out->n[c] += ej[i].n[c]; out->agree[c] += ej[i].agree[c];
+                for (int b = 0; b < NBUCKET; b++) {
+                    out->ce_b[c][b] += ej[i].ce_b[c][b];
+                    out->n_b[c][b] += ej[i].n_b[c][b];
+                    out->agree_b[c][b] += ej[i].agree_b[c][b];
+                }
             }
     }
 }
 
 static void eval_report(int it, const Net *net, const Replay *rp, uint8_t *cls, int nthread,
-                        const size_t *hold_idx, size_t nhold, const size_t *teval_idx, size_t nteval)
+                        const size_t *hold_idx, size_t nhold, const size_t *teval_idx, size_t nteval,
+                        int buckets)
 {
     EvalJob h, t;
     eval_run(net, rp, hold_idx, nhold, cls, 0, nthread, &h);
@@ -565,6 +588,20 @@ static void eval_report(int it, const Net *net, const Replay *rp, uint8_t *cls, 
            CE(t, CLS_REST), TOP1(t, CLS_REST), t.n[CLS_REST]);
     #undef CE
     #undef TOP1
+    if (buckets) {
+        /* one line per class: held-out CE / top-1 / n by deck bucket */
+        #define CEB(e, c, b) ((e).n_b[c][b] ? (e).ce_b[c][b] / (double)(e).n_b[c][b] : 0.0)
+        #define TOP1B(e, c, b) ((e).n_b[c][b] ? 100.0 * (double)(e).agree_b[c][b] / (double)(e).n_b[c][b] : 0.0)
+        for (int c = CLS_REST; c <= CLS_CORR; c++) {
+            printf("            it%d held-out %s by deck:", it, c == CLS_CORR ? "corr" : "rest");
+            for (int b = 0; b < NBUCKET; b++)
+                printf("%s %s ce %.3f top1 %.1f%% (n=%ld)", b ? " |" : "",
+                       bucket_name[b], CEB(h, c, b), TOP1B(h, c, b), h.n_b[c][b]);
+            printf("\n");
+        }
+        #undef CEB
+        #undef TOP1B
+    }
     fflush(stdout);
 }
 
@@ -591,7 +628,17 @@ int main(int argc, char **argv)
     const char *dump_path = NULL;   /* write generated samples to this file  */
     const char *data_path = NULL;   /* train from this file, no generation   */
     float holdout = 0.0f;           /* game-keyed held-out fraction (dataset mode) */
+    int holdout_buckets = 0;        /* also print the held-out CE by deck bucket */
     int freeze_lo = -1, freeze_hi = -1;   /* w1 input rows [lo,hi) held fixed */
+    /* --rowlr LO:HI:SCALE -- w1 input rows [lo,hi) step at lr*SCALE, every
+     * other weight at lr (net_adam_step_rows: the step is scaled, not the
+     * gradient, since Adam would undo a gradient scale).  The belx-style
+     * recipe for freshly appended feature rows is --lr <2% of full>
+     * --rowlr LO:HI:50, i.e. the new rows at the full rate and the
+     * inherited net at 2% of it.  Composes with --freeze-rows: frozen rows
+     * are restored after the step whatever their rate. */
+    int rowlr_lo = -1, rowlr_hi = -1;
+    float rowlr_scale = 1.0f;
 
     for (int i = 1; i < argc; i++) {
         const char *k = argv[i];
@@ -631,6 +678,14 @@ int main(int argc, char **argv)
         else if (ARG("--h2")) h2 = atoi(argv[++i]);
         else if (!strcmp(k, "--flat-lr")) keep_lr_flat = 1;
         else if (ARG("--holdout")) holdout = (float)atof(argv[++i]);
+        else if (!strcmp(k, "--holdout-buckets")) holdout_buckets = 1;
+        else if (ARG("--rowlr")) {
+            if (sscanf(argv[++i], "%d:%d:%f", &rowlr_lo, &rowlr_hi, &rowlr_scale) != 3 ||
+                rowlr_lo < 0 || rowlr_hi <= rowlr_lo || rowlr_hi > FEAT_DIM || rowlr_scale < 0.0f) {
+                fprintf(stderr, "--rowlr wants LO:HI:SCALE with 0 <= LO < HI <= %d, SCALE >= 0\n", FEAT_DIM);
+                return 1;
+            }
+        }
         else if (ARG("--freeze-rows")) {
             if (sscanf(argv[++i], "%d:%d", &freeze_lo, &freeze_hi) != 2 ||
                 freeze_lo < 0 || freeze_hi <= freeze_lo || freeze_hi > FEAT_DIM) {
@@ -727,6 +782,9 @@ int main(int argc, char **argv)
         memcpy(frozen, net->w1 + off, len * sizeof(float));
         printf("freezing w1 input rows [%d,%d): %zu weights\n", freeze_lo, freeze_hi, len);
     }
+    if (rowlr_lo >= 0)
+        printf("w1 input rows [%d,%d) step at lr x %g = %g, the rest at lr = %g\n",
+               rowlr_lo, rowlr_hi, rowlr_scale, lr * rowlr_scale, lr);
     FILE *dumpf = NULL;
     uint64_t dumped = 0;
     if (dump_path) {
@@ -756,7 +814,7 @@ int main(int argc, char **argv)
     fflush(stdout);
 
     if (holdout > 0.0f)
-        eval_report(0, net, &rp, cls, nthread, hold_idx, nhold, teval_idx, nteval);
+        eval_report(0, net, &rp, cls, nthread, hold_idx, nhold, teval_idx, nteval, holdout_buckets);
 
     for (int it = 1; it <= iters; it++) {
         struct timespec t0, t1;
@@ -896,12 +954,14 @@ int main(int argc, char **argv)
                 size_t off = (size_t)freeze_lo * (size_t)net->h1;
                 size_t len = (size_t)(freeze_hi - freeze_lo) * (size_t)net->h1;
                 memset(grads[0]->w1 + off, 0, len * sizeof(float));
-                net_adam_step(net, grads[0], adam, cur_lr, 1.0f / (float)batch, wd);
+                net_adam_step_rows(net, grads[0], adam, cur_lr, 1.0f / (float)batch, wd,
+                                   rowlr_lo, rowlr_hi, rowlr_scale);
                 memcpy(net->w1 + off, frozen, len * sizeof(float));
                 memset(adam->m.w1 + off, 0, len * sizeof(float));
                 memset(adam->v.w1 + off, 0, len * sizeof(float));
             } else {
-                net_adam_step(net, grads[0], adam, cur_lr, 1.0f / (float)batch, wd);
+                net_adam_step_rows(net, grads[0], adam, cur_lr, 1.0f / (float)batch, wd,
+                                   rowlr_lo, rowlr_hi, rowlr_scale);
             }
         }
         free(idx);
@@ -912,7 +972,7 @@ int main(int argc, char **argv)
                pnt ? pl / pnt : 0.0);
         fflush(stdout);
         if (holdout > 0.0f)
-            eval_report(it, net, &rp, cls, nthread, hold_idx, nhold, teval_idx, nteval);
+            eval_report(it, net, &rp, cls, nthread, hold_idx, nhold, teval_idx, nteval, holdout_buckets);
 
         char path[512];
         snprintf(path, sizeof path, "%s", out_path);

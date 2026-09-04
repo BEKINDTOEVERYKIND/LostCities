@@ -17,6 +17,10 @@
 #define BELX_XBIN   (2 * NCARD)                       /* disc_by[o], disc_by[p] */
 #define BELX_XDENSE 10                                /* passed[o][s], passed[p][s] */
 #define BELX_XDIM   (FEAT_DIM + BELX_XBIN + BELX_XDENSE)
+/* the layout before the turn-arithmetic block (data/belx_final.blx):
+ * belx_load reads such a file with the block's rows zero, belx_save
+ * always writes BELX_XDIM */
+#define BELX_XDIM_V5 (FEAT_DIM_V5 + BELX_XBIN + BELX_XDENSE)
 #define BELX_MAGIC  0x42454C58u
 
 typedef struct BelX {

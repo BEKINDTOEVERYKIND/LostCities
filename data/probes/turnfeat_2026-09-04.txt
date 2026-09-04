@@ -66,4 +66,27 @@ zero, byte-identical replay); F (rows trainable) vs Z (rows frozen)
 anchored fine-tunes with the held-out correction CE; the standard raw
 arena / Gate S ladder only if F beats Z on deck <= 8 held-out CE by
 more than the seed spread without losing on deck > 14.
-Stage 2 result: pending
+Stage 2 engineering (integrated; FEAT_DIM 556 -> 592, FEAT_DENSE 136 ->
+172): a 36-row block appended after the global features -- my_turns/22,
+opp_turns/22, last_draw_is_mine, one-hot deck_left 0..14, nplay/8,
+clip(nplay - my_turns)/8, stall_last_is_mine, and per suit (suit order,
+so the rows permute with the relabeling) unseen-above-my-top,
+unseen-above-opp-top, playable-minus-turns.  net_load pads a 556-row
+file with zero rows (function-preserving), net_save writes v6; belx
+files get the same zero insertion; the information-set hash covers
+only the old dense rows so symmetrization draws are unchanged;
+train.c gains --rowlr LO:HI:SCALE (per-row learning-rate scale, an Adam
+step scale) and --holdout-buckets (held-out CE by deck bucket).
+Stage 0 identity: decreplay 42/42 probes identical through both loader
+paths (old file, re-saved v6 file); trunkbench bit-identical; symres
+identical line for line; belx spec identical; 4.18M semantic checks of
+the block against rule simulation, 0 failures.  tools/referee.py and
+web/play.html still read 556-row files only (ported on adoption).
+Stage 2 ablation (declared): arms F (new rows at lr 1e-4, rest at 2e-6)
+and Z (new rows frozen, same base) x 3 seeds on data/corr21a.smp with
+--holdout 0.1 --holdout-buckets; commands in
+data/probes/turnfeat_stage2_cmds.sh; readout tools/turnfeat_readout.py.
+Proceed to the raw arena / Gate S ladder only if F beats Z on the
+deck <= 8 held-out correction CE by more than the 3-seed spread and does
+not lose on deck > 14.  Runs after the gen-7 chain releases the box.
+Stage 2 ablation result: pending

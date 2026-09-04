@@ -165,8 +165,15 @@ static uint64_t bs_key(const Features *f, int p, int need, int mode)
 #define MIX(b) (h = (h ^ (uint64_t)(b)) * 1099511628211ULL)
     MIX(p); MIX(need); MIX(mode); MIX(f->nidx);
     for (int i = 0; i < f->nidx; i++) MIX(f->idx[i]);
+    /* Hash the v5 dense layout only.  The rows appended after it (the
+     * turn-arithmetic block, features.h) are functions of the planes and
+     * scalars already covered, so they add nothing to the key -- and
+     * this hash seeds the symmetrization relabeling streams
+     * (infoset_hash, belief_logits_sym), so covering them would change
+     * every averaged prior and belief and break the byte-identical replay
+     * a function-preserving feature extension is meant to keep. */
     const unsigned char *d = (const unsigned char *)f->dense;
-    for (size_t i = 0; i < sizeof(f->dense); i++) MIX(d[i]);
+    for (size_t i = 0; i < sizeof(float) * FEAT_DENSE_V5; i++) MIX(d[i]);
 #undef MIX
     return h;
 }

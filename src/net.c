@@ -474,18 +474,12 @@ void net_backward(const Net *n, const Features *f, const NetAct *act,
     }
 }
 
-void net_adam_step(Net *n, const Net *g, Adam *a, float lr, float scale, float wd)
+/* one Adam update over block elements [from, to) at the given step size */
+static void adam_range(float *w, float *gm, float *gv, const float *gr,
+                       size_t from, size_t to, float step, float scale, float wd)
 {
-    a->t++;
     const float b1 = 0.9f, b2 = 0.999f, eps = 1e-8f;
-    float bc1 = 1.0f - powf(b1, (float)a->t);
-    float bc2 = 1.0f - powf(b2, (float)a->t);
-    float step = lr * sqrtf(bc2) / bc1;
-
-    float *w = n->blk, *gm = a->m.blk, *gv = a->v.blk;
-    const float *gr = g->blk;
-    size_t nw = n->nfloat;
-    for (size_t i = 0; i < nw; i++) {
+    for (size_t i = from; i < to; i++) {
         float grad = gr[i] * scale + wd * w[i];
         gm[i] = b1 * gm[i] + (1.0f - b1) * grad;
         gv[i] = b2 * gv[i] + (1.0f - b2) * grad * grad;
@@ -493,13 +487,56 @@ void net_adam_step(Net *n, const Net *g, Adam *a, float lr, float scale, float w
     }
 }
 
+void net_adam_step_rows(Net *n, const Net *g, Adam *a, float lr, float scale, float wd,
+                        int row_lo, int row_hi, float row_scale)
+{
+    a->t++;
+    const float b1 = 0.9f, b2 = 0.999f;
+    float bc1 = 1.0f - powf(b1, (float)a->t);
+    float bc2 = 1.0f - powf(b2, (float)a->t);
+    float step = lr * sqrtf(bc2) / bc1;
+
+    float *w = n->blk, *gm = a->m.blk, *gv = a->v.blk;
+    const float *gr = g->blk;
+    size_t nw = n->nfloat;
+    if (row_lo < 0) row_lo = 0;
+    if (row_hi > FEAT_DIM) row_hi = FEAT_DIM;
+    if (row_lo >= row_hi) {
+        adam_range(w, gm, gv, gr, 0, nw, step, scale, wd);
+        return;
+    }
+    /* w1 is the leading section of the block, input-major with row stride
+     * h1, so an input-row range is one contiguous span of it */
+    size_t lo = (size_t)row_lo * (size_t)n->h1, hi = (size_t)row_hi * (size_t)n->h1;
+    adam_range(w, gm, gv, gr, 0, lo, step, scale, wd);
+    adam_range(w, gm, gv, gr, lo, hi, step * row_scale, scale, wd);
+    adam_range(w, gm, gv, gr, hi, nw, step, scale, wd);
+}
+
+void net_adam_step(Net *n, const Net *g, Adam *a, float lr, float scale, float wd)
+{
+    net_adam_step_rows(n, g, a, lr, scale, wd, 0, 0, 1.0f);
+}
+
 #define NET_MAGIC 0x4C435651U /* "LCVQ" */
+
+/* File header: magic, input dim (w1 rows), h1, h2, NET_NPLAY, version.
+ * Version 6 (2026-09-04) differs from 5 only in the input dim: the
+ * turn-arithmetic block appended FEAT_DIM - FEAT_DIM_V5 dense rows to the
+ * END of the feature vector, so a file with fewer w1 rows than the build
+ * is a prefix of the current layout and loads with the missing rows zero
+ * -- the new inputs then contribute exactly nothing and the loaded net is
+ * the identical function (the v5 U=0 trick again, one section earlier).
+ * A file with MORE rows than the build cannot be honoured and is refused;
+ * one with fewer rows than the v5 layout predates the fixed prefix and is
+ * refused too.  net_save always writes the build's own dim. */
+#define NET_VERSION 6
 
 int net_save(const Net *n, const char *path)
 {
     FILE *fp = fopen(path, "wb");
     if (!fp) return -1;
-    uint32_t hdr[6] = { NET_MAGIC, FEAT_DIM, (uint32_t)n->h1, (uint32_t)n->h2, NET_NPLAY, 5 };
+    uint32_t hdr[6] = { NET_MAGIC, FEAT_DIM, (uint32_t)n->h1, (uint32_t)n->h2, NET_NPLAY, NET_VERSION };
     fwrite(hdr, sizeof(hdr), 1, fp);
     fwrite(n->blk, n->nfloat * sizeof(float), 1, fp);
     fclose(fp);
@@ -512,27 +549,41 @@ int net_load(Net *n, const char *path)
     if (!fp) return -1;
     uint32_t hdr[6];
     if (fread(hdr, sizeof(hdr), 1, fp) != 1) { fclose(fp); return -1; }
-    /* width comes from the file now; only the feature space and the policy
-     * head's structural dims must match the build */
-    if (hdr[0] != NET_MAGIC || hdr[1] != FEAT_DIM ||
-        hdr[4] != NET_NPLAY) { fclose(fp); return -2; }
+    /* width comes from the file; the policy head's structural dims must
+     * match the build, and the input dim must be a known prefix of it */
+    if (hdr[0] != NET_MAGIC || hdr[4] != NET_NPLAY) { fclose(fp); return -2; }
+    if (hdr[1] > FEAT_DIM || hdr[1] < FEAT_DIM_V5) {
+        fprintf(stderr, "net_load '%s': input dim %u (file v%u) is %s this build's FEAT_DIM %d"
+                        " -- %s\n", path, hdr[1], hdr[5],
+                hdr[1] > FEAT_DIM ? "larger than" : "below the v5 prefix of", FEAT_DIM,
+                hdr[1] > FEAT_DIM ? "written by a build with more input features; refused"
+                                  : "no prefix layout is defined for it; refused");
+        fclose(fp);
+        return -2;
+    }
     if (net_alloc(n, (int)hdr[2], (int)hdr[3]) != 0) { fclose(fp); return -3; }
+    /* w1 first: the file's rows are the leading rows of ours (input-major,
+     * row stride h1); rows [hdr[1], FEAT_DIM) stay zero from net_alloc */
+    size_t w1_file = (size_t)hdr[1] * (size_t)n->h1;
+    size_t w1_full = (size_t)FEAT_DIM * (size_t)n->h1;
+    if (fread(n->w1, w1_file * sizeof(float), 1, fp) != 1) { fclose(fp); net_free(n); return -1; }
+    /* then everything after w1, by version */
     size_t xsec = (size_t)NET_XR * n->h2 + (size_t)NET_NPLAY * NET_XR + (size_t)NET_NDRAW * NET_XR;
+    size_t rest = n->nfloat - w1_full;
+    float *tail = n->blk + w1_full;
     if (hdr[5] >= 5) {
-        if (fread(n->blk, n->nfloat * sizeof(float), 1, fp) != 1) {
-            fclose(fp); net_free(n); return -1;
-        }
+        if (fread(tail, rest * sizeof(float), 1, fp) != 1) { fclose(fp); net_free(n); return -1; }
     } else if (hdr[5] >= 4) {
         /* v4: no interaction section -- load the prefix, seed V and W_g,
          * leave U zero so the function is unchanged */
-        size_t prefix = (n->nfloat - xsec) * sizeof(float);
-        if (fread(n->blk, prefix, 1, fp) != 1) { fclose(fp); net_free(n); return -1; }
+        size_t prefix = (rest - xsec) * sizeof(float);
+        if (fread(tail, prefix, 1, fp) != 1) { fclose(fp); net_free(n); return -1; }
         net_init_xhead(n, 0x58484541ULL);
     } else {
         /* older file without the belief head: load the prefix, init the rest */
         size_t belief = (size_t)NCARD * n->h2 + NCARD;
-        size_t prefix = (n->nfloat - belief - xsec) * sizeof(float);
-        if (fread(n->blk, prefix, 1, fp) != 1) { fclose(fp); net_free(n); return -1; }
+        size_t prefix = (rest - belief - xsec) * sizeof(float);
+        if (fread(tail, prefix, 1, fp) != 1) { fclose(fp); net_free(n); return -1; }
         net_init_belief(n, 0xBE11EFULL);
         net_init_xhead(n, 0x58484541ULL);
     }

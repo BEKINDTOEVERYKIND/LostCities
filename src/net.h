@@ -111,8 +111,18 @@ void  net_backward(const Net *n, const Features *f, const NetAct *act,
                    const uint8_t *bc, const float *dbel, int nb,
                    Net *g);
 void  net_adam_step(Net *n, const Net *g, Adam *a, float lr, float scale, float wd);
+/* the same step with the learning rate of w1 input rows [row_lo, row_hi)
+ * multiplied by row_scale while the rest of the net steps at lr: the
+ * belx-style per-group rate for training freshly appended feature rows.
+ * Adam is scale-invariant in the gradient, so this scales the STEP, not
+ * the gradient; row_lo >= row_hi is exactly net_adam_step. */
+void  net_adam_step_rows(Net *n, const Net *g, Adam *a, float lr, float scale, float wd,
+                         int row_lo, int row_hi, float row_scale);
 int   net_save(const Net *n, const char *path);
-/* loads into a fresh shell (allocates the block; does not free a prior one) */
+/* loads into a fresh shell (allocates the block; does not free a prior one).
+ * A file whose input dim is a known prefix of FEAT_DIM (>= FEAT_DIM_V5)
+ * loads with the missing w1 rows zero -- the identical function; a file
+ * with more rows than the build is refused with a message (-2). */
 int   net_load(Net *n, const char *path);
 
 #endif

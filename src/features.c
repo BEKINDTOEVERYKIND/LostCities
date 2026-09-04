@@ -34,6 +34,8 @@ void feat_extract(const State *st, int p, Features *f)
                       & ((1ULL << NCARD) - 1);
 
     int my_started = 0, op_started = 0, my_score = 0, op_score = 0;
+    int nplay_total = 0;
+    int play_cnt_s[NSUIT], uns_above_me[NSUIT], uns_above_op[NSUIT];
 
     for (int s = 0; s < NSUIT; s++) {
         float *v = d + s * SUIT_FEATS;
@@ -74,22 +76,26 @@ void feat_extract(const State *st, int p, Features *f)
                 }
             }
         }
+        play_cnt_s[s] = play_cnt;
+        nplay_total += play_cnt;
         v[15] = hand_cnt * (1.0f / 12.0f);
         v[16] = play_cnt * (1.0f / 12.0f);
         v[17] = play_sum * (1.0f / 54.0f);
         v[18] = hand_wag * (1.0f / 3.0f);
 
-        int uns_cnt = 0, uns_mine = 0, uns_opp = 0;
+        int uns_cnt = 0, uns_mine = 0, uns_opp = 0, uns_nme = 0, uns_nop = 0;
         for (int c = s * NRANK; c < (s + 1) * NRANK; c++) {
             if ((unseen >> c) & 1ULL) {
                 uns_cnt++;
                 int val = CARD_VALUE(c);
                 if (!CARD_IS_WAGER(c)) {
-                    if (val > mytop) uns_mine += val;
-                    if (val > optop) uns_opp += val;
+                    if (val > mytop) { uns_mine += val; uns_nme++; }
+                    if (val > optop) { uns_opp += val; uns_nop++; }
                 }
             }
         }
+        uns_above_me[s] = uns_nme;
+        uns_above_op[s] = uns_nop;
         v[19] = uns_cnt * (1.0f / 12.0f);
         v[20] = uns_mine * (1.0f / 54.0f);
         v[21] = uns_opp * (1.0f / 54.0f);
@@ -119,4 +125,36 @@ void feat_extract(const State *st, int p, Features *f)
     if (cm > 1.5f) cm = 1.5f;
     if (cm < -1.5f) cm = -1.5f;
     g[15] = cm;
+
+    /* --- turn arithmetic (layout documented in features.h) ------------
+     * The round ends when deck_left reaches 0 after a draw: with only deck
+     * draws the mover gets (deck_left+1)/2 more turns and draws last iff
+     * deck_left is odd; a pile draw leaves deck_left alone and so hands
+     * the last draw to the other side. */
+    float *t = d + FEAT_DENSE_V5;
+    const int dl = st->deck_left;
+    const int mover = (st->turn == p);
+    const int mover_turns = (dl + 1) / 2, other_turns = dl / 2;
+    const int my_turns = mover ? mover_turns : other_turns;
+    const int opp_turns = mover ? other_turns : mover_turns;
+    const int last_mine = (dl & 1) ^ (mover ? 0 : 1);
+    t[0] = my_turns * (1.0f / 22.0f);
+    t[1] = opp_turns * (1.0f / 22.0f);
+    t[2] = last_mine ? 1.0f : 0.0f;
+    if (dl <= 14) t[3 + dl] = 1.0f;
+    t[18] = nplay_total * 0.125f;
+    int press = nplay_total - my_turns;
+    if (press > 8) press = 8;
+    if (press < -8) press = -8;
+    t[19] = press * 0.125f;
+    t[20] = last_mine ? 0.0f : 1.0f;
+    for (int s = 0; s < NSUIT; s++) {
+        float *u = t + 21 + 3 * s;
+        u[0] = uns_above_me[s] * (1.0f / 9.0f);
+        u[1] = uns_above_op[s] * (1.0f / 9.0f);
+        int ps = play_cnt_s[s] - my_turns;
+        if (ps > 8) ps = 8;
+        if (ps < -8) ps = -8;
+        u[2] = ps * 0.125f;
+    }
 }
