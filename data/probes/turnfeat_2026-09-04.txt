@@ -111,4 +111,14 @@ without the rows; seed 5794).  >= 54% vs c20 -> Gate S: 800 games,
 seeds 5900-5949 (50 chunks of 8 paired deals), candidate as main net
 in the tournament string vs standing; >= 52% adopt (best.bin becomes
 a v6 file: tools/referee.py and web/play.html ported first).
-Stage 3 result: pending
+Stage 3 result: PROCEED it15 ce 1.4880 it0 1.7540 curve [(0, 1.754), (1, 1.633), (2, 1.604), (3, 1.58), (4, 1.572), (5, 1.57), (6, 1.558
+  (the best held-out correction CE of any run today; the v5 line
+  reached 1.551 at it8 on the same split).
+  raw arena vs policy:data/best.bin (c20), 1000 games: W/L/D 522/470/8   score 52.6% +- 1.6%; margin/game +3.90 +- 1.38
+  raw arena vs policy:data/c21_cand.bin (same corpus, no rows): W/L/D 502/493/5   score 50.5% +- 1.6%; margin/game +0.78 +- 1.02
+  Reading: the rows improve endgame likelihood but not raw-policy match
+  outcomes at this corpus size (feature-only effect 50.5%); the gen-7
+  corrections carry the raw gain (+3 pts/game in both lines).  Below
+  the 54% bar: no Gate S yet.  data/c21f_cand.bin kept as the v6
+  candidate; the corpus-growth round retrains both lines on corr22a and
+  the raw arena picks the candidate for any gate.
