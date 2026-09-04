@@ -132,32 +132,159 @@ void net_zero(Net *n)
     memset(n->blk, 0, n->nfloat * sizeof(float));
 }
 
-void net_trunk(const Net *n, const Features *f, NetAct *act)
+/* ---- trunk forward -------------------------------------------------------
+ *
+ * Every search workload is dominated by this forward pass, and the pass is
+ * bound by load/store traffic rather than arithmetic: the plain loop streams
+ * the whole accumulator vector through L1 once per active input row (load,
+ * add, store all h1 floats for each of the ~100 sparse rows and ~130 dense
+ * rows, then all h2 floats for each of the ~250 live layer-2 rows).  It is
+ * re-tiled here so a block of NET_TILE outputs sits in registers across the
+ * entire input loop -- bias in, every active row folded in, ReLU, one store
+ * -- which divides the accumulator traffic by the tile width.
+ *
+ * Decision-preserving: for every output element the summation order is
+ * exactly the reference loop's -- bias, then the sparse indices in list
+ * order, then the non-zero dense inputs in index order, then (layer 2) the
+ * non-zero activations in index order -- and the ReLU is the same C
+ * expression, so under the project's -ffast-math build the activations are
+ * bit-identical to the reference loop.  tools/trunkbench.c checks that on
+ * real states and on odd widths, and must stay green whenever this code is
+ * touched.  Widths are runtime properties: whatever does not fill a whole
+ * tile goes through the range kernels, which are the reference loop
+ * restricted to a column range and also the entire path on compilers
+ * without the GNU vector extension. */
+
+/* reference loop, layer 1, output columns [h0, h1) */
+static void trunk1_range(const Net *n, const Features *f, float *a1, int h0, int h1)
 {
-    const int H1 = n->h1, H2 = n->h2;
-    float h1[NET_H1_MAX];
-    for (int h = 0; h < H1; h++) h1[h] = n->b1[h];
+    const int H1 = n->h1;
+    float acc[NET_H1_MAX];
+    for (int h = h0; h < h1; h++) acc[h] = n->b1[h];
     for (int k = 0; k < f->nidx; k++) {
         const float *w = n->w1 + (size_t)f->idx[k] * H1;
-        for (int h = 0; h < H1; h++) h1[h] += w[h];
+        for (int h = h0; h < h1; h++) acc[h] += w[h];
     }
     for (int j = 0; j < FEAT_DENSE; j++) {
         float x = f->dense[j];
         if (x == 0.0f) continue;
         const float *w = n->w1 + (size_t)(FEAT_BIN + j) * H1;
-        for (int h = 0; h < H1; h++) h1[h] += x * w[h];
+        for (int h = h0; h < h1; h++) acc[h] += x * w[h];
     }
-    for (int h = 0; h < H1; h++) act->a1[h] = h1[h] > 0.0f ? h1[h] : 0.0f;
+    for (int h = h0; h < h1; h++) a1[h] = acc[h] > 0.0f ? acc[h] : 0.0f;
+}
 
-    float h2[NET_H2_MAX];
-    for (int h = 0; h < H2; h++) h2[h] = n->b2[h];
+/* reference loop, layer 2, output columns [h0, h1) */
+static void trunk2_range(const Net *n, const float *a1, float *a2, int h0, int h1)
+{
+    const int H1 = n->h1, H2 = n->h2;
+    float acc[NET_H2_MAX];
+    for (int h = h0; h < h1; h++) acc[h] = n->b2[h];
     for (int i = 0; i < H1; i++) {
-        float a = act->a1[i];
+        float a = a1[i];
         if (a == 0.0f) continue;
         const float *w = n->w2 + (size_t)i * H2;
-        for (int h = 0; h < H2; h++) h2[h] += a * w[h];
+        for (int h = h0; h < h1; h++) acc[h] += a * w[h];
     }
-    for (int h = 0; h < H2; h++) act->a2[h] = h2[h] > 0.0f ? h2[h] : 0.0f;
+    for (int h = h0; h < h1; h++) a2[h] = acc[h] > 0.0f ? acc[h] : 0.0f;
+}
+
+#if defined(__GNUC__) && !defined(NET_TRUNK_SCALAR)
+#define NET_TILE 64            /* outputs per register tile: 8 x 8-wide accumulators */
+#define NET_TV (NET_TILE / 8)
+typedef float v8sf __attribute__((vector_size(32)));
+/* unaligned, aliasing view of eight consecutive floats of a weight row */
+typedef float v8su __attribute__((vector_size(32), aligned(4), may_alias));
+#define V8(p) (*(const v8su *)(p))
+
+/* ReLU of a finished tile into out[0..NET_TILE): the tile is spilled to a
+ * scratch row and passed through the reference expression, so the compiler
+ * lowers it exactly as it lowers the range kernel's ReLU */
+static inline void tile_relu(const v8sf *acc, float *out)
+{
+    float tmp[NET_TILE];
+    for (int r = 0; r < NET_TV; r++) *(v8su *)(tmp + 8 * r) = acc[r];
+    for (int h = 0; h < NET_TILE; h++) out[h] = tmp[h] > 0.0f ? tmp[h] : 0.0f;
+}
+
+/* layer 1 over the leading ntile full tiles; returns the columns done */
+static int trunk1_tiles(const Net *n, const Features *f, float *a1, int ntile)
+{
+    const int H1 = n->h1;
+    /* the non-zero dense inputs, gathered once rather than once per tile */
+    int nd = 0;
+    float dx[FEAT_DENSE];
+    const float *dw[FEAT_DENSE];
+    for (int j = 0; j < FEAT_DENSE; j++) {
+        float x = f->dense[j];
+        if (x == 0.0f) continue;
+        dx[nd] = x;
+        dw[nd] = n->w1 + (size_t)(FEAT_BIN + j) * H1;
+        nd++;
+    }
+    for (int t = 0; t < ntile; t++) {
+        const int h0 = t * NET_TILE;
+        v8sf acc[NET_TV];
+        for (int r = 0; r < NET_TV; r++) acc[r] = V8(n->b1 + h0 + 8 * r);
+        for (int k = 0; k < f->nidx; k++) {
+            const float *w = n->w1 + (size_t)f->idx[k] * H1 + h0;
+            for (int r = 0; r < NET_TV; r++) acc[r] += V8(w + 8 * r);
+        }
+        for (int d = 0; d < nd; d++) {
+            const float x = dx[d];
+            const v8sf xv = { x, x, x, x, x, x, x, x };
+            const float *w = dw[d] + h0;
+            for (int r = 0; r < NET_TV; r++) acc[r] += xv * V8(w + 8 * r);
+        }
+        tile_relu(acc, a1 + h0);
+    }
+    return ntile * NET_TILE;
+}
+
+/* layer 2 over the leading ntile full tiles; returns the columns done */
+static int trunk2_tiles(const Net *n, const float *a1, float *a2, int ntile)
+{
+    const int H1 = n->h1, H2 = n->h2;
+    /* the live (non-zero) activations, gathered once */
+    int nz = 0;
+    float za[NET_H1_MAX];
+    uint16_t zi[NET_H1_MAX];
+    for (int i = 0; i < H1; i++) {
+        float a = a1[i];
+        if (a == 0.0f) continue;
+        za[nz] = a;
+        zi[nz] = (uint16_t)i;
+        nz++;
+    }
+    for (int t = 0; t < ntile; t++) {
+        const int h0 = t * NET_TILE;
+        v8sf acc[NET_TV];
+        for (int r = 0; r < NET_TV; r++) acc[r] = V8(n->b2 + h0 + 8 * r);
+        for (int z = 0; z < nz; z++) {
+            const float a = za[z];
+            const v8sf av = { a, a, a, a, a, a, a, a };
+            const float *w = n->w2 + (size_t)zi[z] * H2 + h0;
+            for (int r = 0; r < NET_TV; r++) acc[r] += av * V8(w + 8 * r);
+        }
+        tile_relu(acc, a2 + h0);
+    }
+    return ntile * NET_TILE;
+}
+#endif
+
+void net_trunk(const Net *n, const Features *f, NetAct *act)
+{
+    const int H1 = n->h1, H2 = n->h2;
+    int h = 0;
+#if defined(__GNUC__) && !defined(NET_TRUNK_SCALAR)
+    h = trunk1_tiles(n, f, act->a1, H1 / NET_TILE);
+#endif
+    if (h < H1) trunk1_range(n, f, act->a1, h, H1);
+    h = 0;
+#if defined(__GNUC__) && !defined(NET_TRUNK_SCALAR)
+    h = trunk2_tiles(n, act->a1, act->a2, H2 / NET_TILE);
+#endif
+    if (h < H2) trunk2_range(n, act->a1, act->a2, h, H2);
 }
 
 float net_value_act(const Net *n, const NetAct *act)

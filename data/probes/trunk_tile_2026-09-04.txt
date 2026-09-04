@@ -1,0 +1,21 @@
+Register-tiled trunk forward (panel 2, rank 2) -- decision-preserving
+2026-09-04.  Acceptance declared before the rewrite: (1) bit-identical
+a1/a2 on 1024 real states; (2) decreplay tallies identical on the
+probe set; (3) wall-clock recorded.
+
+Kernel: 64-wide output tiles held in eight AVX accumulators (GCC vector
+types, no intrinsics); per output the summation order is exactly the
+reference's -- bias, sparse rows in index order, non-zero dense rows in
+index order, then (layer 2) live activations in index order -- with the
+same zero-row skips; ReLU through the reference expression.  Remainder
+columns and non-GCC builds use the reference loop restricted to a
+column range (-DNET_TRUNK_SCALAR forces it).
+Results (tools/trunkbench, data/best.bin 512x256, 1024 states, plus
+random nets 200x100 / 72x40 / 576x320 / 8x8 / 1024x512):
+  identity: 1024/1024 states bit-identical on every net
+  timing (load 5.3, two mining jobs on the box): old 14.33 us best /
+  14.64 mean per forward, new 10.07 / 10.34 -- 1.42x
+  decreplay: 42/42 probes identical in the agent's worktree, 6/6
+  re-checked after integration in the main checkout.
+Every search workload (arena, decreplay, mine, analyze, gates, pool)
+inherits the speedup; no spec change.

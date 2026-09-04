@@ -1050,6 +1050,18 @@ deals, 96 worlds both sides where the opponent searches):
 A re-run of the pool after any spec or net change that drops a row by
 more than its interval is the tripwire firing.
 
+*Engine throughput, decision-preserving* (2026-09-04): the trunk forward
+is register-tiled (64-wide output tiles in eight AVX accumulators, the
+reference's summation order kept exactly, so every activation is
+bit-identical -- verified on 1024 states and on the probe set) and runs
+1.42x faster (14.3 -> 10.1 us per forward under load; record in
+`data/probes/trunk_tile_2026-09-04.txt`); the arena pulls pairs from a
+shared queue with per-pair play seeds (reproducible at any thread
+count, no idle threads at the end of a chunk); and a searched ply whose
+floor leaves a single candidate returns it without the world sweep.
+None of these changes a decision; all of them shorten every gate,
+mining run and review game.
+
 *Candidates are the policy's plays, nothing else* (2026-09-04): the
 reviewer found the review games still evaluating pile-draw variants of
 the top play.  Two mechanisms were responsible.  The advisory display

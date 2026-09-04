@@ -82,3 +82,7 @@ $(BIN)/belief: tools/belief.c $(CORE) $(HDRS) | $(BIN)
 
 $(BIN)/policydump: tools/policydump.c $(CORE) $(HDRS) | $(BIN)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
+
+# trunk-kernel identity + timing bench (not in `all`)
+$(BIN)/trunkbench: tools/trunkbench.c $(CORE) $(HDRS) | $(BIN)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
