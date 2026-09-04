@@ -375,6 +375,199 @@ static void grad_accumulate(Net *dst, Net *const *src, int n)
     }
 }
 
+/* ---------------- game-keyed holdout and held-out diagnostics ---------- */
+
+/* Stable per-deal key.  lc_deal_from_deck copies the whole shuffled deck
+ * into State.deck and lc_apply only advances deck_pos, so deck[0..59] is
+ * the complete original order of the round at every ply: every sample of
+ * a round -- both perspectives, every ply, the --dup copies mine.c writes
+ * of a correction, and the same deal appearing in an anchor file and a
+ * corrections file -- hashes to the same side.  The three rounds of one
+ * match are independent deals (only cum[] links them) and split
+ * independently.  Limitation: a state stored after lc_permute (symmetry
+ * relabeling rewrites deck[]) would key differently from its original;
+ * no corpus writer does that -- augmentation is applied on the fly in
+ * train_worker -- so the key is exact for the files this trains on. */
+static uint64_t sample_game_key(const Sample *s)
+{
+    uint64_t h = 0xcbf29ce484222325ULL;              /* FNV-1a 64 */
+    for (int i = 0; i < NCARD; i++) { h ^= s->st.deck[i]; h *= 0x100000001b3ULL; }
+    h ^= s->st.round; h *= 0x100000001b3ULL;
+    return h;
+}
+
+/* Sample class for the diagnostics, fixed at load time against the INITIAL
+ * net:
+ *   CLS_NONE  no policy target (the non-mover perspective of anchor games)
+ *   CLS_CORR  correction: a one-hot target whose move differs from the
+ *             net's argmax
+ *   CLS_REST  everything else with a target: soft top-k anchor targets and
+ *             one-hot confirmations that restate the argmax
+ * The argmax folds the identical wager copies and the comparison is modulo
+ * the copy isomorphism, which is how mine.c drew the correction line when
+ * it wrote the samples. */
+#define CLS_NONE 0
+#define CLS_REST 1
+#define CLS_CORR 2
+
+static Move unpack_move(uint16_t pk)
+{
+    Move m;
+    m.card = MOVE_CARD(pk); m.discard = MOVE_DISC(pk); m.draw = MOVE_DRAW(pk);
+    return m;
+}
+
+static int same_action(Move a, Move b)
+{
+    int same_card = a.card == b.card ||
+                    (CARD_IS_WAGER(a.card) && CARD_IS_WAGER(b.card) &&
+                     CARD_SUIT(a.card) == CARD_SUIT(b.card));
+    return same_card && a.discard == b.discard && a.draw == b.draw;
+}
+
+/* the target's preferred move: its largest-probability entry */
+static Move target_top(const Sample *s)
+{
+    int b = 0;
+    for (int a = 1; a < s->npi; a++) if (s->ppr[a] > s->ppr[b]) b = a;
+    return unpack_move(s->pmv[b]);
+}
+
+/* the net's preferred action over the legal moves, wager copies folded */
+static Move fold_top(const State *st, const Move *mv, const float *pr, int n)
+{
+    Move fmv[MAX_MOVES];
+    float fpr[MAX_MOVES];
+    memcpy(fmv, mv, sizeof(Move) * (size_t)n);
+    memcpy(fpr, pr, sizeof(float) * (size_t)n);
+    int fn = lc_dedup_wagers(st, fmv, fpr, n, 1);
+    int top = 0;
+    for (int i = 1; i < fn; i++) if (fpr[i] > fpr[top]) top = i;
+    return fmv[top];
+}
+
+/* Policy over the legal moves along the trainer's own path (feat_extract
+ * from the sample's perspective, trunk, head, softmax; no augmentation).
+ * Returns the move count and the sample's policy cross-entropy -- the same
+ * -sum tgt log p the SGD minimizes -- in *ce. */
+static int sample_policy(const Net *net, const Sample *s, Move *mv, float *prob, double *ce)
+{
+    Features f;
+    NetAct act;
+    uint16_t pk[MAX_MOVES];
+    float logit[MAX_MOVES], tgt[MAX_MOVES];
+    int n = lc_moves(&s->st, mv);
+    if (n <= 0) return 0;
+    feat_extract(&s->st, s->persp, &f);
+    net_trunk(net, &f, &act);
+    for (int k = 0; k < n; k++) { pk[k] = MOVE_PACK(mv[k]); tgt[k] = 0.0f; }
+    for (int a = 0; a < s->npi; a++)
+        for (int k = 0; k < n; k++)
+            if (pk[k] == s->pmv[a]) { tgt[k] = s->ppr[a]; break; }
+    net_policy_act(net, &act, pk, n, logit);
+    float mx = logit[0];
+    for (int k = 1; k < n; k++) if (logit[k] > mx) mx = logit[k];
+    float sum = 0.0f;
+    for (int k = 0; k < n; k++) { prob[k] = expf(logit[k] - mx); sum += prob[k]; }
+    float inv = 1.0f / sum;
+    double c = 0.0;
+    for (int k = 0; k < n; k++) {
+        prob[k] *= inv;
+        if (tgt[k] > 0.0f) c -= (double)tgt[k] * log((double)prob[k] + 1e-9);
+    }
+    *ce = c;
+    return n;
+}
+
+typedef struct {
+    const Net *net;
+    const Replay *rp;
+    const size_t *idx;   /* sample indices to visit; NULL = 0..rp->n */
+    uint8_t *cls;        /* per-sample class (written by classify, read by eval) */
+    size_t from, to;
+    int classify;
+    double ce[3];
+    long n[3], agree[3];
+} EvalJob;
+
+static void *eval_worker(void *arg)
+{
+    EvalJob *e = (EvalJob *)arg;
+    Move mv[MAX_MOVES];
+    float prob[MAX_MOVES];
+    for (size_t i = e->from; i < e->to; i++) {
+        size_t si = e->idx ? e->idx[i] : i;
+        const Sample *s = &e->rp->buf[si];
+        if (e->classify) {
+            int c = CLS_NONE;
+            if (s->npi > 1 || (s->npi == 1 && s->ppr[0] < 0.999f)) c = CLS_REST;
+            else if (s->npi == 1) {
+                double ce;
+                int n = sample_policy(e->net, s, mv, prob, &ce);
+                if (n > 0)
+                    c = same_action(target_top(s), fold_top(&s->st, mv, prob, n)) ? CLS_REST : CLS_CORR;
+            }
+            e->cls[si] = (uint8_t)c;
+            continue;
+        }
+        int c = e->cls[si];
+        if (c == CLS_NONE) continue;
+        double ce;
+        int n = sample_policy(e->net, s, mv, prob, &ce);
+        if (n <= 0) continue;
+        e->ce[c] += ce;
+        e->n[c]++;
+        e->agree[c] += same_action(target_top(s), fold_top(&s->st, mv, prob, n));
+    }
+    return NULL;
+}
+
+/* classify == 1 fills cls for the visited samples; otherwise sums CE, count
+ * and top-1 agreement per class into out[3] */
+static void eval_run(const Net *net, const Replay *rp, const size_t *idx, size_t n,
+                     uint8_t *cls, int classify, int nthread, EvalJob *out)
+{
+    EvalJob ej[64];
+    pthread_t th[64];
+    int nt = nthread > 64 ? 64 : (nthread < 1 ? 1 : nthread);
+    size_t chunk = (n + (size_t)nt - 1) / (size_t)nt;
+    for (int i = 0; i < nt; i++) {
+        memset(&ej[i], 0, sizeof ej[i]);
+        ej[i].net = net; ej[i].rp = rp; ej[i].idx = idx; ej[i].cls = cls;
+        ej[i].classify = classify;
+        ej[i].from = chunk * (size_t)i > n ? n : chunk * (size_t)i;
+        ej[i].to = chunk * (size_t)(i + 1) > n ? n : chunk * (size_t)(i + 1);
+    }
+    for (int i = 0; i < nt; i++) pthread_create(&th[i], NULL, eval_worker, &ej[i]);
+    for (int i = 0; i < nt; i++) pthread_join(th[i], NULL);
+    if (out) {
+        memset(out, 0, sizeof *out);
+        for (int i = 0; i < nt; i++)
+            for (int c = 0; c < 3; c++) {
+                out->ce[c] += ej[i].ce[c]; out->n[c] += ej[i].n[c]; out->agree[c] += ej[i].agree[c];
+            }
+    }
+}
+
+static void eval_report(int it, const Net *net, const Replay *rp, uint8_t *cls, int nthread,
+                        const size_t *hold_idx, size_t nhold, const size_t *teval_idx, size_t nteval)
+{
+    EvalJob h, t;
+    eval_run(net, rp, hold_idx, nhold, cls, 0, nthread, &h);
+    eval_run(net, rp, teval_idx, nteval, cls, 0, nthread, &t);
+    #define CE(e, c) ((e).n[c] ? (e).ce[c] / (double)(e).n[c] : 0.0)
+    #define TOP1(e, c) ((e).n[c] ? 100.0 * (double)(e).agree[c] / (double)(e).n[c] : 0.0)
+    printf("            it%d held-out: corr ce %.3f top1 %.1f%% (n=%ld) | rest ce %.3f top1 %.1f%% (n=%ld)"
+           " || train: corr ce %.3f top1 %.1f%% (n=%ld) | rest ce %.3f top1 %.1f%% (n=%ld)\n",
+           it, CE(h, CLS_CORR), TOP1(h, CLS_CORR), h.n[CLS_CORR],
+           CE(h, CLS_REST), TOP1(h, CLS_REST), h.n[CLS_REST],
+           CE(t, CLS_CORR), TOP1(t, CLS_CORR), t.n[CLS_CORR],
+           CE(t, CLS_REST), TOP1(t, CLS_REST), t.n[CLS_REST]);
+    #undef CE
+    #undef TOP1
+    fflush(stdout);
+}
+
 int main(int argc, char **argv)
 {
     const char *out_path = "data/net.bin";
@@ -397,6 +590,8 @@ int main(int argc, char **argv)
     int h1 = NET_H1_DEF, h2 = NET_H2_DEF;   /* from-scratch width; --init overrides from file */
     const char *dump_path = NULL;   /* write generated samples to this file  */
     const char *data_path = NULL;   /* train from this file, no generation   */
+    float holdout = 0.0f;           /* game-keyed held-out fraction (dataset mode) */
+    int freeze_lo = -1, freeze_hi = -1;   /* w1 input rows [lo,hi) held fixed */
 
     for (int i = 1; i < argc; i++) {
         const char *k = argv[i];
@@ -435,6 +630,14 @@ int main(int argc, char **argv)
         else if (ARG("--h1")) h1 = atoi(argv[++i]);
         else if (ARG("--h2")) h2 = atoi(argv[++i]);
         else if (!strcmp(k, "--flat-lr")) keep_lr_flat = 1;
+        else if (ARG("--holdout")) holdout = (float)atof(argv[++i]);
+        else if (ARG("--freeze-rows")) {
+            if (sscanf(argv[++i], "%d:%d", &freeze_lo, &freeze_hi) != 2 ||
+                freeze_lo < 0 || freeze_hi <= freeze_lo || freeze_hi > FEAT_DIM) {
+                fprintf(stderr, "--freeze-rows wants LO:HI with 0 <= LO < HI <= %d\n", FEAT_DIM);
+                return 1;
+            }
+        }
         else { fprintf(stderr, "unknown option %s\n", k); return 1; }
         #undef ARG
     }
@@ -475,6 +678,55 @@ int main(int argc, char **argv)
     } else {
         replay_init(&rp, bufcap);
     }
+
+    /* game-keyed holdout (see sample_game_key): held-out samples never
+     * enter SGD, they feed the per-iteration diagnostics */
+    size_t *train_idx = NULL, *hold_idx = NULL, *teval_idx = NULL;
+    size_t ntrain = 0, nhold = 0, nteval = 0;
+    uint8_t *cls = NULL;
+    if (holdout > 0.0f) {
+        if (!data_path) {
+            fprintf(stderr, "--holdout needs --data (a generated replay buffer changes every iteration)\n");
+            return 1;
+        }
+        if (holdout >= 1.0f) { fprintf(stderr, "--holdout wants a fraction below 1\n"); return 1; }
+        train_idx = (size_t *)malloc(sizeof(size_t) * rp.n);
+        hold_idx = (size_t *)malloc(sizeof(size_t) * rp.n);
+        cls = (uint8_t *)calloc(rp.n, 1);
+        if (!train_idx || !hold_idx || !cls) { fprintf(stderr, "holdout allocation failed\n"); return 1; }
+        uint64_t cut = (uint64_t)(holdout * 1000.0f + 0.5f);
+        for (size_t i = 0; i < rp.n; i++) {
+            if (sample_game_key(&rp.buf[i]) % 1000ULL < cut) hold_idx[nhold++] = i;
+            else train_idx[ntrain++] = i;
+        }
+        if (ntrain == 0 || nhold == 0) { fprintf(stderr, "holdout split left one side empty\n"); return 1; }
+        eval_run(net, &rp, NULL, rp.n, cls, 1, nthread, NULL);   /* classify vs the initial net */
+        long nc[2][3] = { { 0, 0, 0 }, { 0, 0, 0 } };
+        for (size_t i = 0; i < nhold; i++) nc[1][cls[hold_idx[i]]]++;
+        for (size_t i = 0; i < ntrain; i++) nc[0][cls[train_idx[i]]]++;
+        /* train-side comparison set: as many samples as are held out,
+         * spread evenly over the training indices (corpora are concatenated
+         * files, so a prefix would be one file) */
+        nteval = nhold < ntrain ? nhold : ntrain;
+        teval_idx = (size_t *)malloc(sizeof(size_t) * nteval);
+        if (!teval_idx) { fprintf(stderr, "holdout allocation failed\n"); return 1; }
+        for (size_t k = 0; k < nteval; k++) teval_idx[k] = train_idx[(k * ntrain) / nteval];
+        printf("holdout %.1f%% by deal key: %zu held-out / %zu train samples "
+               "(corrections %ld/%ld, rest %ld/%ld, no policy target %ld/%ld); "
+               "train-side comparison set %zu\n",
+               100.0 * holdout, nhold, ntrain, nc[1][CLS_CORR], nc[0][CLS_CORR],
+               nc[1][CLS_REST], nc[0][CLS_REST], nc[1][CLS_NONE], nc[0][CLS_NONE], nteval);
+        fflush(stdout);
+    }
+    float *frozen = NULL;   /* snapshot of the frozen w1 rows */
+    if (freeze_lo >= 0) {
+        size_t off = (size_t)freeze_lo * (size_t)net->h1;
+        size_t len = (size_t)(freeze_hi - freeze_lo) * (size_t)net->h1;
+        frozen = (float *)malloc(len * sizeof(float));
+        if (!frozen) { fprintf(stderr, "freeze allocation failed\n"); return 1; }
+        memcpy(frozen, net->w1 + off, len * sizeof(float));
+        printf("freezing w1 input rows [%d,%d): %zu weights\n", freeze_lo, freeze_hi, len);
+    }
     FILE *dumpf = NULL;
     uint64_t dumped = 0;
     if (dump_path) {
@@ -502,6 +754,9 @@ int main(int argc, char **argv)
            FEAT_DIM, net->h1, net->h2, net->nfloat,
            bufcap * sizeof(Sample) / (1024 * 1024));
     fflush(stdout);
+
+    if (holdout > 0.0f)
+        eval_report(0, net, &rp, cls, nthread, hold_idx, nhold, teval_idx, nteval);
 
     for (int it = 1; it <= iters; it++) {
         struct timespec t0, t1;
@@ -605,7 +860,10 @@ int main(int argc, char **argv)
         double vl = 0, pl = 0;
         long pnt = 0;
         for (int s = 0; s < steps; s++) {
-            for (int i = 0; i < batch; i++) idx[i] = rng_next(&r) % rp.n;
+            for (int i = 0; i < batch; i++) {
+                uint64_t u = rng_next(&r);
+                idx[i] = train_idx ? train_idx[u % ntrain] : u % rp.n;
+            }
             TrainJob tj[64];
             pthread_t tt[64];
             int nt = nthread > 64 ? 64 : nthread;
@@ -629,7 +887,22 @@ int main(int argc, char **argv)
                 float frac = (float)s / (float)steps;
                 cur_lr = lr * (0.5f * (1.0f + cosf(3.14159265f * frac)) * 0.9f + 0.1f);
             }
-            net_adam_step(net, grads[0], adam, cur_lr, 1.0f / (float)batch, wd);
+            if (freeze_lo >= 0) {
+                /* Zeroing the rows' gradient is not enough: net_adam_step
+                 * folds wd*w into the gradient and Adam normalizes by
+                 * sqrt(v), so a zero-gradient row would still take full
+                 * lr-sized decay steps.  Restore the rows after the step
+                 * and clear their moments: an exact freeze. */
+                size_t off = (size_t)freeze_lo * (size_t)net->h1;
+                size_t len = (size_t)(freeze_hi - freeze_lo) * (size_t)net->h1;
+                memset(grads[0]->w1 + off, 0, len * sizeof(float));
+                net_adam_step(net, grads[0], adam, cur_lr, 1.0f / (float)batch, wd);
+                memcpy(net->w1 + off, frozen, len * sizeof(float));
+                memset(adam->m.w1 + off, 0, len * sizeof(float));
+                memset(adam->v.w1 + off, 0, len * sizeof(float));
+            } else {
+                net_adam_step(net, grads[0], adam, cur_lr, 1.0f / (float)batch, wd);
+            }
         }
         free(idx);
         clock_gettime(CLOCK_MONOTONIC, &t1);
@@ -638,6 +911,8 @@ int main(int argc, char **argv)
                steps, tr_secs, sqrt(vl / ((double)steps * batch)) * VAL_SCALE,
                pnt ? pl / pnt : 0.0);
         fflush(stdout);
+        if (holdout > 0.0f)
+            eval_report(it, net, &rp, cls, nthread, hold_idx, nhold, teval_idx, nteval);
 
         char path[512];
         snprintf(path, sizeof path, "%s", out_path);

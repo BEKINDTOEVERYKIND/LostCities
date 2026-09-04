@@ -55,4 +55,24 @@ Both arms pass the go rule.  The 4-point floor, not k, is the binding
 filter (126 vs 122 corrections; the arms differ mainly in hedges).
 Arm chosen: k=1.0 (the higher correction count, and the deployed
 gate).  Full run launched: 400 games, seed 20260905 -> data/corr21.smp.
+Trainer hygiene (tools/train.c, integrated): --holdout FRAC splits by a
+deal key (FNV-1a over the stored deck order and round; every ply, both
+perspectives and all dup copies of a deal land on one side -- a
+per-sample split would have put 18% of corr20a's states on both sides);
+per-iteration held-out policy CE and top-1 for CORRECTION samples and
+for the rest, with the train-side numbers beside them; --freeze-rows
+LO:HI for feature ablations (rows restored after each Adam step, since
+weight decay would otherwise move zero-gradient rows).
+Calibration on corr20a (gen-6 corrections + anchor, 10% held out): the
+held-out correction CE is at its minimum BEFORE training (1.899) and
+only rises (1.906 after 4 iterations at lr 1e-4, 1.917 at 12; 1.93 at
+lr 1e-3) while the train-side CE falls (1.849 -> 1.788 / 1.653) and
+anchor agreement erodes (98% -> 91% / 79%).  The gen-6 corrections had
+no generalizable likelihood gain: the fine-tune memorized them, and the
+per-iteration arena max was choosing among memorization noise.  This is
+the same finding as the pilot's 0.77-SE median from the other side.
+Checkpoint rule for gen-7 (declared now): train with --holdout 0.1;
+proceed only if the held-out correction CE FALLS below its it0 value on
+at least one iteration; take the checkpoint at the held-out CE minimum
+(ties -> earlier) and confirm it with ONE 1000-game raw arena.
 Full-run result: pending
