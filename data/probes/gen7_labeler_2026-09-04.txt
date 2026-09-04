@@ -42,4 +42,17 @@ vs the standing net.  >= 52% adopt (best.bin -> c21, previous kept as
 best_pre_c21.bin, pool tripwire re-run, showcase regenerated);
 49.5-52% with suite dominance and a raw win = net-swap rule as for c20;
 < 49.5% negative.  fs1_* probes are never trained on.
-Pilot (fixed reference) results: pending
+Pilot (fixed reference) results (30 games each, same seed):
+k1: flagged 2111, corrections 126, confirmations 1630, hedged 355
+  corrections: median lead 5.71 pts (min 4.00), median lead/SE 2.82, share >= 2 SE 79%, deck<=8 31%
+  hedged: median lead 2.09 pts, median lead/SE 1.26
+  corrections by class: {'hedge': 40, 'deckburn': 28, 'pile-refusal': 26, 'skip': 20, 'burial': 13, 'gift': 13, 'wclutch': 10, 'stall': 7, 'misorder': 4}
+k15: flagged 2111, corrections 122, confirmations 1804, hedged 185
+  corrections: median lead 5.79 pts (min 4.00), median lead/SE 2.91, share >= 2 SE 81%, deck<=8 32%
+  hedged: median lead 2.31 pts, median lead/SE 1.54
+  corrections by class: {'hedge': 40, 'deckburn': 28, 'pile-refusal': 24, 'skip': 20, 'burial': 12, 'gift': 11, 'wclutch': 10, 'stall': 7, 'misorder': 4}
+Both arms pass the go rule.  The 4-point floor, not k, is the binding
+filter (126 vs 122 corrections; the arms differ mainly in hedges).
+Arm chosen: k=1.0 (the higher correction count, and the deployed
+gate).  Full run launched: 400 games, seed 20260905 -> data/corr21.smp.
+Full-run result: pending
