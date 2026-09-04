@@ -1029,7 +1029,13 @@ wall-clock cost.  **Gate M**, contested-ply deepening (`sel_deep`):
 51.69% +/- 3.46 with a paired margin of +3.62 +/- 1.51 at ~1.7x
 wall-clock -- neutral band, not adopted under the 96-world budget,
 recorded as a compute-for-points trade available if a tournament has
-no time limit.
+no time limit.  *Racing deepening* (`sel_deep` 2: the second batch only
+for the candidates within 1.5 paired SE of the batch-1 leader, ~1.35x
+counting cost) re-read the same estimand over 1,600 games: **51.66% +/- 2.45, paired margin +2.76 +/- 1.05** -- neutral band, not
+adopted.  That is the third read of the resolution family (dets 192,
+sel_deep 1, racing), every one a 2.6-3.5 SE points margin that does not
+convert to wins; the family is closed: extra world resolution buys
+points in games that are already decided.
 
 *External-opponent tripwire pool* (`tools/pool.sh`, record in
 `data/probes/pool_baseline_2026-09.txt`): the adopted string against

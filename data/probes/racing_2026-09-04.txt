@@ -24,4 +24,14 @@ Rule: >= 52% adopt at the recorded wall-clock multiplier and report
 the string; 49.5-52% neutral -- recorded as the third read of the
 resolution family (dets 192, sel_deep 1, racing) and the family
 closed; < 49.5% negative.  Chunk seconds recorded for both sides.
-Gate T result: pending
+Gate T result (2026-09-04 22:55 UTC, 1600 games, seeds 6100-6199, runner
+102e5be, kernel 2fdd885, 8-pair chunks):
+  W/L/D 822/769/9  score 51.66% +/- 2.45 (95% CI); paired margin +2.76 +/- 1.05 pts/game; points/game 116.00 vs 113.24; chunks 100
+  mean chunk 46.0 s (16 games, sel_deep 2 on one side)
+  Verdict per pre-registration: neutral band (49.5-52%).  NOT adopted.
+  Third read of the resolution family, all with the same signature --
+  a paired points margin at 2.6-3.5 SE that does not convert to match
+  wins: dets 192 (51.4%, +4.7), sel_deep 1 (51.7%, +3.6 at 1.7x),
+  racing (51.7%, +2.8 at ~1.35x).  The family is closed as declared:
+  extra world resolution buys points in games that are already decided,
+  and the match objective is wins.  sel_deep 2 stays a documented mode.
