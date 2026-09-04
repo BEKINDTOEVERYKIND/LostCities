@@ -1064,7 +1064,8 @@ costing a full dets x playout sweep and reachable only through the
 policy's top five moves at or above the floor.  Draw variants can
 still appear when the policy itself ranks them there.  Declared with
 Gate O (800 games, new vs old string) in
-`data/probes/evalc_gate_2026-09-04.txt`.
+`data/probes/evalc_gate_2026-09-04.txt`: **412/386/2  score 51.62% +/- 3.46 (95% CI)**, paired margin +2.53 +/- 1.43 pts/game -- the
+directive costs nothing measurable and leans positive.
 
 *Calibrated belief sampling* (`bel_samp`, field 26): the panel's critics
 reproduced a real defect -- Gumbel-top-k on the belief logits is a

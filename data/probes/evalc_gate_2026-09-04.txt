@@ -42,7 +42,11 @@ widening only re-admits floor-cut moves inside the prefix and is dead
 at 0; the override loop has an empty range; "search"/"playsearch" in
 the analysis dump are exactly the evaluated candidates.  No code
 change needed beyond the strings.
-Gate O result: pending
+Gate O result (2026-09-04 17:10 UTC, 800 games, seeds 5500-5579):
+  W/L/D 412/386/2  score 51.62% +/- 3.46 (95% CI); paired margin +2.53 +/- 1.43 pts/game; points/game 117.85 vs 115.32; chunks 80
+  The directive costs nothing measurable and leans positive (margin
+  +1.5 SE); the eval_cand 0 string stands.  Wall-clock: see chunk time
+  vs Gate K below in the README line.
 
 Action-level candidates (draw_filter 3) -- pre-registered 2026-09-04,
 declared before any game.
