@@ -75,4 +75,16 @@ Checkpoint rule for gen-7 (declared now): train with --holdout 0.1;
 proceed only if the held-out correction CE FALLS below its it0 value on
 at least one iteration; take the checkpoint at the held-out CE minimum
 (ties -> earlier) and confirm it with ONE 1000-game raw arena.
+Independent confirmation (mine --confirm IN OUT, declared after the
+distillation pre-test exposed the winner's curse, before the full
+corpus finished): every correction is re-labeled with an independent
+world stream; kept only if the fresh run makes the same gated choice
+AND the stored move's fresh lead over candidate 0 is >= 2 points.  On
+the pilot corpora: k=1.0 126 corrections -> 65 confirmed (51.6%; 60
+flips, 1 floor); k=1.5 122 -> 59 (48.4%).  Fresh lead of the stored
+move: median 3.79 vs the original 5.71 -- the selection inflation
+measured directly; confirmed set median 5.78 (100% >= 2, 78% >= 4).
+Survival by deck: 0-8 69%, 9-16 81%, 17+ 32% -- early-round labels are
+the unstable ones.  The full corpus is confirmed the same way
+(data/corr21.smp -> data/corr21c.smp) before training.
 Full-run result: pending

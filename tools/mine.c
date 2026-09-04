@@ -17,6 +17,11 @@
  *
  *   ./bin/mine --net data/best.bin --games 400 --threads 4 \
  *              --out data/corr.smp [--dets 256] [--dup 4]
+ *
+ * --confirm IN OUT: independent confirmation pass over a mined corpus --
+ * every correction is re-labeled on a fresh world stream and kept only if
+ * the fresh run makes the same gated choice with a lead >= --cfloor points
+ * over candidate 0 (see confirm_mode).
  */
 #include "../src/lc.h"
 #include "../src/agent.h"
@@ -205,6 +210,35 @@ typedef struct {
     long bycls[9];
 } Job;
 
+/* the validated labeler (gens 6-7), shared by the miner and --confirm */
+static void labeler_init(Agent *lab, const Job *j)
+{
+    agent_default(lab, AG_ROLLOUT, j->net);
+    /* belief-improved labeling (gen-6): the specialist's sharper hand
+     * inference steers the labeler's world sampling, same division of
+     * labor as the adopted rollouth match spec -- policy, priors and
+     * playouts stay the champion's */
+    lab->net_b = j->net_b;
+    lab->dets = j->dets;
+    lab->root_width = 5;
+    lab->gate = 0.0f;
+    lab->eval_cand = 4;
+    lab->override_k = 3.0f;      /* override_min 4 and prune_dom on by default */
+    lab->playout_sample = 1;
+    /* exact endgame labels: at deck_left <= solvedeck the labeler solves
+     * belief worlds instead of estimating them -- vote mode, one root
+     * solve per world (grant the solver a real budget via LC_SOLVE_BUDGET
+     * or it falls back to search immediately) */
+    lab->solve_deck = j->solvedeck;
+    lab->solve_vote = j->solvedeck > 0;
+    /* gen-7 labeler (panel 2, rank 3): the label is the move the deployed
+     * selection rule would play -- the sel_k paired-SE gate protects the
+     * policy top, priors and beliefs are exactly symmetrized and worlds
+     * come from the calibrated sampler, as in the match spec */
+    lab->sel_k = j->selk;
+    if (j->sym) { lab->sym_k = 120; lab->sym_bel = 120; lab->bel_samp = 1; }
+}
+
 static void *worker(void *arg)
 {
     Job *j = (Job *)arg;
@@ -212,30 +246,7 @@ static void *worker(void *arg)
     rng_seed(&rng, j->seed + 77777ULL * (uint64_t)(j->thread + 1));
 
     Agent lab;
-    agent_default(&lab, AG_ROLLOUT, j->net);
-    /* belief-improved labeling (gen-6): the specialist's sharper hand
-     * inference steers the labeler's world sampling, same division of
-     * labor as the adopted rollouth match spec -- policy, priors and
-     * playouts stay the champion's */
-    lab.net_b = j->net_b;
-    lab.dets = j->dets;
-    lab.root_width = 5;
-    lab.gate = 0.0f;
-    lab.eval_cand = 4;
-    lab.override_k = 3.0f;      /* override_min 4 and prune_dom on by default */
-    lab.playout_sample = 1;
-    /* exact endgame labels: at deck_left <= solvedeck the labeler solves
-     * belief worlds instead of estimating them -- vote mode, one root
-     * solve per world (grant the solver a real budget via LC_SOLVE_BUDGET
-     * or it falls back to search immediately) */
-    lab.solve_deck = j->solvedeck;
-    lab.solve_vote = j->solvedeck > 0;
-    /* gen-7 labeler (panel 2, rank 3): the label is the move the deployed
-     * selection rule would play -- the sel_k paired-SE gate protects the
-     * policy top, priors and beliefs are exactly symmetrized and worlds
-     * come from the calibrated sampler, as in the match spec */
-    lab.sel_k = j->selk;
-    if (j->sym) { lab.sym_k = 120; lab.sym_bel = 120; lab.bel_samp = 1; }
+    labeler_init(&lab, j);
 
     Features f;
     for (int g = j->thread; g < j->games; g += j->nthread) {
@@ -438,13 +449,171 @@ static int selftarget_mode(const Net *net, const char *inp, const char *outp)
     return 0;
 }
 
+/* same move modulo the wager-copy isomorphism ("played the other Yx") */
+static int move_iso(Move a, Move b)
+{
+    int sc = a.card == b.card ||
+             (CARD_IS_WAGER(a.card) && CARD_IS_WAGER(b.card) &&
+              CARD_SUIT(a.card) == CARD_SUIT(b.card));
+    return sc && a.discard == b.discard && a.draw == b.draw;
+}
+
+/* the labeler's candidate 0 for a stored state, recomputed without a
+ * world sweep: with --sym the exactly symmetrized policy top after the
+ * wager-copy fold and dominated-discard pruning, formed as rollout_move
+ * forms it (the symmetrization is state-seeded, so this IS the candidate
+ * 0 the miner compared against); without --sym the raw folded argmax the
+ * pre-sym miner used as its reference */
+static Move labeler_ref(const Agent *lab, int sym, const State *st, Rng *rng)
+{
+    Move mv[MAX_MOVES];
+    float pr[MAX_MOVES];
+    int n = agent_policy_probs(lab, st, rng, mv, pr, NULL);
+    if (n > 1) n = lc_dedup_wagers(st, mv, pr, n, 1);
+    if (sym && lab->prune_dom && n > 1) {
+        uint64_t dead = lc_dead_cards(st);
+        if (dead & st->hand[st->turn]) {
+            int k = 0;
+            for (int i = 0; i < n; i++) {
+                if (lc_discard_dominated(st, mv[i], dead)) continue;
+                mv[k] = mv[i]; pr[k] = pr[i]; k++;
+            }
+            if (k > 0) n = k;
+        }
+    }
+    int top = 0;
+    for (int i = 1; i < n; i++) if (pr[i] > pr[top]) top = i;
+    return mv[top];
+}
+
+/* lead of move m over candidate 0 in a labeler's stats (dse = the larger
+ * of the two SEs, as the mining log); 0 if m was not evaluated */
+static int label_lead(const SearchStats *ss, Move m, double *dm, double *dse)
+{
+    *dm = 0.0; *dse = 0.0;
+    for (int c = 0; c < ss->n; c++)
+        if (move_iso(ss->mv[c], m)) {
+            *dm = ss->q[c] - ss->q[0];
+            *dse = ss->se[c] > ss->se[0] ? ss->se[c] : ss->se[0];
+            return 1;
+        }
+    return 0;
+}
+
+static int cmp_double(const void *a, const void *b)
+{
+    double x = *(const double *)a, y = *(const double *)b;
+    return x < y ? -1 : x > y;
+}
+
+/* --confirm IN OUT: independent confirmation of a mined corpus's
+ * corrections.  The miner writes a correction when ONE labeler run's gated
+ * choice differs from candidate 0 and leads it by the points floor; that
+ * lead is the best of several candidates on one 256-world batch, so it is
+ * inflated by selection (the rank-4 pre-test relabeled 50 such qualifiers
+ * on fresh worlds: half flipped back to candidate 0, only 36% re-cleared
+ * the floor).  This pass re-runs the SAME labeler on every correction's
+ * state with an independent world stream and keeps the sample only if the
+ * fresh run makes the same gated choice (wager-copy isomorphism) AND the
+ * stored move's fresh lead over candidate 0 is >= cfloor points.
+ * Everything that is not a correction -- confirmations (one-hot on
+ * candidate 0), anchor games, soft targets -- passes through unchanged,
+ * and the dup copies of a correction (identical consecutive samples) are
+ * judged once.  Log line per distinct correction:
+ * "nply deck kept dm_fresh dse_fresh". */
+static int confirm_mode(const Job *j, float cfloor, const char *inp, const char *outp)
+{
+    FILE *fi = fopen(inp, "rb");
+    if (!fi) { fprintf(stderr, "mine: cannot open %s\n", inp); return 1; }
+    uint32_t h[4];
+    uint64_t cnt;
+    if (fread(h, sizeof h, 1, fi) != 1 || fread(&cnt, sizeof cnt, 1, fi) != 1 ||
+        h[0] != SMP_MAGIC || h[1] != sizeof(Sample)) { fprintf(stderr, "mine: bad file\n"); return 1; }
+    FILE *fo = fopen(outp, "wb");
+    if (!fo) { fprintf(stderr, "mine: cannot open %s\n", outp); return 1; }
+    uint64_t written = 0;
+    fwrite(h, sizeof h, 1, fo);
+    fwrite(&written, sizeof written, 1, fo);
+
+    Agent lab;
+    labeler_init(&lab, j);
+    Rng rng;
+    Sample s, prev;
+    int have_prev = 0, prev_corr = 0, prev_keep = 1;
+    long idx = 0, seen = 0, kept = 0, flip = 0, floor = 0, refmis = 0, notfound = 0;
+    double *lead_all = (double *)malloc(sizeof(double) * (size_t)(cnt ? cnt : 1));
+    double *lead_kept = (double *)malloc(sizeof(double) * (size_t)(cnt ? cnt : 1));
+    while (fread(&s, sizeof s, 1, fi) == 1) {
+        int corr = 0, keep = 1;
+        if (have_prev && memcmp(&s, &prev, sizeof s) == 0) {
+            corr = prev_corr; keep = prev_keep;          /* a dup copy: same verdict */
+        } else {
+            if (s.npi == 1 && s.ppr[0] >= 0.999f) {
+                Move tgt;
+                tgt.card = MOVE_CARD(s.pmv[0]);
+                tgt.discard = MOVE_DISC(s.pmv[0]);
+                tgt.draw = MOVE_DRAW(s.pmv[0]);
+                /* independent stream per correction: the seed mixed with
+                 * the sample's index, never the miner's game stream */
+                rng_seed(&rng, j->seed + 0x9E3779B97F4A7C15ULL * (uint64_t)(idx + 1));
+                Move ref = labeler_ref(&lab, j->sym, &s.st, &rng);
+                if (!move_iso(tgt, ref)) {
+                    corr = 1;
+                    SearchStats ss;
+                    memset(&ss, 0, sizeof ss);
+                    float sv = 0.0f;
+                    Move lm = rollout_move(&lab, &s.st, &rng, &sv, &ss);
+                    if (ss.n >= 1 && !move_iso(ss.mv[0], ref)) refmis++;
+                    double dm, dse;
+                    if (!label_lead(&ss, tgt, &dm, &dse)) notfound++;
+                    lead_all[seen++] = dm;
+                    if (!move_iso(lm, tgt)) { keep = 0; flip++; }
+                    else if (dm < cfloor) { keep = 0; floor++; }
+                    else { lead_kept[kept++] = dm; }
+                    if (j->log)
+                        fprintf(j->log, "%d %d %d %.2f %.2f\n", (int)s.st.nply, (int)s.st.deck_left, keep, dm, dse);
+                }
+            }
+            prev = s; have_prev = 1; prev_corr = corr; prev_keep = keep;
+        }
+        if (!corr || keep) { fwrite(&s, sizeof s, 1, fo); written++; }
+        idx++;
+    }
+    fseek(fo, sizeof h, SEEK_SET);
+    fwrite(&written, sizeof written, 1, fo);
+    fclose(fi); fclose(fo);
+    if (j->log) fflush(j->log);
+
+    printf("mine --confirm: %ld distinct corrections seen, %ld confirmed (%.1f%%), %ld dropped by flip (fresh gated choice differs), %ld dropped by floor (same choice, fresh lead < %.1f)\n",
+           seen, kept, 100.0 * kept / (seen ? seen : 1), flip, floor, cfloor);
+    for (int pass = 0; pass < 2; pass++) {
+        double *v = pass ? lead_kept : lead_all;
+        long n = pass ? kept : seen;
+        if (n <= 0) continue;
+        qsort(v, (size_t)n, sizeof(double), cmp_double);
+        long ge2 = 0, ge4 = 0;
+        for (long i = 0; i < n; i++) { if (v[i] >= 2.0) ge2++; if (v[i] >= 4.0) ge4++; }
+        double med = n & 1 ? v[n / 2] : 0.5 * (v[n / 2 - 1] + v[n / 2]);
+        printf("      fresh lead of the stored move over candidate 0, %s (%ld): median %.2f, share >= 2: %.0f%%, share >= 4: %.0f%%\n",
+               pass ? "confirmed set" : "all corrections", n, med, 100.0 * ge2 / n, 100.0 * ge4 / n);
+    }
+    if (refmis || notfound)
+        printf("      NOTE: recomputed reference != fresh candidate 0 on %ld corrections; stored move absent from the fresh candidates on %ld\n",
+               refmis, notfound);
+    printf("      wrote %llu of %llu samples to %s\n",
+           (unsigned long long)written, (unsigned long long)cnt, outp);
+    free(lead_all); free(lead_kept);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     const char *netpath = "data/best.bin", *outpath = "data/corr.smp";
     const char *beliefpath = NULL;
     const char *filter_in = NULL, *filter_out = NULL, *self_in = NULL, *self_out = NULL;
+    const char *confirm_in = NULL, *confirm_out = NULL;
     int games = 200, nthread = 4, dets = 256, dup = 4, solvedeck = 0, sym = 0;
-    float selk = 0.0f, pfloor = 0.0f;
+    float selk = 0.0f, pfloor = 0.0f, cfloor = 2.0f;
     const char *logpath = NULL;
     uint64_t seed = 20260729;
     for (int i = 1; i < argc; i++) {
@@ -463,7 +632,11 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--log") && i + 1 < argc) logpath = argv[++i];
         else if (!strcmp(argv[i], "--filter") && i + 2 < argc) { filter_in = argv[++i]; filter_out = argv[++i]; }
         else if (!strcmp(argv[i], "--selftarget") && i + 2 < argc) { self_in = argv[++i]; self_out = argv[++i]; }
-        else { fprintf(stderr, "usage: %s [--net N] [--out F] [--games G] [--threads T] [--dets D] [--dup K]\n", argv[0]); return 1; }
+        else if (!strcmp(argv[i], "--confirm") && i + 2 < argc) { confirm_in = argv[++i]; confirm_out = argv[++i]; }
+        else if (!strcmp(argv[i], "--cfloor") && i + 1 < argc) cfloor = (float)atof(argv[++i]);
+        else { fprintf(stderr, "usage: %s [--net N] [--out F] [--games G] [--threads T] [--dets D] [--dup K]\n"
+                               "       [--belief B] [--selk K] [--pfloor P] [--sym] [--log F] [--solvedeck D]\n"
+                               "       [--filter IN OUT] [--selftarget IN OUT] [--confirm IN OUT [--cfloor P]]\n", argv[0]); return 1; }
     }
     Net *net = (Net *)malloc(sizeof(Net));
     if (!net || net_load(net, netpath)) { fprintf(stderr, "mine: cannot load %s\n", netpath); return 1; }
@@ -474,6 +647,17 @@ int main(int argc, char **argv)
     }
     if (filter_in) return filter_mode(net, filter_in, filter_out);
     if (self_in) return selftarget_mode(net, self_in, self_out);
+    if (confirm_in) {
+        /* the same labeler configuration the corpus was mined with */
+        Job cj;
+        memset(&cj, 0, sizeof cj);
+        cj.net = net; cj.net_b = net_b; cj.dets = dets; cj.solvedeck = solvedeck;
+        cj.selk = selk; cj.pfloor = pfloor; cj.sym = sym; cj.seed = seed;
+        cj.log = logpath ? fopen(logpath, "w") : NULL;
+        int rc = confirm_mode(&cj, cfloor, confirm_in, confirm_out);
+        if (cj.log) fclose(cj.log);
+        return rc;
+    }
 
     FILE *out = fopen(outpath, "wb");
     if (!out) { fprintf(stderr, "mine: cannot open %s\n", outpath); return 1; }
