@@ -44,3 +44,4 @@ data/belwseg*
 data/*.blx
 data/c19.bin*
 data/c20.bin*
+gmon.out
