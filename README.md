@@ -1062,6 +1062,50 @@ floor leaves a single candidate returns it without the world sweep.
 None of these changes a decision; all of them shorten every gate,
 mining run and review game.
 
+**Upgrade panel 2 (2026-09-04) and what it found.**  A second panel
+(six subsystem analysts, every proposal attacked by a record-checker
+and a gain-skeptic; plan and full critique record in
+`data/probes/upgrade_panel2_2026-09-04.md`) ranked the remaining work.
+Its first findings are about the corrections loop itself:
+
+*The gen-6 corrections were mostly noise.*  A gated, estimator-matched
+labeler (`mine --selk 1.0 --pfloor 4 --sym`: the deployed selection rule
+with exact symmetrization and the calibrated sampler) showed that the
+median gen-6-style correction led the policy top by 0.77 paired SE at
+256 worlds -- only 40% cleared one SE -- and the new deal-keyed holdout
+in the trainer (`--holdout`) showed the held-out correction
+cross-entropy on that corpus was minimal BEFORE training and only rose;
+the fine-tunes had memorized, and the per-iteration arena max was
+picking among memorization noise.  A second effect compounds it:
+selecting the best of five noisy candidates inflates the winner's
+lead (median 5.7 points as labeled, 3.7 on an independent world
+batch), so every gen-7 correction is now re-labeled independently and
+kept only if the fresh run makes the same gated choice with a lead of
+at least 2 points (`mine --confirm`; 678 of 1,405 survive).  On that
+corpus the held-out correction CE falls monotonically (1.754 -> 1.551
+over 8 iterations) -- the first corrections corpus with measurable
+generalizable signal since c17.  Record:
+`data/probes/gen7_labeler_2026-09-04.txt`.
+
+*Distillation on the agent's own play distribution* was built and
+killed at its pre-test (50% of its qualifiers flip on a fresh batch
+against a 35% rule; `data/probes/distill_2026-09-04.txt`).
+
+*The endgame is a turn-arithmetic problem, partly beyond the search.*
+`tools/parityprobe` scores the raw policy and the deployed search agent
+against the exact solver at deck <= 5 (`data/probes/turnfeat_2026-09-04.txt`):
+the policy's error concentrates where it holds more playable cards
+than turns left (15.1% vs 4.7%) and above all in stall decisions --
+taking an unplayable pile card to flip who draws last, wanted in 15% of
+even-deck endgames, missed about half the time at ~7 points each, and
+shown genuine by re-solving under random deck orders (96.5% robust).
+Play-time search fixes deck <= 2 and the robust stalls but not deck
+3-5, where the turn-pressure bucket stays 2.3x worse after search.  A
+36-row turn-arithmetic feature block now exists behind a
+function-preserving loader (older files replay byte-identically); its
+value is decided by a frozen-vs-trainable held-out ablation before any
+gate.
+
 *Candidates are the policy's plays, nothing else* (2026-09-04): the
 reviewer found the review games still evaluating pile-draw variants of
 the top play.  Two mechanisms were responsible.  The advisory display
