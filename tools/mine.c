@@ -283,6 +283,19 @@ static void *worker(void *arg)
                                      CARD_SUIT(lm.card) == CARD_SUIT(fmv[top].card));
                     int agree = same_card && lm.discard == fmv[top].discard &&
                                 lm.draw == fmv[top].draw;
+                    /* with a symmetrized labeler the reference is ITS candidate 0
+                     * (the symmetrized policy top after dedup and pruning), not
+                     * the raw argmax: a label that merely restates the
+                     * symmetrized top is a confirmation, not a search-driven
+                     * correction (measured: 24% of the ungated corrections
+                     * carried a zero lead for exactly this reason) */
+                    if (j->sym && ss.n >= 1) {
+                        Move c0 = ss.mv[0];
+                        int sc = lm.card == c0.card ||
+                                 (CARD_IS_WAGER(lm.card) && CARD_IS_WAGER(c0.card) &&
+                                  CARD_SUIT(lm.card) == CARD_SUIT(c0.card));
+                        agree = sc && lm.discard == c0.discard && lm.draw == c0.draw;
+                    }
                     /* paired lead of the labeled move over the policy top,
                      * from the labeler's own stats (candidate 0 is the
                      * policy top after dedup and pruning) */
