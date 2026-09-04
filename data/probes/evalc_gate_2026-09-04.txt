@@ -1,0 +1,35 @@
+Candidate set = the policy's above-floor top moves, nothing else
+2026-09-04, declared before any game.
+
+Reviewer directive (2026-09-04): the search must not spend playouts on
+pile-draw variants of the top play that the policy did not rank; only
+the top policy plays are evaluated.  Two mechanisms were still doing
+it in the review games (fs12, 3 games, 137 searched plies):
+  1. the ANALYSIS (advisory display) string kept draw_filter=0, so the
+     two top-prior actions were expanded over every legal pile draw:
+     draw variants of the top action on 84 of 137 advisory lists.
+  2. eval_cand=4 in every string: when the 2% floor leaves fewer than
+     four candidates, the next policy moves BELOW the floor are added as
+     advisory candidates (a full dets x playout sweep each; reachable
+     only through the 3-SE/4-point override).  At play time those are
+     mostly draw variants of the top play at 1-2% prior (e.g. ply 34 of
+     game 909200: "W9 play, draw R" at 0.015 evaluated beside three
+     above-floor candidates).
+Change: eval_cand 4 -> 0 in all strings (field 8) and draw_filter 2 in
+the analysis string (field 22).  The evaluated set is then exactly the
+policy's top root_width (5) moves at or above the 2% floor.  Draw
+variants can still appear when the policy itself ranks them there
+(they are policy plays by definition).  The override fields (ovk 3,
+ovmin 4) stay in the string; with no advisory candidates they never
+fire.
+Strings:
+  TOURNAMENT: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120
+  REVIEW:     rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120
+  ANALYSIS:   rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:0:0:0:0:1:3:4:0:0:0:0:0:0:0:0:0:2:0:120:1:120
+Gate O (strength read of the directive, 800 games, seeds 5500-5579):
+  A: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120
+  B: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120
+Rule: the directive stands regardless (reviewer's call); the gate is
+reported with its CI and the wall-clock saving.  A result below 49.5%
+is reported as the cost of the directive, not reverted silently.
+Gate O result: pending
