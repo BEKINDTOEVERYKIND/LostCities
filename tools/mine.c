@@ -195,10 +195,13 @@ typedef struct {
     const Net *net;
     const Net *net_b;   /* optional belief specialist for labeler worlds */
     int games, thread, nthread, dets, dup, solvedeck;
+    float selk;         /* labeler selection gate (0 = ungated argmax) */
+    float pfloor;       /* a correction must lead the policy top by this many points */
+    int sym;            /* estimator-matched labeler: sym_k/sym_bel 120, calibrated sampler */
     uint64_t seed;
-    FILE *out;
+    FILE *out, *log;
     pthread_mutex_t *lk;
-    long flagged, corrected, plies, written;
+    long flagged, corrected, hedged, plies, written;
     long bycls[9];
 } Job;
 
@@ -227,6 +230,12 @@ static void *worker(void *arg)
      * or it falls back to search immediately) */
     lab.solve_deck = j->solvedeck;
     lab.solve_vote = j->solvedeck > 0;
+    /* gen-7 labeler (panel 2, rank 3): the label is the move the deployed
+     * selection rule would play -- the sel_k paired-SE gate protects the
+     * policy top, priors and beliefs are exactly symmetrized and worlds
+     * come from the calibrated sampler, as in the match spec */
+    lab.sel_k = j->selk;
+    if (j->sym) { lab.sym_k = 120; lab.sym_bel = 120; lab.bel_samp = 1; }
 
     Features f;
     for (int g = j->thread; g < j->games; g += j->nthread) {
@@ -274,11 +283,27 @@ static void *worker(void *arg)
                                      CARD_SUIT(lm.card) == CARD_SUIT(fmv[top].card));
                     int agree = same_card && lm.discard == fmv[top].discard &&
                                 lm.draw == fmv[top].draw;
+                    /* paired lead of the labeled move over the policy top,
+                     * from the labeler's own stats (candidate 0 is the
+                     * policy top after dedup and pruning) */
+                    double dm = 0.0, dse = 0.0;
+                    int kc = -1, k0 = 0;
+                    for (int c = 0; c < ss.n; c++) {
+                        if (ss.mv[c].card == lm.card && ss.mv[c].discard == lm.discard && ss.mv[c].draw == lm.draw) kc = c;
+                    }
+                    if (kc >= 0) { dm = ss.q[kc] - ss.q[k0]; dse = ss.se[kc] > ss.se[k0] ? ss.se[kc] : ss.se[k0]; }
+                    int hedge = !agree && j->pfloor > 0.0f && dm < j->pfloor;
+                    if (j->log) {
+                        pthread_mutex_lock(j->lk);
+                        fprintf(j->log, "%d %d %d %d %.2f %.2f %d\n", (int)st.nply, (int)st.deck_left, cls, agree ? 1 : (hedge ? 2 : 0), dm, dse, ss.n);
+                        pthread_mutex_unlock(j->lk);
+                    }
+                    if (hedge) j->hedged++;
                     /* corrections AND confirmations: the same flagged state
                      * where the search agrees with the policy is the
                      * counterweight that keeps a class from becoming a
                      * direction */
-                    {
+                    if (!hedge) {
                         if (!agree) {
                             j->corrected++;
                             for (int b = 0; b < 9; b++) if (cls & (1 << b)) j->bycls[b]++;
@@ -405,7 +430,9 @@ int main(int argc, char **argv)
     const char *netpath = "data/best.bin", *outpath = "data/corr.smp";
     const char *beliefpath = NULL;
     const char *filter_in = NULL, *filter_out = NULL, *self_in = NULL, *self_out = NULL;
-    int games = 200, nthread = 4, dets = 256, dup = 4, solvedeck = 0;
+    int games = 200, nthread = 4, dets = 256, dup = 4, solvedeck = 0, sym = 0;
+    float selk = 0.0f, pfloor = 0.0f;
+    const char *logpath = NULL;
     uint64_t seed = 20260729;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--net") && i + 1 < argc) netpath = argv[++i];
@@ -417,6 +444,10 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], NULL, 10);
         else if (!strcmp(argv[i], "--solvedeck") && i + 1 < argc) solvedeck = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--belief") && i + 1 < argc) beliefpath = argv[++i];
+        else if (!strcmp(argv[i], "--selk") && i + 1 < argc) selk = (float)atof(argv[++i]);
+        else if (!strcmp(argv[i], "--pfloor") && i + 1 < argc) pfloor = (float)atof(argv[++i]);
+        else if (!strcmp(argv[i], "--sym")) sym = 1;
+        else if (!strcmp(argv[i], "--log") && i + 1 < argc) logpath = argv[++i];
         else if (!strcmp(argv[i], "--filter") && i + 2 < argc) { filter_in = argv[++i]; filter_out = argv[++i]; }
         else if (!strcmp(argv[i], "--selftarget") && i + 2 < argc) { self_in = argv[++i]; self_out = argv[++i]; }
         else { fprintf(stderr, "usage: %s [--net N] [--out F] [--games G] [--threads T] [--dets D] [--dup K]\n", argv[0]); return 1; }
@@ -438,6 +469,7 @@ int main(int argc, char **argv)
     fwrite(h, sizeof h, 1, out);
     fwrite(&count, sizeof count, 1, out);
 
+    FILE *logf = logpath ? fopen(logpath, "w") : NULL;
     pthread_mutex_t lk = PTHREAD_MUTEX_INITIALIZER;
     Job jobs[64];
     pthread_t th[64];
@@ -448,6 +480,7 @@ int main(int argc, char **argv)
         jobs[i].games = games; jobs[i].thread = i;
         jobs[i].nthread = nthread; jobs[i].dets = dets; jobs[i].dup = dup;
         jobs[i].solvedeck = solvedeck;
+        jobs[i].selk = selk; jobs[i].pfloor = pfloor; jobs[i].sym = sym; jobs[i].log = logf;
         jobs[i].seed = seed; jobs[i].out = out; jobs[i].lk = &lk;
         pthread_create(&th[i], NULL, worker, &jobs[i]);
     }
@@ -463,8 +496,10 @@ int main(int argc, char **argv)
     fseek(out, sizeof h, SEEK_SET);
     fwrite(&count, sizeof count, 1, out);
     fclose(out);
-    printf("mine: %d games, %ld plies, %ld flagged (%.1f%%), %ld corrected (%.1f%% of flagged)\n",
-           games, pl, fl, 100.0 * fl / (pl ? pl : 1), co, 100.0 * co / (fl ? fl : 1));
+    long hd = 0;
+    for (int i = 0; i < nthread; i++) hd += jobs[i].hedged;
+    printf("mine: %d games, %ld plies, %ld flagged (%.1f%%), %ld corrected (%.1f%% of flagged), %ld hedged (gated lead under the points floor, not written)\n",
+           games, pl, fl, 100.0 * fl / (pl ? pl : 1), co, 100.0 * co / (fl ? fl : 1), hd);
     printf("      by class: skip %ld, pile-refusal %ld, stall %ld, burial %ld, hedge %ld, misorder %ld, deckburn %ld, wclutch %ld, gift %ld\n",
            bc[0], bc[1], bc[2], bc[3], bc[4], bc[5], bc[6], bc[7], bc[8]);
     printf("      wrote %llu samples (dup %d) to %s\n",
