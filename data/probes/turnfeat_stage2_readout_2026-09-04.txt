@@ -1,0 +1,83 @@
+== F seed 1  (/tmp/claude-0/-home-user-LostCities/a6899ed3-62e1-5e6d-b08d-0674a82a78fa/scratchpad/stage2/F_s1.log)
+  it   corr ce  top1%    n  | rest ce  ||  corr   deck<=8  deck 9-14    deck>14
+   0    1.754    0.0    698 |  1.294  ||        1.998   1.547   1.622
+   1    1.697   11.9    698 |  1.291  ||        1.917   1.462   1.598
+   2    1.690   13.3    698 |  1.292  ||        1.907   1.450   1.597
+   3    1.686   14.5    698 |  1.293  ||        1.902   1.443   1.596
+   4    1.679   15.2    698 |  1.293  ||        1.889   1.432   1.595
+   5    1.678   15.3    698 |  1.293  ||        1.888   1.431   1.594
+   6    1.674   17.5    698 |  1.294  ||        1.881   1.427   1.593
+   7    1.669   18.5    698 |  1.294  ||        1.876   1.424   1.588
+   8    1.666   18.9    698 |  1.294  ||        1.872   1.418   1.587
+  min held-out corr ce 1.666 at it8 (it0 1.754, delta -0.088) | at that it: deck<=8 1.872 (n=272), deck 9-14 1.418 (n=132), deck>14 1.587 (n=294) | per-bucket minima: deck<=8 1.872@it8, deck 9-14 1.418@it8, deck>14 1.587@it8
+== F seed 2  (/tmp/claude-0/-home-user-LostCities/a6899ed3-62e1-5e6d-b08d-0674a82a78fa/scratchpad/stage2/F_s2.log)
+  it   corr ce  top1%    n  | rest ce  ||  corr   deck<=8  deck 9-14    deck>14
+   0    1.754    0.0    698 |  1.294  ||        1.998   1.547   1.622
+   1    1.699   11.9    698 |  1.291  ||        1.922   1.459   1.601
+   2    1.691   14.0    698 |  1.292  ||        1.911   1.448   1.597
+   3    1.683   14.8    698 |  1.293  ||        1.899   1.437   1.595
+   4    1.677   16.3    698 |  1.293  ||        1.888   1.431   1.593
+   5    1.676   16.8    698 |  1.293  ||        1.884   1.425   1.595
+   6    1.672   16.9    698 |  1.294  ||        1.885   1.420   1.590
+   7    1.667   18.8    698 |  1.294  ||        1.872   1.417   1.590
+   8    1.664   18.9    698 |  1.294  ||        1.868   1.415   1.586
+  min held-out corr ce 1.664 at it8 (it0 1.754, delta -0.090) | at that it: deck<=8 1.868 (n=272), deck 9-14 1.415 (n=132), deck>14 1.586 (n=294) | per-bucket minima: deck<=8 1.868@it8, deck 9-14 1.415@it8, deck>14 1.586@it8
+== F seed 3  (/tmp/claude-0/-home-user-LostCities/a6899ed3-62e1-5e6d-b08d-0674a82a78fa/scratchpad/stage2/F_s3.log)
+  it   corr ce  top1%    n  | rest ce  ||  corr   deck<=8  deck 9-14    deck>14
+   0    1.754    0.0    698 |  1.294  ||        1.998   1.547   1.622
+   1    1.699   11.7    698 |  1.291  ||        1.925   1.460   1.599
+   2    1.687   13.8    698 |  1.292  ||        1.908   1.443   1.592
+   3    1.682   14.8    698 |  1.293  ||        1.896   1.436   1.595
+   4    1.677   14.9    698 |  1.293  ||        1.884   1.430   1.596
+   5    1.673   15.8    698 |  1.293  ||        1.883   1.426   1.591
+   6    1.671   15.9    698 |  1.294  ||        1.879   1.421   1.591
+   7    1.669   18.5    698 |  1.294  ||        1.877   1.418   1.589
+   8    1.664   19.1    698 |  1.294  ||        1.868   1.414   1.588
+  min held-out corr ce 1.664 at it8 (it0 1.754, delta -0.090) | at that it: deck<=8 1.868 (n=272), deck 9-14 1.414 (n=132), deck>14 1.588 (n=294) | per-bucket minima: deck<=8 1.868@it8, deck 9-14 1.414@it8, deck>14 1.588@it8
+== Z seed 1  (/tmp/claude-0/-home-user-LostCities/a6899ed3-62e1-5e6d-b08d-0674a82a78fa/scratchpad/stage2/Z_s1.log)
+  it   corr ce  top1%    n  | rest ce  ||  corr   deck<=8  deck 9-14    deck>14
+   0    1.754    0.0    698 |  1.294  ||        1.998   1.547   1.622
+   1    1.724    7.6    698 |  1.290  ||        1.973   1.483   1.603
+   2    1.718    9.5    698 |  1.290  ||        1.965   1.471   1.599
+   3    1.713   10.3    698 |  1.290  ||        1.960   1.462   1.597
+   4    1.707   11.0    698 |  1.290  ||        1.951   1.454   1.595
+   5    1.705   11.7    698 |  1.290  ||        1.949   1.451   1.593
+   6    1.703   11.9    698 |  1.290  ||        1.946   1.448   1.593
+   7    1.701   11.7    698 |  1.290  ||        1.942   1.447   1.590
+   8    1.699   12.0    698 |  1.290  ||        1.942   1.444   1.589
+  min held-out corr ce 1.699 at it8 (it0 1.754, delta -0.055) | at that it: deck<=8 1.942 (n=272), deck 9-14 1.444 (n=132), deck>14 1.589 (n=294) | per-bucket minima: deck<=8 1.942@it7, deck 9-14 1.444@it8, deck>14 1.589@it8
+== Z seed 2  (/tmp/claude-0/-home-user-LostCities/a6899ed3-62e1-5e6d-b08d-0674a82a78fa/scratchpad/stage2/Z_s2.log)
+  it   corr ce  top1%    n  | rest ce  ||  corr   deck<=8  deck 9-14    deck>14
+   0    1.754    0.0    698 |  1.294  ||        1.998   1.547   1.622
+   1    1.725    7.3    698 |  1.290  ||        1.974   1.484   1.604
+   2    1.719    9.0    698 |  1.290  ||        1.966   1.471   1.601
+   3    1.712   10.6    698 |  1.290  ||        1.956   1.462   1.598
+   4    1.707   11.3    698 |  1.290  ||        1.949   1.456   1.595
+   5    1.705   11.7    698 |  1.290  ||        1.947   1.451   1.594
+   6    1.704   11.3    698 |  1.290  ||        1.949   1.447   1.593
+   7    1.700   11.5    698 |  1.290  ||        1.941   1.445   1.592
+   8    1.697   11.9    698 |  1.290  ||        1.938   1.442   1.589
+  min held-out corr ce 1.697 at it8 (it0 1.754, delta -0.057) | at that it: deck<=8 1.938 (n=272), deck 9-14 1.442 (n=132), deck>14 1.589 (n=294) | per-bucket minima: deck<=8 1.938@it8, deck 9-14 1.442@it8, deck>14 1.589@it8
+== Z seed 3  (/tmp/claude-0/-home-user-LostCities/a6899ed3-62e1-5e6d-b08d-0674a82a78fa/scratchpad/stage2/Z_s3.log)
+  it   corr ce  top1%    n  | rest ce  ||  corr   deck<=8  deck 9-14    deck>14
+   0    1.754    0.0    698 |  1.294  ||        1.998   1.547   1.622
+   1    1.725    8.0    698 |  1.290  ||        1.975   1.484   1.603
+   2    1.715    9.3    698 |  1.290  ||        1.960   1.468   1.599
+   3    1.712   10.5    698 |  1.290  ||        1.958   1.459   1.598
+   4    1.707   11.3    698 |  1.290  ||        1.949   1.455   1.597
+   5    1.706   11.6    698 |  1.290  ||        1.949   1.452   1.594
+   6    1.703   11.5    698 |  1.290  ||        1.948   1.447   1.592
+   7    1.700   11.6    698 |  1.290  ||        1.945   1.444   1.590
+   8    1.698   11.6    698 |  1.290  ||        1.939   1.442   1.589
+  min held-out corr ce 1.698 at it8 (it0 1.754, delta -0.056) | at that it: deck<=8 1.939 (n=272), deck 9-14 1.442 (n=132), deck>14 1.589 (n=294) | per-bucket minima: deck<=8 1.939@it8, deck 9-14 1.442@it8, deck>14 1.589@it8
+
+== per arm (over seeds): mean [min, max] (n)
+  F: min_ce 1.665 [1.664, 1.666] (3) | at_min_deck<=8 1.869 [1.868, 1.872] (3) | at_min_deck 9-14 1.416 [1.414, 1.418] (3) | at_min_deck>14 1.587 [1.586, 1.588] (3) | min_deck<=8 1.869 [1.868, 1.872] (3) | min_deck 9-14 1.416 [1.414, 1.418] (3) | min_deck>14 1.587 [1.586, 1.588] (3)
+  Z: min_ce 1.698 [1.697, 1.699] (3) | at_min_deck<=8 1.940 [1.938, 1.942] (3) | at_min_deck 9-14 1.443 [1.442, 1.444] (3) | at_min_deck>14 1.589 [1.589, 1.589] (3) | min_deck<=8 1.940 [1.938, 1.942] (3) | min_deck 9-14 1.443 [1.442, 1.444] (3) | min_deck>14 1.589 [1.589, 1.589] (3)
+
+== F vs Z (protocol: F must beat Z on deck<=8 by more than the seed spread and not lose on deck>14)
+  overall min corr ce         : F 1.665 [1.664,1.666]  Z 1.698 [1.697,1.699]  gain (Z-F) +0.033  seed spread 0.002  -> F better by more than the spread
+  deck<=8 at the overall min  : F 1.869 [1.868,1.872]  Z 1.940 [1.938,1.942]  gain (Z-F) +0.070  seed spread 0.004  -> F better by more than the spread
+  deck<=8 per-bucket min      : F 1.869 [1.868,1.872]  Z 1.940 [1.938,1.942]  gain (Z-F) +0.070  seed spread 0.004  -> F better by more than the spread
+  deck>14 at the overall min  : F 1.587 [1.586,1.588]  Z 1.589 [1.589,1.589]  gain (Z-F) +0.002  seed spread 0.002  -> F better, within the spread
+  deck>14 per-bucket min      : F 1.587 [1.586,1.588]  Z 1.589 [1.589,1.589]  gain (Z-F) +0.002  seed spread 0.002  -> F better, within the spread

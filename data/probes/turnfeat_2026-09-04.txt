@@ -89,4 +89,26 @@ data/probes/turnfeat_stage2_cmds.sh; readout tools/turnfeat_readout.py.
 Proceed to the raw arena / Gate S ladder only if F beats Z on the
 deck <= 8 held-out correction CE by more than the 3-seed spread and does
 not lose on deck > 14.  Runs after the gen-7 chain releases the box.
-Stage 2 ablation result: pending
+Stage 2 ablation result (3 seeds each, corr21a = anchor + confirmed
+gen-7 corrections, 10% deal-keyed holdout, base lr 2e-6 with the new
+rows at 1e-4 in F and frozen in Z; full readout in
+data/probes/turnfeat_stage2_readout_2026-09-04.txt):
+  overall held-out correction CE at the minimum: F 1.665 [1.664,1.666]
+    vs Z 1.698 [1.697,1.699] -- gain 0.033, seed spread 0.002
+  deck <= 8: F 1.869 [1.868,1.872] vs Z 1.940 [1.938,1.942] -- gain
+    0.070, spread 0.004 (17x the spread)
+  deck 9-14: F 1.416 vs Z 1.443; deck > 14: F 1.587 vs Z 1.589 (within
+    the spread, not worse)
+  Verdict: PASS on every declared prong.  The turn-arithmetic rows carry
+  information the trunk could not recover from the existing planes.
+Stage 3 (declared before running): full fine-tune of the v6 net from
+c20 on corr21a with the standard recipe (all rows at lr 1e-4, 16
+iterations, --holdout 0.1 --holdout-buckets, seed 20260908; checkpoint
+= held-out correction CE minimum) -> data/c21f_cand.bin; raw arenas
+(1000 games): vs policy:data/best.bin (seed 5793) and, for the
+feature-only effect, vs policy:data/c21_cand.bin (the same corpus
+without the rows; seed 5794).  >= 54% vs c20 -> Gate S: 800 games,
+seeds 5900-5949 (50 chunks of 8 paired deals), candidate as main net
+in the tournament string vs standing; >= 52% adopt (best.bin becomes
+a v6 file: tools/referee.py and web/play.html ported first).
+Stage 3 result: pending
