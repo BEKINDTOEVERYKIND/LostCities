@@ -1065,7 +1065,13 @@ policy's top five moves at or above the floor.  Draw variants can
 still appear when the policy itself ranks them there.  Declared with
 Gate O (800 games, new vs old string) in
 `data/probes/evalc_gate_2026-09-04.txt`: **412/386/2  score 51.62% +/- 3.46 (95% CI)**, paired margin +2.53 +/- 1.43 pts/game -- the
-directive costs nothing measurable and leans positive.
+directive costs nothing measurable and leans positive.  The stricter
+reading -- candidates are ACTIONS, each searched with the policy's
+preferred draw source (`draw_filter` 3, built and gated as Gate P) --
+measured **50.25% +/- 3.46, paired margin -1.78 +/- 1.41**: wins at
+parity, points given up -- the draw-source comparison among
+policy-ranked variants was earning its keep, so the joint top-5 stands and `draw_filter` 3 remains a
+documented mode.
 
 *Calibrated belief sampling* (`bel_samp`, field 26): the panel's critics
 reproduced a real defect -- Gumbel-top-k on the belief logits is a
