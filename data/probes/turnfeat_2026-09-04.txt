@@ -37,4 +37,33 @@ endgame errors the block's payoff is only through playouts and labels;
 Stage 2 (conditional on 1b): function-preserving v6 feature loader +
 F (rows trainable) vs Z (rows frozen) anchored fine-tunes with the
 held-out correction CE; then the standard raw arena / Gate S ladder.
-Stage 1b result: pending
+Stage 1b results (tools/parityprobe -A <tournament string> -P 8; full
+tables in data/probes/parity_agent_2026-09-04.txt):
+  (b) stall labels are genuine turn arithmetic: of 141 deck<=3 states
+      whose solver-best is a pure stall, 136 (96.5%) keep the stall
+      optimal under >= 6 of 8 random reorderings of the undrawn deck
+      (deck 2: 113/113 under both orders).  Raw policy error on that
+      robust set 41.9% +/- 4.2 (5.4 pts per miss); the deployed search
+      agent 9.6% +/- 2.5.
+  (a) the deployed search agent on the identical states (2,571):
+      error 6.3% vs the raw policy's 9.9% (paired +3.5 +/- 0.5); it
+      fixes deck <= 2 (1.0% / 2.4% residual) and the robust stalls, but
+      NOT deck 3-5 (12.2% -> 11.1%, within noise), and the turn-pressure
+      bucket stays elevated after search: 7.9% +/- 0.7 vs 3.4% +/- 0.6
+      (6.9 bucket SE).  Residual perfect-information loss after search:
+      ~1.0 pt per decision at deck 3-5 vs 0.16 at deck <= 2 (an upper
+      bound: the solver also knows the hidden hand).  Mechanism note:
+      with the policy-only candidate set a stall the policy does not
+      rank in its top five cannot be found by the search; the gen-7
+      labeler (eval_cand 4, draw expansion on) can, so gen-7 corrections
+      at deck <= 8 -- 69% of which survive confirmation -- are the
+      training signal for exactly these states.
+Verdict: stage 2 proceeds.  The block: mover/opponent turns_left,
+nplay, nplay - turns_left, who-draws-last-if-I-stall (per-suit rows
+permute with the suit relabeling so augmentation and exact
+symmetrization stay exact); function-preserving v6 loader (new rows
+zero, byte-identical replay); F (rows trainable) vs Z (rows frozen)
+anchored fine-tunes with the held-out correction CE; the standard raw
+arena / Gate S ladder only if F beats Z on deck <= 8 held-out CE by
+more than the seed spread without losing on deck > 14.
+Stage 2 result: pending

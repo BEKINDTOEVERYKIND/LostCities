@@ -27,6 +27,17 @@
  *
  *   parityprobe [-n NET] [-g GAMES] [-s SEED] [-d MAXDECK] [-b NODES]
  *               [-T CPUSECS] [-m] [-v] [-D]
+ *   -A SPEC: also play each included state with the deployed search agent
+ *       (spec_parse) and score its move against the same solver labels;
+ *       -G N solves deck 4-5 states only in the first N games (cost cap),
+ *       -x pA -y pB include A / B states with these probabilities
+ *       (solver-best=pile states are always included), -S seed2 drives
+ *       inclusion, the agent and permutations (the self-play RNG is
+ *       untouched, so the states are the main run's).
+ *   -P K: for deck<=3 states whose solver-best is a pure stall, re-solve
+ *       under K random permutations of the undrawn deck (hands fixed) and
+ *       under all d! orders; lenient = the same stall stays value-equal to
+ *       V*, strict = the re-solved PV is still a pure stall.
  *   -D: dump one line per solved state:
  *       S game round ply deck odd nplay turns A err loss best_pile best_stall ptop top_stall vstar vtop pv_agree
  *   -b: per-state node budget (all solves of one state); default
@@ -35,6 +46,8 @@
  */
 #include "../src/lc.h"
 #include "../src/net.h"
+#include "../src/agent.h"
+#include "../src/spec.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -110,6 +123,37 @@ static void bcompare(const char *label, const Bucket *a, const Bucket *b)
            a->n ? a->loss / (double)a->n : 0.0, b->n ? b->loss / (double)b->n : 0.0);
 }
 
+typedef struct {
+    const char *name;
+    long n, er, ea, e2r, e2a, changed;
+    double lr, la, sd, sd2, ld, ld2;
+} PBucket;
+static void padd(PBucket *b, int er, int lr, int ea, int la, int changed)
+{
+    b->n++; b->er += er; b->ea += ea; b->e2r += lr >= 2; b->e2a += la >= 2;
+    b->lr += lr; b->la += la; b->changed += changed;
+    double d = (double)er - (double)ea; b->sd += d; b->sd2 += d * d;
+    double dl = (double)lr - (double)la; b->ld += dl; b->ld2 += dl * dl;
+}
+static double prate(long e, long n) { return n ? (double)e / (double)n : 0.0; }
+static double pse(long e, long n) { double p = prate(e, n); return n ? sqrt(p * (1 - p) / (double)n) : 0.0; }
+static double paired_se(double sd, double sd2, long n)
+{
+    if (n < 2) return 0.0;
+    double var = (sd2 - sd * sd / (double)n) / (double)(n - 1);
+    return var > 0 ? sqrt(var / (double)n) : 0.0;
+}
+static void pprint(const PBucket *b)
+{
+    printf("  %-24s %5ld  %6.2f%% +/- %5.2f  %6.2f%% +/- %5.2f  %+6.2f +/- %5.2f  %6.3f %6.3f  %+6.3f +/- %5.3f  %5.1f%%  %5.1f%%  %5.1f%%\n",
+           b->name, b->n, 100 * prate(b->er, b->n), 100 * pse(b->er, b->n),
+           100 * prate(b->ea, b->n), 100 * pse(b->ea, b->n),
+           100 * (b->n ? b->sd / (double)b->n : 0.0), 100 * paired_se(b->sd, b->sd2, b->n),
+           b->n ? b->lr / (double)b->n : 0.0, b->n ? b->la / (double)b->n : 0.0,
+           b->n ? b->ld / (double)b->n : 0.0, paired_se(b->ld, b->ld2, b->n),
+           100 * prate(b->e2r, b->n), 100 * prate(b->e2a, b->n), 100 * prate(b->changed, b->n));
+}
+
 static int same_action(Move a, Move b)
 {
     int sc = a.card == b.card ||
@@ -130,12 +174,55 @@ static int is_stall(const State *st, Move m)
     return !playable;
 }
 
+/* Solve st with the undrawn deck reordered by perm (indices into the
+ * remaining slice); returns 1 if the stall move keeps value-equal to V*
+ * (lenient), sets *strict if the re-solved PV is itself a pure stall,
+ * -1 on budget exhaustion. */
+static int stall_under_order(const State *st, Move sbest, const int *perm, long budget_cfg, int *strict)
+{
+    State s = *st;
+    int d = st->deck_left, p = st->turn;
+    for (int i = 0; i < d; i++) s.deck[st->deck_pos + i] = st->deck[st->deck_pos + perm[i]];
+    long b = budget_cfg;
+    Move pv;
+    int v = lc_solve_root(&s, &b, &pv);
+    if (b <= 0) return -1;
+    *strict = is_stall(&s, pv);
+    if (same_action(pv, sbest)) return 1;
+    State c = s;
+    lc_apply(&c, sbest);
+    int vs = lc_solve_budget(&c, p, &b);
+    if (b <= 0) return -1;
+    return vs >= v;
+}
+/* Heap's algorithm over n <= 5 elements, calling fn per order */
+static void all_orders(int n, int *a, int k, const State *st, Move sbest, long budget_cfg,
+                       int *nopt, int *nstrict, int *nexh, int *ntot)
+{
+    if (k == 1) {
+        int strict = 0;
+        int r = stall_under_order(st, sbest, a, budget_cfg, &strict);
+        (*ntot)++;
+        if (r < 0) (*nexh)++; else { *nopt += r; *nstrict += strict; }
+        return;
+    }
+    all_orders(n, a, k - 1, st, sbest, budget_cfg, nopt, nstrict, nexh, ntot);
+    for (int i = 0; i < k - 1; i++) {
+        int j = (k & 1) ? 0 : i;
+        int t = a[j]; a[j] = a[k - 1]; a[k - 1] = t;
+        all_orders(n, a, k - 1, st, sbest, budget_cfg, nopt, nstrict, nexh, ntot);
+    }
+}
+
 static double cpu_secs(void) { return (double)clock() / (double)CLOCKS_PER_SEC; }
 
 int main(int argc, char **argv)
 {
     const char *netpath = "data/best.bin";
-    int games = 400, maxdeck = 5, verbose = 0, permove = 0, dump = 0;
+    int games = 400, maxdeck = 5, verbose = 0, permove = 0, dump = 0, g45 = -1, nperm = 0;
+    const char *agspec = NULL;
+    float pA = 0.29f, pB = 0.20f;
+    uint64_t seed2 = 4242ULL;
     uint64_t seed = 20260904ULL;
     long budget_cfg = -1;
     double tlimit = 0.0;
@@ -149,6 +236,12 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "-m")) permove = 1;
         else if (!strcmp(argv[i], "-v")) verbose = 1;
         else if (!strcmp(argv[i], "-D")) dump = 1;   /* one line per solved state, for post-processing */
+        else if (!strcmp(argv[i], "-A") && i + 1 < argc) agspec = argv[++i];
+        else if (!strcmp(argv[i], "-G") && i + 1 < argc) g45 = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "-x") && i + 1 < argc) pA = (float)atof(argv[++i]);
+        else if (!strcmp(argv[i], "-y") && i + 1 < argc) pB = (float)atof(argv[++i]);
+        else if (!strcmp(argv[i], "-S") && i + 1 < argc) seed2 = strtoull(argv[++i], NULL, 10);
+        else if (!strcmp(argv[i], "-P") && i + 1 < argc) nperm = atoi(argv[++i]);
     }
     if (budget_cfg <= 0) {
         const char *e = getenv("LC_SOLVE_BUDGET");
@@ -157,6 +250,11 @@ int main(int argc, char **argv)
     Net *net = (Net *)malloc(sizeof(Net));
     if (net_load(net, netpath)) { fprintf(stderr, "cannot load %s\n", netpath); return 1; }
     Rng rng; rng_seed(&rng, seed);
+    Rng rng2; rng_seed(&rng2, seed2);
+    Agent ag;
+    memset(&ag, 0, sizeof ag);
+    if (agspec) spec_parse(agspec, &ag);
+    if (g45 < 0) g45 = games;
 
     enum { B_ALL, B_ODD, B_EVEN, B_A, B_B, B_ODD_A, B_ODD_B, B_EVEN_A, B_EVEN_B,
            B_PILEBEST, B_DECKBEST, B_STALLBEST, B_TOPSTALL, B_D0, B_D1, B_D2, B_D3, B_D4, B_D5, B_D6, B_D7, B_D8, NB };
@@ -175,6 +273,20 @@ int main(int argc, char **argv)
     bk[B_DECKBEST].name = "solver best: deck draw";
     bk[B_STALLBEST].name = "solver best: pure stall";
     bk[B_TOPSTALL].name = "policy top-1: pure stall";
+    enum { P_ALL, P_ODD, P_EVEN, P_A, P_B, P_PILE, P_DECK, P_STALL, P_ROB, P_NOTROB, P_ROBALL, P_D1, P_D2, P_D3, P_D4, P_D5, NP };
+    PBucket pb[NP];
+    memset(pb, 0, sizeof pb);
+    pb[P_ALL].name = "all (stratified)"; pb[P_ODD].name = "deck odd"; pb[P_EVEN].name = "deck even";
+    pb[P_A].name = "A: nplay > turns"; pb[P_B].name = "B: nplay <= turns";
+    pb[P_PILE].name = "solver best: pile draw"; pb[P_DECK].name = "solver best: deck draw";
+    pb[P_STALL].name = "solver best: pure stall";
+    pb[P_ROB].name = "stall robust (>=6/8)"; pb[P_NOTROB].name = "stall not robust";
+    pb[P_ROBALL].name = "stall optimal all d! orders";
+    pb[P_D1].name = "deck_left = 1"; pb[P_D2].name = "deck_left = 2"; pb[P_D3].name = "deck_left = 3";
+    pb[P_D4].name = "deck_left = 4"; pb[P_D5].name = "deck_left = 5";
+    long nsearched = 0, ag_exh = 0, ag_clamp = 0;
+    long nstall3 = 0, nrob = 0, nrob_strict = 0, nroball = 0, nroball_strict = 0, nrob_half = 0, perm_exh = 0, ident_fail = 0;
+    double t_agent = 0.0, t_perm = 0.0;
     static char dn[9][16];
     for (int d = 0; d <= 8; d++) { snprintf(dn[d], sizeof dn[d], "deck_left = %d", d); bk[B_D0 + d].name = dn[d]; }
 
@@ -199,7 +311,7 @@ int main(int argc, char **argv)
                 Move mv[MAX_MOVES]; float pr[MAX_MOVES];
                 int n = policy_probs(net, &st, mv, pr, NULL);
                 if (n <= 0) break;
-                if (st.deck_left <= maxdeck) {
+                if (st.deck_left <= maxdeck && (st.deck_left <= 3 || g < g45)) {
                     nseen++;
                     const int d = st.deck_left;
                     if (d <= 8) seen_d[d]++;
@@ -289,9 +401,91 @@ int main(int argc, char **argv)
                         if (stall_best) badd(&bk[B_STALLBEST], err, loss, pt, pile_best, stall_best);
                         if (top_stall) badd(&bk[B_TOPSTALL], err, loss, pt, pile_best, stall_best);
                         if (d <= 8) badd(&bk[B_D0 + d], err, loss, pt, pile_best, stall_best);
+                        /* ---- deployed search agent on the same state ---- */
+                        int included = 0, err_a = 0, loss_a = 0, changed = 0, ag_ok = 0;
+                        if (agspec) {
+                            included = pile_best || rng_float(&rng2) < (bucketA ? pA : pB);
+                            if (included) {
+                                double ta0 = cpu_secs();
+                                Move am = agent_move(&ag, &st, &rng2);
+                                t_agent += cpu_secs() - ta0;
+                                changed = !same_action(am, fmv[top]);
+                                int va = vroot;
+                                ag_ok = 1;
+                                if (!same_action(am, sbest)) {
+                                    if (same_action(am, fmv[top])) va = vtop;
+                                    else {
+                                        long b2 = budget_cfg;
+                                        State c = st;
+                                        lc_apply(&c, am);
+                                        va = lc_solve_budget(&c, p, &b2);
+                                        if (b2 <= 0) { ag_ok = 0; ag_exh++; }
+                                        else if (va > vroot) { ag_clamp++; va = vroot; }
+                                    }
+                                }
+                                if (ag_ok) {
+                                    nsearched++;
+                                    loss_a = vroot - va; err_a = loss_a > 0;
+                                    padd(&pb[P_ALL], err, loss, err_a, loss_a, changed);
+                                    padd(&pb[odd ? P_ODD : P_EVEN], err, loss, err_a, loss_a, changed);
+                                    padd(&pb[bucketA ? P_A : P_B], err, loss, err_a, loss_a, changed);
+                                    padd(&pb[pile_best ? P_PILE : P_DECK], err, loss, err_a, loss_a, changed);
+                                    if (stall_best) padd(&pb[P_STALL], err, loss, err_a, loss_a, changed);
+                                    if (d >= 1 && d <= 5) padd(&pb[P_D1 + d - 1], err, loss, err_a, loss_a, changed);
+                                }
+                            }
+                        }
+                        /* ---- stall-label robustness to deck order ---- */
+                        int nopt8 = -1, nstrict8 = 0, nopt_all = -1, nstrict_all = 0, ntot_all = 0;
+                        if (nperm > 0 && d <= 3 && stall_best) {
+                            double tp0 = cpu_secs();
+                            nstall3++;
+                            int perm[8], ex8 = 0;
+                            nopt8 = 0;
+                            for (int k = 0; k < nperm; k++) {
+                                for (int i = 0; i < d; i++) perm[i] = i;
+                                for (int i = d - 1; i > 0; i--) {
+                                    int j = (int)rng_below(&rng2, (uint32_t)i + 1);
+                                    int t = perm[i]; perm[i] = perm[j]; perm[j] = t;
+                                }
+                                int strict = 0;
+                                int r = stall_under_order(&st, sbest, perm, budget_cfg, &strict);
+                                if (r < 0) ex8++; else { nopt8 += r; nstrict8 += strict; }
+                            }
+                            perm_exh += ex8;
+                            int a[8];
+                            for (int i = 0; i < d; i++) a[i] = i;
+                            int exa = 0;
+                            nopt_all = 0;
+                            all_orders(d, a, d, &st, sbest, budget_cfg, &nopt_all, &nstrict_all, &exa, &ntot_all);
+                            perm_exh += exa;
+                            /* identity order (first of Heap's) must reproduce the label */
+                            {
+                                int ide[8], strict = 0;
+                                for (int i = 0; i < d; i++) ide[i] = i;
+                                if (stall_under_order(&st, sbest, ide, budget_cfg, &strict) != 1) ident_fail++;
+                            }
+                            int robust = nopt8 >= 6;
+                            if (robust) nrob++;
+                            if (nstrict8 >= 6) nrob_strict++;
+                            if (nopt8 * 2 >= nperm) nrob_half++;
+                            int roball = ntot_all > 0 && exa == 0 && nopt_all == ntot_all;
+                            if (roball) nroball++;
+                            if (ntot_all > 0 && exa == 0 && nstrict_all == ntot_all) nroball_strict++;
+                            if (ag_ok) {
+                                padd(&pb[robust ? P_ROB : P_NOTROB], err, loss, err_a, loss_a, changed);
+                                if (roball) padd(&pb[P_ROBALL], err, loss, err_a, loss_a, changed);
+                            }
+                            t_perm += cpu_secs() - tp0;
+                            if (dump)
+                                printf("R %d %d %d %d %d %d %d %d %d %d %d\n", g, rd, (int)st.nply, d, nopt8, nstrict8, nopt_all, nstrict_all, ntot_all,
+                                       ag_ok ? err_a : -1, err);
+                        }
                         if (dump)
                             printf("S %d %d %d %d %d %d %d %d %d %d %d %d %.3f %d %d %d %d\n", g, rd, (int)st.nply, d, odd, nplay, turns_left,
                                    bucketA, err, loss, pile_best, stall_best, pt, top_stall, vstar, vtop, agree);
+                        if (dump && included && ag_ok)
+                            printf("G %d %d %d %d %d %d %d %d\n", g, rd, (int)st.nply, d, err, loss, err_a, loss_a);
                         if (verbose && err) {
                             char b1[48], b2[48];
                             lc_move_name(&st, fmv[top], b1);
@@ -365,5 +559,24 @@ int main(int argc, char **argv)
     bcompare("solver-best pile draw vs deck", &bk[B_PILEBEST], &bk[B_DECKBEST]);
     Bucket rest_stall = bdiff(&bk[B_ALL], &bk[B_STALLBEST], "not stall-best");
     bcompare("solver-best pure stall vs rest", &bk[B_STALLBEST], &rest_stall);
+    if (agspec) {
+        printf("\nsearch agent: %s\n", agspec);
+        printf("searched %ld states (stratified: solver-best=pile always, A with p=%.2f, B with p=%.2f; deck 4-5 only in games < %d), agent CPU %.1fs (%.3f s/decision), agent child solves exhausted %ld, clamped %ld\n",
+               nsearched, pA, pB, g45, t_agent, nsearched ? t_agent / (double)nsearched : 0.0, ag_exh, ag_clamp);
+        printf("  %-24s %5s  %-17s  %-17s  %-16s  %-13s  %-16s  %s  %s  %s\n", "bucket", "N", "raw err +/- SE", "agent err +/- SE",
+               "paired diff+/-SE", "loss raw agt", "paired dloss+/-SE", "raw>=2", "agt>=2", "agt!=top1");
+        for (int i = 0; i < NP; i++) if (pb[i].n) pprint(&pb[i]);
+    }
+    if (nperm > 0) {
+        printf("\nstall-label robustness (deck<=3 states whose solver-best is a pure stall): %ld states, %d random orders each + all d! orders; permutation solves exhausted %ld; identity-order label failures %ld\n",
+               nstall3, nperm, perm_exh, ident_fail);
+        printf("  stall stays optimal in >= 6/%d random orders: %ld (%.1f%%) [lenient: same stall value-equal to V*]; re-solved PV is a pure stall in >= 6/%d: %ld (%.1f%%) [strict]\n",
+               nperm, nrob, nstall3 ? 100.0 * (double)nrob / (double)nstall3 : 0.0, nperm, nrob_strict, nstall3 ? 100.0 * (double)nrob_strict / (double)nstall3 : 0.0);
+        printf("  optimal in >= half of the random orders: %ld (%.1f%%); optimal under ALL d! orders: %ld (%.1f%%) lenient, %ld (%.1f%%) strict\n",
+               nrob_half, nstall3 ? 100.0 * (double)nrob_half / (double)nstall3 : 0.0,
+               nroball, nstall3 ? 100.0 * (double)nroball / (double)nstall3 : 0.0,
+               nroball_strict, nstall3 ? 100.0 * (double)nroball_strict / (double)nstall3 : 0.0);
+    }
+    printf("cpu total %.1fs: solver %.1fs, agent %.1fs, permutations %.1fs\n", cpu_secs() - t_cpu0, t_solve, t_agent, t_perm);
     return 0;
 }
