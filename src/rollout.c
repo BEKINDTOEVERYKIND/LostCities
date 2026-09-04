@@ -28,6 +28,10 @@
 #include <string.h>
 
 #define MAX_CAND 8
+/* racing deepening (sel_deep=2): an eligible candidate survives into the
+ * second world batch only while its batch-1 deficit against the batch-1
+ * leader is under this many paired standard errors */
+#define RACE_K 1.5
 
 /* Rank the legal moves of s for the player to move.  With a network that is
  * the policy head; without one it is the hand-crafted evaluation, which gives
@@ -572,6 +576,22 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
      * the maximum width up front so pooling extends rows in place */
     const int vstride = a->sel_deep ? reps * 2 : reps;
     double *val = (double *)malloc(sizeof(double) * (size_t)neval * (size_t)vstride);
+    /* racing deepening (sel_deep=2, see agent.h): the second batch is
+     * bought only for the SURVIVORS of the first -- candidate 0 plus every
+     * eligible candidate within RACE_K paired SEs of the batch-1 leader.
+     * The rest keep their batch-1 statistics (alive[c]=0, nrep[c]=reps)
+     * and leave the selection; every survivor pair shares the same 2*reps
+     * worlds, so the paired statistics below stay exact.  In modes 0/1
+     * every candidate is alive with nrep[c] == reps throughout.  sum1[]
+     * snapshots the batch-1 sums so a survivor can still be paired with a
+     * batch-1-only candidate over their common worlds (override, stats). */
+    const int reps0 = reps;
+    int alive[MAX_CAND], nrep[MAX_CAND];
+    double sum1[MAX_CAND];
+    for (int c = 0; c < neval; c++) { alive[c] = 1; sum1[c] = 0.0; }
+    int triggered = 0, nsurv = neval;
+    static int race_dbg = -1;
+    if (race_dbg < 0) race_dbg = getenv("LC_RACE_DEBUG") != NULL;
 
     int want = reps, done = 0;
     while (done < want) {
@@ -580,6 +600,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             sample_world(a, st, p, rng, &world);
             uint64_t wseed = 0x9E3779B97F4A7C15ULL * (uint64_t)(d + 1) ^ rng->s[0];
             for (int c = 0; c < neval; c++) {
+                if (!alive[c]) continue;     /* sel_deep=2: dropped after batch 1 */
                 State s = world;             /* same world for every candidate */
                 lc_apply(&s, mv[order[c]]);
                 double w;
@@ -593,6 +614,8 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             }
         }
         done = want;
+        if (done == reps0)
+            for (int c = 0; c < neval; c++) sum1[c] = sum[c];
         /* contested-ply deepening (sel_deep, spec field 24): when any
          * eligible candidate outscores the policy top on the first batch,
          * the selection decision is live -- buy a second batch and decide
@@ -609,9 +632,42 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         if (a->sel_deep && want == reps) {
             for (int c = 1; c < ncand; c++)
                 if (sum[c] > sum[0]) { want = reps * 2; break; }
+            triggered = want > reps;
+            /* racing (sel_deep=2): the second batch goes to candidate 0
+             * and to every eligible candidate whose batch-1 deficit
+             * against the batch-1 leader is under RACE_K paired SEs --
+             * anyone further back cannot overtake on one more batch and
+             * would only buy playouts.  Advisory candidates (c >= ncand)
+             * are never raced.  Without a usable SE (one world, or no
+             * val buffer) the batch stays full, i.e. mode 1. */
+            if (triggered && a->sel_deep >= 2 && val && reps > 1) {
+                int lead = 0;
+                for (int c = 1; c < ncand; c++) if (sum[c] > sum[lead]) lead = c;
+                nsurv = 0;
+                for (int c = 0; c < neval; c++) {
+                    int keep = c == 0 || c == lead;
+                    if (!keep && c < ncand) {
+                        double dm = (sum[lead] - sum[c]) / reps;
+                        double v2 = 0.0;
+                        for (int d = 0; d < reps; d++) {
+                            double x = val[(size_t)lead * vstride + d]
+                                     - val[(size_t)c * vstride + d] - dm;
+                            v2 += x * x;
+                        }
+                        keep = dm < RACE_K * sqrt(v2 / (reps - 1) / reps);
+                    }
+                    alive[c] = keep;
+                    nsurv += keep;
+                }
+            }
         }
     }
+    for (int c = 0; c < neval; c++) nrep[c] = alive[c] ? done : reps0;
     reps = done;
+    if (race_dbg && a->sel_deep)
+        fprintf(stderr, "[race] mode %d nply %d ncand %d neval %d trig %d surv %d share %.3f\n",
+                a->sel_deep, st->nply, ncand, neval, triggered,
+                triggered ? nsurv : 0, triggered ? (double)nsurv / neval : 0.0);
 
     /* In the final round the playouts decide the match, so pick by match
      * wins with margin as the tiebreak -- a 5% shot at stealing the match
@@ -635,10 +691,11 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
     for (int c = 0; c < neval; c++) {
         double pr = prob[order[c]];
         if (pr < 1e-4) pr = 1e-4;
-        pscore[c] = sum[c] / reps + lam * log(pr);
+        pscore[c] = sum[c] / nrep[c] + lam * log(pr);
     }
     int best = 0;
     for (int c = 1; c < ncand; c++) {
+        if (!alive[c]) continue;             /* sel_deep=2: out of the race */
         if (usew ? (sumw[c] > sumw[best] ||
                     (sumw[c] == sumw[best] && sum[c] > sum[best]))
                  : (lam != 0.0 ? pscore[c] > pscore[best]
@@ -653,6 +710,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
     if (a->sel_k > 0.0f && val && reps > 1 && best != 0) {
         int pick = 0;
         for (int c = 1; c < ncand; c++) {
+            if (!alive[c]) continue;         /* sel_deep=2: batch-1 only, cannot win */
             double dm = (sum[c] - sum[0]) / reps;
             if (dm <= 0.0) continue;
             double v2 = 0.0;
@@ -697,14 +755,18 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
     if (a->override_k > 0.0f && val && reps > 1) {
         int elig = best;
         for (int c = ncand; c < neval; c++) {
-            double dm = (sum[c] - sum[elig]) / reps;
+            /* an advisory candidate holds batch-1 worlds only; against a
+             * raced survivor the pairing runs over their common prefix */
+            const int nr = nrep[c] < nrep[elig] ? nrep[c] : nrep[elig];
+            double dm = ((nr == nrep[c] ? sum[c] : sum1[c])
+                       - (nr == nrep[elig] ? sum[elig] : sum1[elig])) / nr;
             if (dm <= 0.0) continue;
             double v2 = 0.0;
-            for (int d = 0; d < reps; d++) {
+            for (int d = 0; d < nr; d++) {
                 double x = val[(size_t)c * vstride + d] - val[(size_t)elig * vstride + d] - dm;
                 v2 += x * x;
             }
-            double sed = sqrt(v2 / (reps - 1) / reps);
+            double sed = sqrt(v2 / (nr - 1) / nr);
             /* same-action draw variants may qualify at half k (see agent.h
              * ov_draw): the action is the policy's own choice, only the
              * draw source differs, and their paired SE is structurally
@@ -731,7 +793,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             }
             if (dm > k * sed && dm > a->override_min &&
                 (lam != 0.0 ? pscore[c] > pscore[best]
-                            : sum[c] > sum[best])) best = c;
+                            : sum[c] / nrep[c] > sum[best] / nrep[best])) best = c;
         }
         /* sampled confirmation: a qualifying gap must survive stochastic
          * continuations at half the floor, or it was determinism bias --
@@ -774,24 +836,29 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             }
         }
     }
-    float bestq = (float)(sum[best] / reps);
+    float bestq = (float)(sum[best] / nrep[best]);
     if (stats) {
         stats->n = neval;
         for (int c = 0; c < neval; c++) {
             stats->mv[c] = mv[order[c]];
-            stats->visits[c] = reps;
-            stats->q[c] = sum[c] / reps;
-            stats->qw[c] = lastround ? sumw[c] / reps : -1.0;
+            stats->visits[c] = nrep[c];
+            stats->q[c] = sum[c] / nrep[c];
+            stats->qw[c] = lastround ? sumw[c] / nrep[c] : -1.0;
             stats->prio[c] = prob[order[c]];
             double v = 0.0;
-            if (val && reps > 1) {
-                double mean = (sum[c] - (c == best ? 0.0 : sum[best])) / reps;
-                for (int d = 0; d < reps; d++) {
+            /* paired against the chosen move over their common worlds: a
+             * dropped candidate (sel_deep=2) has batch-1 worlds only */
+            const int nr = nrep[c] < nrep[best] ? nrep[c] : nrep[best];
+            if (val && nr > 1) {
+                double sc = nr == nrep[c] ? sum[c] : sum1[c];
+                double sb = nr == nrep[best] ? sum[best] : sum1[best];
+                double mean = (sc - (c == best ? 0.0 : sb)) / nr;
+                for (int d = 0; d < nr; d++) {
                     double x = val[(size_t)c * vstride + d]
                              - (c == best ? 0.0 : val[(size_t)best * vstride + d]);
                     v += (x - mean) * (x - mean);
                 }
-                v = sqrt(v / (reps - 1) / reps);
+                v = sqrt(v / (nr - 1) / nr);
             }
             stats->se[c] = v;
         }

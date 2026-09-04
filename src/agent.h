@@ -188,7 +188,24 @@ typedef struct Agent {
                            (probe-refuted: suppressed 12 reviewer-verified
                            good overrides to remove 6 noise cases) both got
                            wrong.  Costs one extra batch on contested plies
-                           only. */
+                           only (1 = this mode).
+                           2 = RACING deepening: same trigger (an eligible
+                           candidate leads the policy top after batch 1),
+                           but the second batch is bought only for the
+                           SURVIVORS -- candidate 0 plus every eligible
+                           candidate whose batch-1 deficit against the
+                           batch-1 leader is under 1.5 paired SEs
+                           (rollout.c RACE_K).  Survivors are decided on
+                           pooled 2x statistics exactly as in mode 1
+                           (they share the same 2*dets worlds, so the
+                           paired sel_k gate is unchanged); the others keep
+                           their batch-1 statistics (SearchStats visits
+                           shows each candidate's own world count), are
+                           reported, and cannot be selected.  Mode 1
+                           measured +3.6 paired points at ~1.7x wall-clock
+                           (Gate M); racing keeps the pooled decision on
+                           the candidates that can still win and skips
+                           the playouts on those that cannot. */
     int sym_bel;        /* AG_ROLLOUT (spec field 27): average the belief
                            logits used for world sampling over this many
                            random suit/wager relabelings (the belief-head

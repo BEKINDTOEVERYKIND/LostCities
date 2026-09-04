@@ -1,0 +1,27 @@
+Racing deepening (sel_deep 2, panel 2 rank 6) -- pre-registration
+2026-09-04, declared before any gate game.
+
+Mechanism: after the first world batch, when a non-top candidate leads
+candidate 0 (the same trigger as sel_deep 1), a second batch of the
+same size is played only for the SURVIVORS -- candidate 0, the batch-1
+leader, and every eligible candidate within 1.5 paired SE of the
+leader; non-survivors keep their batch-1 statistics and cannot be
+selected.  sel_deep 0 and 1 are bit-identical to before (42/42 probes
+each, stdout and the [sel]/[ov] debug lines).
+Pre-test (LC_RACE_DEBUG, 296 searched decisions over three 2-game
+runs): trigger rate 50.3%, mean survivor set 3.08 of ~4.7 candidates,
+counting multiplier 1 + mean(trigger x |S|/ncand) = 1.352 +/- 0.022
+(the sel_deep 1 equivalent on the same decisions: 1.50).  This sits on
+the declared 1.35 line; the counting figure excludes batch-2 world
+sampling, which racing does not reduce.  Gate M's estimand at ~65-70%
+of its extra cost is still the question, so the gate runs -- after the
+gen-7 mining, when the box is free.
+Gate T: 1600 games, seeds 6100-6199 (100 chunks of 8 paired deals,
+-t 4, runner 102e5be, trunk kernel 2fdd885):
+  A: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:2:120:1:120
+  B: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120
+Rule: >= 52% adopt at the recorded wall-clock multiplier and report
+the string; 49.5-52% neutral -- recorded as the third read of the
+resolution family (dets 192, sel_deep 1, racing) and the family
+closed; < 49.5% negative.  Chunk seconds recorded for both sides.
+Gate T result: pending
