@@ -1,0 +1,437 @@
+diff --git a/tools/mine.c b/tools/mine.c
+index d6705e1..9d3c379 100644
+--- a/tools/mine.c
++++ b/tools/mine.c
+@@ -17,16 +17,28 @@
+  *
+  *   ./bin/mine --net data/best.bin --games 400 --threads 4 \
+  *              --out data/corr.smp [--dets 256] [--dup 4]
++ *
++ * --all --spec S (panel 2, rank 4): gated search distillation on the
++ * tournament agent's own play distribution -- the games are played by the
++ * match string S itself, every searched ply is labeled, corrections are
++ * one-hot and everything else is the net's own symmetrized top-12 as a
++ * self-anchor.  See all_worker.
++ *
++ *   ./bin/mine --all --spec "rollouth:...:120" --games 500 --threads 4 \
++ *              --dets 256 --dup 2 --selk 1.0 --pfloor 4 --sym \
++ *              --belief data/belief_best.bin --out data/distill.smp
+  */
+ #include "../src/lc.h"
+ #include "../src/agent.h"
+ #include "../src/net.h"
+ #include "../src/search.h"
++#include "../src/spec.h"
+ #include <math.h>
+ #include <pthread.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <time.h>
+ 
+ #define PI_K 12
+ #define SMP_MAGIC 0x4C435344u
+@@ -203,39 +215,53 @@ typedef struct {
+     pthread_mutex_t *lk;
+     long flagged, corrected, hedged, plies, written;
+     long bycls[9];
++    /* --all mode (all_worker): the tournament agent that plays the games,
++     * and its corpus statistics */
++    const Agent *tourn;
++    int relabel;        /* re-label the first N corrections with an independent
++                           world stream and count flips (stability check) */
++    long matches, searched, tsweep, qual2se, drawonly, confirmed;
++    long relabeled, flipped, flip_top, restable;
+ } Job;
+ 
+-static void *worker(void *arg)
++/* the validated labeler (gens 6-7), shared by the mining and the
++ * distillation workers */
++static void labeler_init(Agent *lab, const Job *j)
+ {
+-    Job *j = (Job *)arg;
+-    Rng rng;
+-    rng_seed(&rng, j->seed + 77777ULL * (uint64_t)(j->thread + 1));
+-
+-    Agent lab;
+-    agent_default(&lab, AG_ROLLOUT, j->net);
++    agent_default(lab, AG_ROLLOUT, j->net);
+     /* belief-improved labeling (gen-6): the specialist's sharper hand
+      * inference steers the labeler's world sampling, same division of
+      * labor as the adopted rollouth match spec -- policy, priors and
+      * playouts stay the champion's */
+-    lab.net_b = j->net_b;
+-    lab.dets = j->dets;
+-    lab.root_width = 5;
+-    lab.gate = 0.0f;
+-    lab.eval_cand = 4;
+-    lab.override_k = 3.0f;      /* override_min 4 and prune_dom on by default */
+-    lab.playout_sample = 1;
++    lab->net_b = j->net_b;
++    lab->dets = j->dets;
++    lab->root_width = 5;
++    lab->gate = 0.0f;
++    lab->eval_cand = 4;
++    lab->override_k = 3.0f;      /* override_min 4 and prune_dom on by default */
++    lab->playout_sample = 1;
+     /* exact endgame labels: at deck_left <= solvedeck the labeler solves
+      * belief worlds instead of estimating them -- vote mode, one root
+      * solve per world (grant the solver a real budget via LC_SOLVE_BUDGET
+      * or it falls back to search immediately) */
+-    lab.solve_deck = j->solvedeck;
+-    lab.solve_vote = j->solvedeck > 0;
++    lab->solve_deck = j->solvedeck;
++    lab->solve_vote = j->solvedeck > 0;
+     /* gen-7 labeler (panel 2, rank 3): the label is the move the deployed
+      * selection rule would play -- the sel_k paired-SE gate protects the
+      * policy top, priors and beliefs are exactly symmetrized and worlds
+      * come from the calibrated sampler, as in the match spec */
+-    lab.sel_k = j->selk;
+-    if (j->sym) { lab.sym_k = 120; lab.sym_bel = 120; lab.bel_samp = 1; }
++    lab->sel_k = j->selk;
++    if (j->sym) { lab->sym_k = 120; lab->sym_bel = 120; lab->bel_samp = 1; }
++}
++
++static void *worker(void *arg)
++{
++    Job *j = (Job *)arg;
++    Rng rng;
++    rng_seed(&rng, j->seed + 77777ULL * (uint64_t)(j->thread + 1));
++
++    Agent lab;
++    labeler_init(&lab, j);
+ 
+     Features f;
+     for (int g = j->thread; g < j->games; g += j->nthread) {
+@@ -360,6 +386,250 @@ static void *worker(void *arg)
+     return NULL;
+ }
+ 
++/* same move modulo the wager-copy isomorphism ("played the other Yx") */
++static int move_iso(Move a, Move b)
++{
++    int sc = a.card == b.card ||
++             (CARD_IS_WAGER(a.card) && CARD_IS_WAGER(b.card) &&
++              CARD_SUIT(a.card) == CARD_SUIT(b.card));
++    return sc && a.discard == b.discard && a.draw == b.draw;
++}
++
++/* same card (modulo copies) and disposition; the draw source may differ */
++static int action_iso(Move a, Move b)
++{
++    int sc = a.card == b.card ||
++             (CARD_IS_WAGER(a.card) && CARD_IS_WAGER(b.card) &&
++              CARD_SUIT(a.card) == CARD_SUIT(b.card));
++    return sc && a.discard == b.discard;
++}
++
++/* the labeler's agreement reference: with --sym its own candidate 0 (the
++ * symmetrized policy top after dedup and pruning, see the mining worker),
++ * else the raw policy argmax after folding wager copies */
++static Move label_ref(const Job *j, const State *st, const Move *mv, const float *pr,
++                      int n, const SearchStats *ss)
++{
++    if (j->sym && ss->n >= 1) return ss->mv[0];
++    Move fmv[MAX_MOVES];
++    float fpr[MAX_MOVES];
++    memcpy(fmv, mv, sizeof(Move) * (size_t)n);
++    memcpy(fpr, pr, sizeof(float) * (size_t)n);
++    int fn = lc_dedup_wagers(st, fmv, fpr, n, 1);
++    int top = 0;
++    for (int i = 1; i < fn; i++) if (fpr[i] > fpr[top]) top = i;
++    return fmv[top];
++}
++
++/* paired lead of the labeled move over candidate 0, from the labeler's
++ * own stats (dse = the larger of the two SEs, as the mining log) */
++static void label_lead(const SearchStats *ss, Move lm, double *dm, double *dse)
++{
++    *dm = 0.0; *dse = 0.0;
++    for (int c = 0; c < ss->n; c++)
++        if (ss->mv[c].card == lm.card && ss->mv[c].discard == lm.discard &&
++            ss->mv[c].draw == lm.draw) {
++            *dm = ss->q[c] - ss->q[0];
++            *dse = ss->se[c] > ss->se[0] ? ss->se[c] : ss->se[0];
++            return;
++        }
++}
++
++/* state, perspective and a zero-gradient value target */
++static void sample_base(const Net *net, const State *st, Sample *s)
++{
++    Features f;
++    memset(s, 0, sizeof *s);
++    s->st = *st;
++    s->persp = st->turn;
++    feat_extract(st, st->turn, &f);
++    s->target = net_value(net, &f) * VAL_SCALE;
++}
++
++/* self-anchor target: the net's own policy as the labeler sees it (exactly
++ * symmetrized under --sym), wager copies folded onto the lowest held copy
++ * (the trainer matches packed moves exactly, and every label in this
++ * corpus is written on the folded copy), top-12 by mass, renormalized --
++ * the selftarget_mode form, computed at mining time */
++static void self_target(const Agent *lab, const State *st, Rng *rng, Sample *s)
++{
++    Move mv[MAX_MOVES];
++    float pr[MAX_MOVES];
++    int n = agent_policy_probs(lab, st, rng, mv, pr, NULL);
++    if (n > 1) n = lc_dedup_wagers(st, mv, pr, n, 1);
++    int idx[MAX_MOVES];
++    for (int i = 0; i < n; i++) idx[i] = i;
++    int k = n < PI_K ? n : PI_K;
++    for (int i = 0; i < k; i++) {
++        int b = i;
++        for (int j2 = i + 1; j2 < n; j2++) if (pr[idx[j2]] > pr[idx[b]]) b = j2;
++        int t = idx[i]; idx[i] = idx[b]; idx[b] = t;
++    }
++    float tot = 0.0f;
++    for (int i = 0; i < k; i++) tot += pr[idx[i]];
++    if (tot <= 0.0f) tot = 1.0f;
++    for (int i = 0; i < k; i++) { s->pmv[i] = MOVE_PACK(mv[idx[i]]); s->ppr[i] = pr[idx[i]] / tot; }
++    for (int i = k; i < PI_K; i++) { s->pmv[i] = 0; s->ppr[i] = 0.0f; }
++    s->npi = (uint8_t)(k > 0 ? k : 0);
++}
++
++/* --all --spec S: gated search distillation on the tournament agent's own
++ * play distribution (panel 2, rank 4).
++ *
++ * The games are played by the TOURNAMENT agent on both seats -- the exact
++ * match string, so the states are the ones the deployed player actually
++ * reaches -- except an early sampled window (nply < the string's ply_lo,
++ * the plies where the string plays the raw policy anyway) where the raw
++ * policy is sampled for deal-independent diversity, as the mining worker
++ * does.  On every ply the tournament agent searches, the validated
++ * labeler (labeler_init: 256 sampled-playout worlds, four evaluated
++ * candidates, the sel_k gate on symmetrized priors) is run on the same
++ * state, and the target is
++ *   correction  -- one-hot on the labeler's gated choice, dup copies, only
++ *                  where that choice differs from its own candidate 0 AND
++ *                  leads it by >= pfloor points (both gates, as gen 7);
++ *   self-target -- everywhere else (confirmations, hedges under the floor,
++ *                  the unsearched early window): the net's own symmetrized
++ *                  top-12, written once.  Never one-hot on the argmax.
++ * A draw-only correction (the labeled ACTION is the reference action, only
++ * the draw source differs) is written as a self-target instead and
++ * counted: the factored draw head turns draw-direction pressure into a
++ * global reweighting (--filter's rule, measured as ply inflation).
++ * detect() runs in report-only mode -- it gates nothing -- so the class
++ * histogram of the corrections can be compared with the mined gens.
++ * --relabel N re-runs the labeler on the first N corrections with an
++ * independent world stream and counts how many labels flip (the plan's
++ * fresh-batch stability check).
++ *
++ * Log line per ply: "nply deck cls agree dm dse ncand", agree = 1
++ * self-target (confirmation or unsearched), 0 correction, 2 hedge, 3
++ * draw-only filtered; unsearched plies carry ncand 0. */
++static void *all_worker(void *arg)
++{
++    Job *j = (Job *)arg;
++    Rng rng, rrng;
++    rng_seed(&rng, j->seed + 77777ULL * (uint64_t)(j->thread + 1));
++    rng_seed(&rrng, (j->seed ^ 0x5DEECE66DULL) + 99991ULL * (uint64_t)(j->thread + 1));
++
++    Agent lab;
++    labeler_init(&lab, j);
++    const Agent *ag = j->tourn;
++    const int window = ag->ply_lo > 0 ? ag->ply_lo : 14;
++    const time_t t0 = time(NULL);
++
++    for (int g = j->thread; g < j->games; g += j->nthread) {
++        int cum[2] = { 0, 0 };
++        long gplies = 0;
++        for (int rd = 0; rd < MATCH_ROUNDS; rd++) {
++            State st;
++            lc_deal(&st, &rng);
++            st.round = (uint8_t)rd;
++            st.cum[0] = (int16_t)(cum[0] > 320 ? 320 : (cum[0] < -320 ? -320 : cum[0]));
++            st.cum[1] = (int16_t)(cum[1] > 320 ? 320 : (cum[1] < -320 ? -320 : cum[1]));
++            st.turn = (uint8_t)(rd & 1);
++            while (!st.over) {
++                Move mv[MAX_MOVES];
++                float pr[MAX_MOVES];
++                int n = policy_probs(j->net, &st, mv, pr, NULL);
++                if (n <= 0) break;
++                j->plies++;
++                gplies++;
++                int cls = detect(&st, mv, pr, n);   /* report-only */
++
++                Sample s;
++                sample_base(j->net, &st, &s);
++                Move play;
++                int code = 1, reps = 1, nc = 0;
++                double dm = 0.0, dse = 0.0;
++                if (st.nply < window) {
++                    /* diversity window: the string plays the raw argmax
++                     * here; sampling it visits different games per deal */
++                    play = mv[sample_index(pr, n, &rng)];
++                    self_target(&lab, &st, &rng, &s);
++                } else {
++                    j->searched++;
++                    /* the move PLAYED is the tournament agent's own gated
++                     * choice at its play-time budget -- the traversal is
++                     * the deployed distribution, not the labeler's */
++                    if (ag->kind == AG_ROLLOUT) {
++                        SearchStats ts;
++                        memset(&ts, 0, sizeof ts);
++                        play = rollout_move(ag, &st, &rng, NULL, &ts);
++                        if (ts.n > 1) j->tsweep++;
++                    } else {
++                        play = agent_move(ag, &st, &rng);
++                    }
++                    SearchStats ss;
++                    memset(&ss, 0, sizeof ss);
++                    float sval = 0.0f;
++                    Move lm = rollout_move(&lab, &st, &rng, &sval, &ss);
++                    nc = ss.n;
++                    Move ref = label_ref(j, &st, mv, pr, n, &ss);
++                    int agree = move_iso(lm, ref);
++                    label_lead(&ss, lm, &dm, &dse);
++                    int hedge = !agree && j->pfloor > 0.0f && dm < j->pfloor;
++                    if (agree) { code = 1; j->confirmed++; }
++                    else if (hedge) { code = 2; j->hedged++; }
++                    else if (action_iso(lm, ref)) { code = 3; j->drawonly++; }
++                    else code = 0;
++                    if (code == 0) {
++                        j->corrected++;
++                        /* exact (solver) labels carry no SE and count as significant */
++                        if (dse <= 0.0 || dm >= 2.0 * dse) j->qual2se++;
++                        for (int b = 0; b < 9; b++) if (cls & (1 << b)) j->bycls[b]++;
++                        s.pmv[0] = MOVE_PACK(lm);
++                        s.ppr[0] = 1.0f;
++                        s.npi = 1;
++                        reps = j->dup;
++                        if (j->relabel > 0 && j->relabeled < j->relabel) {
++                            SearchStats s2;
++                            memset(&s2, 0, sizeof s2);
++                            float sv2 = 0.0f;
++                            Move l2 = rollout_move(&lab, &st, &rrng, &sv2, &s2);
++                            double dm2, dse2;
++                            label_lead(&s2, l2, &dm2, &dse2);
++                            int same = move_iso(l2, lm);
++                            int totop = s2.n >= 1 && move_iso(l2, s2.mv[0]);
++                            j->relabeled++;
++                            if (!same) { j->flipped++; if (totop) j->flip_top++; }
++                            else if (dm2 >= j->pfloor) j->restable++;
++                            pthread_mutex_lock(j->lk);
++                            fprintf(stderr, "[relabel] nply %d deck %d lead %.2f/%.2f -> %.2f/%.2f %s\n",
++                                    (int)st.nply, (int)st.deck_left, dm, dse, dm2, dse2,
++                                    same ? (dm2 >= j->pfloor ? "SAME" : "same-under-floor")
++                                         : (totop ? "FLIP-to-top" : "FLIP-other"));
++                            pthread_mutex_unlock(j->lk);
++                        }
++                    } else {
++                        self_target(&lab, &st, &rng, &s);
++                    }
++                }
++                pthread_mutex_lock(j->lk);
++                if (j->log)
++                    fprintf(j->log, "%d %d %d %d %.2f %.2f %d\n", (int)st.nply, (int)st.deck_left,
++                            cls, code, dm, dse, nc);
++                for (int r = 0; r < reps; r++)
++                    fwrite(&s, sizeof s, 1, j->out);
++                j->written += reps;
++                pthread_mutex_unlock(j->lk);
++                lc_apply(&st, play);
++            }
++            cum[0] += lc_score(&st, 0);
++            cum[1] += lc_score(&st, 1);
++        }
++        j->matches++;
++        pthread_mutex_lock(j->lk);
++        fprintf(stderr, "[all] t%d match %d done (%ld plies, %lds): plies %ld searched %ld corr %ld (%.1f%%) 2se %ld drawonly %ld hedged %ld confirmed %ld\n",
++                j->thread, g, gplies, (long)(time(NULL) - t0), j->plies, j->searched,
++                j->corrected, 100.0 * j->corrected / (j->searched ? j->searched : 1),
++                j->qual2se, j->drawonly, j->hedged, j->confirmed);
++        fflush(j->out);
++        if (j->log) fflush(j->log);
++        pthread_mutex_unlock(j->lk);
++    }
++    return NULL;
++}
++
+ /* --filter IN OUT: keep only samples whose labeled action (card + play/
+  * discard) differs from the net's argmax action.  Draw-only corrections are
+  * dropped: the 6-logit factored draw head turns any net draw-direction
+@@ -443,9 +713,11 @@ int main(int argc, char **argv)
+     const char *netpath = "data/best.bin", *outpath = "data/corr.smp";
+     const char *beliefpath = NULL;
+     const char *filter_in = NULL, *filter_out = NULL, *self_in = NULL, *self_out = NULL;
+-    int games = 200, nthread = 4, dets = 256, dup = 4, solvedeck = 0, sym = 0;
++    int games = 200, nthread = 4, dets = 256, dup = -1, solvedeck = 0, sym = 0;
+     float selk = 0.0f, pfloor = 0.0f;
+     const char *logpath = NULL;
++    const char *specstr = NULL;
++    int all = 0, relabel = 0;
+     uint64_t seed = 20260729;
+     for (int i = 1; i < argc; i++) {
+         if (!strcmp(argv[i], "--net") && i + 1 < argc) netpath = argv[++i];
+@@ -463,8 +735,18 @@ int main(int argc, char **argv)
+         else if (!strcmp(argv[i], "--log") && i + 1 < argc) logpath = argv[++i];
+         else if (!strcmp(argv[i], "--filter") && i + 2 < argc) { filter_in = argv[++i]; filter_out = argv[++i]; }
+         else if (!strcmp(argv[i], "--selftarget") && i + 2 < argc) { self_in = argv[++i]; self_out = argv[++i]; }
+-        else { fprintf(stderr, "usage: %s [--net N] [--out F] [--games G] [--threads T] [--dets D] [--dup K]\n", argv[0]); return 1; }
++        else if (!strcmp(argv[i], "--all")) all = 1;
++        else if (!strcmp(argv[i], "--spec") && i + 1 < argc) specstr = argv[++i];
++        else if (!strcmp(argv[i], "--relabel") && i + 1 < argc) relabel = atoi(argv[++i]);
++        else { fprintf(stderr, "usage: %s [--net N] [--out F] [--games G] [--threads T] [--dets D] [--dup K]\n"
++                               "       [--belief B] [--selk K] [--pfloor P] [--sym] [--log F] [--solvedeck D]\n"
++                               "       [--all --spec TOURNAMENT_STRING [--relabel N]]\n"
++                               "       [--filter IN OUT] [--selftarget IN OUT]\n", argv[0]); return 1; }
+     }
++    /* corrections carry dup 4 in the class-mined corpus; the distillation
++     * corpus sits them among self-targets on every ply, dup 2 */
++    if (dup < 0) dup = all ? 2 : 4;
++    if (all && !specstr) { fprintf(stderr, "mine: --all needs --spec TOURNAMENT_STRING\n"); return 1; }
+     Net *net = (Net *)malloc(sizeof(Net));
+     if (!net || net_load(net, netpath)) { fprintf(stderr, "mine: cannot load %s\n", netpath); return 1; }
+     Net *net_b = NULL;
+@@ -474,6 +756,9 @@ int main(int argc, char **argv)
+     }
+     if (filter_in) return filter_mode(net, filter_in, filter_out);
+     if (self_in) return selftarget_mode(net, self_in, self_out);
++    Agent tourn;
++    memset(&tourn, 0, sizeof tourn);
++    if (all) spec_parse(specstr, &tourn);
+ 
+     FILE *out = fopen(outpath, "wb");
+     if (!out) { fprintf(stderr, "mine: cannot open %s\n", outpath); return 1; }
+@@ -495,7 +780,8 @@ int main(int argc, char **argv)
+         jobs[i].solvedeck = solvedeck;
+         jobs[i].selk = selk; jobs[i].pfloor = pfloor; jobs[i].sym = sym; jobs[i].log = logf;
+         jobs[i].seed = seed; jobs[i].out = out; jobs[i].lk = &lk;
+-        pthread_create(&th[i], NULL, worker, &jobs[i]);
++        jobs[i].tourn = all ? &tourn : NULL; jobs[i].relabel = relabel;
++        pthread_create(&th[i], NULL, all ? all_worker : worker, &jobs[i]);
+     }
+     long fl = 0, co = 0, pl = 0, bc[9] = { 0 };
+     for (int i = 0; i < nthread; i++) {
+@@ -511,6 +797,27 @@ int main(int argc, char **argv)
+     fclose(out);
+     long hd = 0;
+     for (int i = 0; i < nthread; i++) hd += jobs[i].hedged;
++    if (all) {
++        long mt = 0, se = 0, ts = 0, q2 = 0, dr = 0, cf = 0, rl = 0, fp = 0, ft = 0, rs = 0;
++        for (int i = 0; i < nthread; i++) {
++            mt += jobs[i].matches; se += jobs[i].searched; ts += jobs[i].tsweep;
++            q2 += jobs[i].qual2se; dr += jobs[i].drawonly; cf += jobs[i].confirmed;
++            rl += jobs[i].relabeled; fp += jobs[i].flipped; ft += jobs[i].flip_top; rs += jobs[i].restable;
++        }
++        printf("mine --all: %ld matches, %ld plies (%.1f per match), %ld searched plies (%.1f%%; %ld with a tournament sweep)\n",
++               mt, pl, (double)pl / (mt ? mt : 1), se, 100.0 * se / (pl ? pl : 1), ts);
++        printf("      corrections %ld = %.2f%% of searched plies; %ld (%.1f%%) >= 2 SE; draw-only filtered %ld (%.1f%% of %ld qualifiers); hedged %ld; confirmed %ld\n",
++               co, 100.0 * co / (se ? se : 1), q2, 100.0 * q2 / (co ? co : 1),
++               dr, 100.0 * dr / (co + dr ? co + dr : 1), co + dr, hd, cf);
++        printf("      corrections by class: skip %ld, pile-refusal %ld, stall %ld, burial %ld, hedge %ld, misorder %ld, deckburn %ld, wclutch %ld, gift %ld\n",
++               bc[0], bc[1], bc[2], bc[3], bc[4], bc[5], bc[6], bc[7], bc[8]);
++        if (rl)
++            printf("      relabel: %ld corrections relabeled on a fresh world stream, %ld flipped (%.1f%%; %ld back to candidate 0), %ld stable above the floor\n",
++                   rl, fp, 100.0 * fp / rl, ft, rs);
++        printf("      wrote %llu samples (corrections x%d, self-targets once) to %s\n",
++               (unsigned long long)count, dup, outpath);
++        return 0;
++    }
+     printf("mine: %d games, %ld plies, %ld flagged (%.1f%%), %ld corrected (%.1f%% of flagged), %ld hedged (gated lead under the points floor, not written)\n",
+            games, pl, fl, 100.0 * fl / (pl ? pl : 1), co, 100.0 * co / (fl ? fl : 1), hd);
+     printf("      by class: skip %ld, pile-refusal %ld, stall %ld, burial %ld, hedge %ld, misorder %ld, deckburn %ld, wclutch %ld, gift %ld\n",

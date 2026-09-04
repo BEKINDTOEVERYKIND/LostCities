@@ -1,0 +1,31 @@
+Gated search distillation on the tournament agent's own play
+(panel 2, rank 4) -- pre-test 2026-09-04, protocol from the plan.
+
+Mechanism built (mine --all --spec STRING; diff kept as
+data/probes/distill_mine_all_2026-09-04.diff, not integrated): the
+tournament agent plays both seats from ply 14 (raw policy sampled
+before), the gen-7 labeler (256 worlds, sel_k 1, 4-point floor,
+symmetrized, calibrated sampler) labels every searched ply; one-hot
+(dup 2) only where the gated choice differs from candidate 0 and clears
+the floor, self-target (the net's symmetrized top-12) elsewhere;
+draw-only qualifiers rewritten as self-targets.
+Pre-test (20 matches, seed 20260906, one thread, 2,026 searched plies):
+  qualifier rate per searched ply 3.4%      (band 5-20%: below)
+  share of qualifiers >= 2 SE 65%           (>= 50%: pass)
+  draw-only share of qualifiers 30%          (< 5%: miss)
+  plies per match 143.3                      (unchanged: pass)
+  relabel stability, 50 qualifiers on a fresh world stream: 25 flipped
+  (50% +/- 7%), 20 of them back to candidate 0; only 18 (36%) re-qualify
+  under the floor                            (KILL if > 35%: KILLED)
+  classes: deckburn and wclutch nearly vanish on the deployed agent's
+  own distribution (0.25 and 0.05 per game vs 0.93 and 0.33 in raw
+  self-play) -- the search already avoids those states at play time.
+Verdict: NO-GO.  The finding that matters beyond this arm: at 256
+worlds the 4-point floor admits leads of 4-6 points whose own SE is
+~2, and selecting the best of five candidates inflates the winner's
+lead, so half the qualifiers are selection on noise.  The same regime
+produced the gen-7 corpus (median lead/SE 2.8 in its pilot vs 2.3
+here).  Remedy declared for gen-7 before training: an independent
+confirmation pass (mine --confirm) re-labels every correction with a
+fresh world stream and keeps it only if the fresh run makes the same
+gated choice with a lead >= 2 points.
