@@ -488,9 +488,13 @@ search on exhaustion -- an unbounded per-solve version could pin a thread
 for hours on one rare wide-hand endgame.
 
 Recommended settings: **maximum strength**
-`rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120`
-(search from ply 14, four candidates evaluated, dominated discards
-pruned, 3-SE advisory override, 1-SE selection gate, belief specialist
+`rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120`
+(search from ply 14, candidates = the policy's top five moves at or
+above the 2% floor and nothing else -- `eval_cand` 0, on the reviewer's
+directive of 2026-09-04, after the review games showed the old
+advisory fill spending full playout sweeps on sub-floor pile-draw
+variants of the top play -- dominated discards pruned, 1-SE selection
+gate, belief specialist
 steering world sampling -- adopted at 52.31% over 800 games, see the
 belief-deployment section -- no draw-variant expansion (search evaluates
 only policy-ranked moves, adopted on the reviewer's directive at
@@ -515,14 +519,17 @@ conditional-Bernoulli draw on those beliefs (`bel_samp`, field 26 = 1:
 the sampler's inclusion probabilities match the head's marginals, late
 worlds no longer collapse onto duplicate hands; adopted at 52.56% over
 800 games once the suite's noise bias was understood -- see Gate L);
-plain `rollout:NET:96:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120`
+plain `rollout:NET:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120`
 when only one network file is on hand;
 **review games** are played at full strength, cost no object:
-`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120`
+`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120`
 (the same rules at 512 worlds);
 **gate 0.85 for real-time play**; raw policy for bulk generation.
-Analysis uses `rollout:NET:512:5:0.02:0:1:0:0:4:0:1:3` -- the same
-selection rules at 512 worlds, searched at every ply for display.
+Analysis (the advisory display agent of `analyze -a`) uses
+`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:0:0:0:0:1:3:4:0:0:0:0:0:0:0:0:0:2:0:120:1:120`
+-- searched at every ply for display, no selection gate, and the same
+candidate set as the play agent: the policy's top five moves at or
+above the 2% floor, nothing added.
 Showcase/review games are PLAYED at full strength, cost no object
 (reviewer doctrine): the recommended spec with dets raised to 512 --
 `rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:4:0:1:3:4:0:0:0:1:0:0:0:0:0:2`
@@ -1042,6 +1049,22 @@ deals, 96 worlds both sides where the opponent searches):
 
 A re-run of the pool after any spec or net change that drops a row by
 more than its interval is the tripwire firing.
+
+*Candidates are the policy's plays, nothing else* (2026-09-04): the
+reviewer found the review games still evaluating pile-draw variants of
+the top play.  Two mechanisms were responsible.  The advisory display
+agent's string had kept `draw_filter` 0, so it still expanded the two
+top actions over every legal pile (84 of 137 searched plies); and
+`eval_cand` 4 filled the candidate list up to four with the next
+policy moves BELOW the 2% floor whenever the floor left fewer -- at
+play time mostly 1-2% pile-draw variants of the top play, each
+costing a full dets x playout sweep and reachable only through the
+3-SE override.  Both removed: field 8 is 0 in every string and field
+22 is 2 in the analysis string; the evaluated set is exactly the
+policy's top five moves at or above the floor.  Draw variants can
+still appear when the policy itself ranks them there.  Declared with
+Gate O (800 games, new vs old string) in
+`data/probes/evalc_gate_2026-09-04.txt`.
 
 *Calibrated belief sampling* (`bel_samp`, field 26): the panel's critics
 reproduced a real defect -- Gumbel-top-k on the belief logits is a
