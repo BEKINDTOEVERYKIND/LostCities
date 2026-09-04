@@ -9,6 +9,7 @@ typedef struct {
     uint64_t seed;
     double sum, sumsq, wins, losses, draws, points_a, points_b, plies;
     int done;
+    int *next;          /* shared pair counter: threads pull pairs dynamically */
 } Job;
 
 /* One full match: `rounds` deals with cumulative context, the first player
@@ -43,8 +44,13 @@ static void play_one(const Agent *first, const Agent *second, int rounds,
 static void *worker(void *arg)
 {
     Job *j = (Job *)arg;
-    Rng rng; rng_seed(&rng, j->seed * 6364136223846793005ULL + 1442695040888963407ULL + (uint64_t)j->thread);
-    for (int g = j->thread; g < j->pairs; g += j->nthread) {
+    /* pairs are pulled from a shared counter (no thread idles while another
+     * finishes a long pair), and every pair's play stream is seeded by the
+     * pair index, so a run is reproducible whatever the scheduling */
+    for (;;) {
+        int g = __atomic_fetch_add(j->next, 1, __ATOMIC_RELAXED);
+        if (g >= j->pairs) break;
+        Rng rng; rng_seed(&rng, j->seed * 6364136223846793005ULL + 1442695040888963407ULL + 0x9E3779B97F4A7C15ULL * (uint64_t)(g + 1));
         Rng deal_rng; rng_seed(&deal_rng, j->seed + 0x5DEECE66DULL * (uint64_t)(g + 1));
         uint8_t decks[MATCH_ROUNDS][NCARD];
         for (int r = 0; r < j->rounds; r++) {
@@ -79,7 +85,9 @@ void match_run_r(const Agent *a, const Agent *b, int pairs, int nthread,
     if (rounds > MATCH_ROUNDS) rounds = MATCH_ROUNDS;
     Job *jobs = (Job *)calloc((size_t)nthread, sizeof(Job));
     pthread_t *th = (pthread_t *)calloc((size_t)nthread, sizeof(pthread_t));
+    int next = 0;
     for (int i = 0; i < nthread; i++) {
+        jobs[i].next = &next;
         jobs[i].a = a; jobs[i].b = b; jobs[i].pairs = pairs;
         jobs[i].thread = i; jobs[i].nthread = nthread; jobs[i].seed = seed;
         jobs[i].rounds = rounds;
