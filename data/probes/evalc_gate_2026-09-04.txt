@@ -33,3 +33,22 @@ Rule: the directive stands regardless (reviewer's call); the gate is
 reported with its CI and the wall-clock saving.  A result below 49.5%
 is reported as the cost of the directive, not reverted silently.
 Gate O result: pending
+
+Action-level candidates (draw_filter 3) -- pre-registered 2026-09-04,
+declared before any game.
+After the eval_cand change, draw variants of the top play still appear
+in 69 of 340 play-time candidate lists (fs13) because the policy head
+factors P(move) = P(action) P(draw): a confident action (0.79) times a
+5% draw source outranks every other play, so the joint ranking fills
+the five slots with the top action's alternative draws.  draw_filter 3
+groups moves by (card, disposition), ranks by the group's summed prior
+and searches each action with its most probable draw source: the
+search compares plays, the draw source is the policy's.  One-round
+check (seed 910001, 96 worlds): lists with repeated actions 0.
+Gate P (800 games, seeds 5600-5679, after Gate O):
+  A: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:3:0:120:1:120
+  B: rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120
+Rule: >= 52% adopt and report the string; otherwise report the result
+and the reviewer decides between "policy-ranked draw variants are
+plays" (standing) and "plays are actions" (draw_filter 3).
+Gate P result: pending

@@ -166,7 +166,14 @@ typedef struct Agent {
                            exists to rescue.  Cuts per-decision playout cost;
                            the freed budget can be spent as more worlds
                            (higher dets at the same wall-clock).  0 = expand
-                           all legal draw sources (previous behavior). */
+                           all legal draw sources (previous behavior).  3: action-level
+                           candidates -- moves are grouped by (card,
+                           disposition), ranked by the group's summed prior,
+                           and each group is searched with its most probable
+                           draw source (the policy head factors P(move) =
+                           P(action) P(draw), so a confident action would
+                           otherwise fill the slots with its own alternative
+                           draws instead of other plays).  Implies 2. */
     int sel_deep;       /* AG_ROLLOUT (spec field 24): when any eligible
                            candidate outscores the policy top on the first
                            world batch, run a second batch of dets worlds

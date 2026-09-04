@@ -466,6 +466,31 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         }
     }
 
+    /* action-level candidates (draw_filter 3): the policy head factors
+     * P(move) = P(action) P(draw), so when it is sure of the action the
+     * joint ranking fills the candidate slots with that action's other
+     * draw sources instead of other plays.  Rank by action mass (summed
+     * over draw sources) and let each action carry its most probable
+     * draw: the search compares plays; the draw source is the policy's. */
+    if (a->draw_filter >= 3 && a->net && n > 1) {
+        float top_p[MAX_MOVES];
+        int k = 0;
+        for (int i = 0; i < n; i++) {
+            int j;
+            for (j = 0; j < k; j++)
+                if (mv[j].card == mv[i].card && mv[j].discard == mv[i].discard) break;
+            if (j < k) {
+                if (prob[i] > top_p[j]) { mv[j].draw = mv[i].draw; top_p[j] = prob[i]; }
+                prob[j] += prob[i];
+            } else {
+                mv[k] = mv[i];
+                prob[k] = prob[i];
+                top_p[k] = prob[i];
+                k++;
+            }
+        }
+        n = k;
+    }
     /* candidates: the most likely moves, cut off once the policy stops caring */
     int order[MAX_MOVES];
     for (int i = 0; i < n; i++) order[i] = i;
