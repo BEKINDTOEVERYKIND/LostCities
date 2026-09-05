@@ -90,3 +90,9 @@ $(BIN)/trunkbench: tools/trunkbench.c $(CORE) $(HDRS) | $(BIN)
 # endgame turn-arithmetic probe: raw policy vs the exact solver at deck <= 5
 $(BIN)/parityprobe: tools/parityprobe.c $(CORE) $(HDRS) | $(BIN)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
+
+$(BIN)/estcmp: tools/estcmp.c $(CORE) $(HDRS) | $(BIN)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
+
+$(BIN)/rootchan: tools/rootchan.c $(CORE) $(HDRS) | $(BIN)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
