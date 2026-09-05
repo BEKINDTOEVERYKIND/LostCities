@@ -1,0 +1,29 @@
+Regime calibration (round-3 panel rank 4): replicate the chain's one 52%-bar
+adoption -- declared 2026-09-05 05:40 UTC before running
+==========================================================================
+Of the standing string's adopted links, exactly one was adopted by clearing
+the 52% bar: the calibrated belief sampler (bel_samp 1, Gate L: 52.56% over
+800 games at a paired margin of +0.38 +/- 1.52 -- the wins/margin
+decoupled case).  The others were adopted by directive, suite dominance or
+the symmetry rule, and their own gates read them neutral.  A replicate of
+Gate L at today's string tells whether the regime's one strength adoption
+was a real +2.5 or a winner's-curse read.  No adoption decision hangs on
+it; it calibrates every later gate.
+
+Replicate R: 1600 games, seeds 6700-6799 (100 chunks x 8 pairs, -r 3 -t 4),
+CRN runner (scratchpad build4 = commit 5334856 source), per-pair lines
+(arena -P), pooled paired SE.
+  A = rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120:0:0:1  (standing)
+  B = rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:0:120:0:0:1  (bel_samp 0: Gumbel-top-k sampler)
+Pre-stated readings (bands ~3 paired SE apart at 1600 games, SE ~0.8%):
+  >= 52.0%   Gate L's pass replicates; the bar's passes are real.
+  50.5-52.0  shrunken (the record-based prediction from Gate L's margin is
+             +0.2 +/- 1.0 points, i.e. about 50.5-51%).
+  <= 50.5%   the pass was noise; reported to the owner with the case for a
+             two-stage rule (stage 1 = 800 games; if 49.5 <= w1 < 52 AND the
+             paired margin >= +2 SE, a pre-registered second 800-game block
+             and the POOLED 1600-game rate must be >= 52%; archive replay:
+             one extension in ~14 gates, zero changed adoptions).  PROPOSED
+             only; the owner's 52% rule stands until they decide.
+Runs after Gate Y in the same 4-core slot.
+Result: pending
