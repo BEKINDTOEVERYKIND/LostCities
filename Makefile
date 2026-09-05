@@ -96,3 +96,6 @@ $(BIN)/estcmp: tools/estcmp.c $(CORE) $(HDRS) | $(BIN)
 
 $(BIN)/rootchan: tools/rootchan.c $(CORE) $(HDRS) | $(BIN)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
+
+$(BIN)/netrevive: tools/netrevive.c $(CORE) $(HDRS) | $(BIN)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDFLAGS)
