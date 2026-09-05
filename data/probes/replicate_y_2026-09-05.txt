@@ -1,0 +1,21 @@
+Replicate Y -- does the Gate Y adoption replicate?  Declared 2026-09-05
+11:40 UTC before running
+=======================================================================
+Replicate R just showed that the chain's previous 52%-bar strength pass
+(Gate L, 52.56%) reads 49.09% +/- 1.01 over 1,600 fresh games.  Gate Y
+(53.12%, chunk-cluster SE 1.2%, one 800-game read) adopted the gen-7 net
+under the same regime and deserves the same check before the round closes.
+  A = rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120:0:0:1   (best.bin = the gen-7 net)
+  B = rollouth:data/best_pre_c21.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120:0:0:1   (c20 as main net)
+  1,600 games, seeds 7000-7099 (100 chunks x 8 pairs, -r 3 -t 4), CRN
+  runner (scratchpad build4 = commit 5334856 source) with per-pair logs;
+  pooled paired SE ~1.0%.  Runs after Pilot S.
+Pre-stated readings:
+  >= 52.0%   the adoption replicates on independent seeds.
+  50.5-52.0  shrunken: a real but small edge; the adoption stands by the
+             owner's rule (Gate Y cleared it), reported as shrunken.
+  <= 50.5%   the Gate Y pass was noise; reported to the owner with a
+             proposal to revert data/best.bin to best_pre_c21.bin -- the
+             revert is the owner's call, since the adoption followed their
+             rule as written.
+Result: pending
