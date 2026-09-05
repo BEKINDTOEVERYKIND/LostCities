@@ -203,6 +203,7 @@ typedef struct {
     float selk;         /* labeler selection gate (0 = ungated argmax) */
     float pfloor;       /* a correction must lead the policy top by this many points */
     int sym;            /* estimator-matched labeler: sym_k/sym_bel 120, calibrated sampler */
+    int winq;           /* win-aware last-round selection in the labeler */
     uint64_t seed;
     FILE *out, *log;
     pthread_mutex_t *lk;
@@ -237,6 +238,9 @@ static void labeler_init(Agent *lab, const Job *j)
      * come from the calibrated sampler, as in the match spec */
     lab->sel_k = j->selk;
     if (j->sym) { lab->sym_k = 120; lab->sym_bel = 120; lab->bel_samp = 1; }
+    /* gen-8: win-aware labels -- in the last round candidates compare on
+     * win probability (the engine's win_q path), the match objective */
+    lab->win_q = j->winq;
 }
 
 static void *worker(void *arg)
@@ -612,7 +616,7 @@ int main(int argc, char **argv)
     const char *beliefpath = NULL;
     const char *filter_in = NULL, *filter_out = NULL, *self_in = NULL, *self_out = NULL;
     const char *confirm_in = NULL, *confirm_out = NULL;
-    int games = 200, nthread = 4, dets = 256, dup = 4, solvedeck = 0, sym = 0;
+    int games = 200, nthread = 4, dets = 256, dup = 4, solvedeck = 0, sym = 0, winq = 0;
     float selk = 0.0f, pfloor = 0.0f, cfloor = 2.0f;
     const char *logpath = NULL;
     uint64_t seed = 20260729;
@@ -629,6 +633,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--selk") && i + 1 < argc) selk = (float)atof(argv[++i]);
         else if (!strcmp(argv[i], "--pfloor") && i + 1 < argc) pfloor = (float)atof(argv[++i]);
         else if (!strcmp(argv[i], "--sym")) sym = 1;
+        else if (!strcmp(argv[i], "--winq")) winq = 1;
         else if (!strcmp(argv[i], "--log") && i + 1 < argc) logpath = argv[++i];
         else if (!strcmp(argv[i], "--filter") && i + 2 < argc) { filter_in = argv[++i]; filter_out = argv[++i]; }
         else if (!strcmp(argv[i], "--selftarget") && i + 2 < argc) { self_in = argv[++i]; self_out = argv[++i]; }
@@ -677,7 +682,7 @@ int main(int argc, char **argv)
         jobs[i].games = games; jobs[i].thread = i;
         jobs[i].nthread = nthread; jobs[i].dets = dets; jobs[i].dup = dup;
         jobs[i].solvedeck = solvedeck;
-        jobs[i].selk = selk; jobs[i].pfloor = pfloor; jobs[i].sym = sym; jobs[i].log = logf;
+        jobs[i].selk = selk; jobs[i].pfloor = pfloor; jobs[i].sym = sym; jobs[i].winq = winq; jobs[i].log = logf;
         jobs[i].seed = seed; jobs[i].out = out; jobs[i].lk = &lk;
         pthread_create(&th[i], NULL, worker, &jobs[i]);
     }

@@ -152,4 +152,26 @@ corr22c (-> data/corr22a.smp), retrain from c20 with the same recipe for
 minimum), ONE 1000-game raw arena (seed 5792); >= 54% -> Gate Q as
 declared; below -> the loop's yield at this generation is recorded and
 the corrections direction is parked in favor of the feature block.
-Corpus-growth result: pending
+Corpus-growth result (corr22: 400 more games, 1,413 corrections;
+mine --confirm: 1413 distinct corrections seen, 678 confirmed (48.0%), 714 dropped by flip (fresh gated choice differs), 21 dropped by floor (same choice, fresh lead < 2.0)
+merged corr22a = anchor + corr21c + corr22c, 1,356 confirmed corrections;
+both lines trained 16 iterations, --holdout 0.1):
+  v5 line: PROCEED it15 ce 1.6030 it0 1.8440 curve [(0, 1.844), (1, 1.751), (2, 1
+    raw vs c20: W/L/D 490/502/8   score 49.4% +- 1.6% (paired SE 1.2%); margin/game +3.83 +- 1.36
+  v6 line (turn rows): PROCEED it15 ce 1.5860 it0 1.8440 curve [(0, 1.844), (1, 1.737), (2, 1
+    raw vs c20: W/L/D 513/480/7   score 51.6% +- 1.6% (paired SE 1.2%); margin/game +7.01 +- 1.33
+  Neither reaches the 54% bar; the first-corpus nets (52.8% / 52.6%)
+  remain the best raw candidates.  Doubling the corpus raised the
+  points margin (+3.8) and lowered wins (49.4% v5) -- the points-not-
+  wins signature again.  Diagnosis: every correction is labeled by the
+  labeler's expected MARGIN (win_q off; the sel_k gate is on margins),
+  so the corpus pulls a win-finished champion toward margin play; the
+  match objective is wins.
+Gen-8 (declared 2026-09-05 00:2x, before running): the same pipeline
+with a WIN-AWARE labeler -- mine --winq sets win_q on the labeler, so
+last-round selection compares candidates on win probability (the
+engine's usew path) instead of margin; rounds 1-2 keep the margin
+objective (cumulative score).  400 games seed 20260908 -> corr23,
+confirm, merge with the anchor only (to isolate the objective), train
+v5 and v6 lines, raw arenas; >= 54% -> Gate Q.
+Gen-8 result: pending
