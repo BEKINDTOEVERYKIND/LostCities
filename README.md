@@ -1114,6 +1114,21 @@ search-estimator question, not a labeler flag.  The corrections
 direction is parked at this yield; the candidates stay on disk
 (`data/c21_cand.bin`, `data/c21f_cand.bin`, gen-8's `c23_*_cand.bin`).
 
+*How much is the hidden hand worth?*  A measurement-only world sampler
+(`Agent.omni`, the spec field after `sym_bel`; never deployable) gives
+the search the opponent's TRUE hand in every world, the deck order still
+sampled.  Against the standing string over 800 games it reads **53.50%
++/- 3.46, paired margin +3.61 +/- 1.58** (chunk-cluster SE 1.5%;
+`data/probes/omni_bound_2026-09-05.txt`).  Perfect inference is worth
+about three and a half points of win rate at this search, and that is
+the ceiling of the whole direction -- belief head, sampler, likelihood
+corrections, opponent-history encoding -- so none of them can be
+expected to clear the 52% bar alone.  Together with the null
+belief-sampling ablation and the neutral resolution family, this
+locates the remaining error in the estimator's leaves (the playout
+policy and the objective it scores), not in what it knows or how many
+worlds it averages.
+
 *Distillation on the agent's own play distribution* was built and
 killed at its pre-test (50% of its qualifiers flip on a fresh batch
 against a 35% rule; `data/probes/distill_2026-09-04.txt`).

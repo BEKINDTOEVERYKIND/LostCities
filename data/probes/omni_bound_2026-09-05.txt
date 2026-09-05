@@ -26,4 +26,18 @@ Pre-registered reading (no adoption is possible):
             ahead of net/search items in the round-3 plan.
 Both seats see the same deals; the omniscient side also affects the
 opponent's inference only through its own (unchanged) play style.
-Result: pending
+Result (2026-09-05 01:53 UTC, 50 chunks, runner c55d5ed, ~33 min on 4 cores):
+  W/L/D 423/367/10  score 53.50% +/- 3.46 (95% CI); paired margin +3.61 +/- 1.58 pts/game; points/game 117.73 vs 114.11; chunks 50
+  chunk-cluster SE of the win score: 1.49% (50 chunks of 16 games).
+Reading (pre-registered band 52-55%): perfect knowledge of the opponent's
+hand is worth about +3.5 points of match win rate and +3.6 points of margin
+per game to this search.  That is the CEILING of the entire inference
+direction -- belief head, sampler, likelihood corrections, particle
+filters, history encoding -- and no realizable mechanism recovers all of
+it.  Consistent with the record: the belief-sampled vs uniform ablation was
+null, the calibrated sampler read 52.56%, the belx specialist's skill gain
+did not move a gate.  Inference work is not where the next point comes
+from; it is closed at this search unless a mechanism shows a measured
+belief-skill gain on the deployment distribution first.
+The identity of the standing side under the rebuilt binary (playout slot
+added, field absent) was checked on chunk 6200: W/L/D and margin identical.
