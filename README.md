@@ -1333,3 +1333,11 @@ played twice with the seats swapped, so deal luck cancels.
   iterations and was abandoned. Further gains likely need a bigger change
   (deeper search at training time, a larger trunk, or an opponent pool)
   rather than more of the same recipe.
+* The champion's trunk is a fifth dead: 51 of 256 second-layer units and 9
+  of 512 first-layer units never fire on search-play states (the same
+  units on every champion since c13 -- killed by the original PPO, and a
+  dead ReLU has no gradient).  `tools/netrevive` re-seeds them
+  function-preservingly (identical play over 1,000 games); fine-tuned
+  under the gen-8 recipe the revived net reaches a held-out correction CE
+  of 1.638 against the dead net's 1.645 -- the corrections signal is
+  label-limited, not capacity-limited (`data/probes/capacity_2026-09-05.txt`).
