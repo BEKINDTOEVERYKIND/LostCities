@@ -1150,6 +1150,20 @@ Pool tripwire on the new champion (`data/probes/pool_c21_2026-09-05.txt`):
 big1 61.8%, s2 63.5%, sym1 62.0%, oldbest 78.0%, raw policy 99.0%,
 heuristic 100% -- every opponent within 2 SE of the baseline, no hold.
 
+*How much can an 800-game pass be trusted?*  The one link in the standing
+string adopted by clearing the 52% bar on strength was the calibrated
+belief sampler (Gate L, 52.56% at a margin of +0.38).  Replicated over
+1,600 games under the common-random-numbers runner (`Replicate R`,
+`data/probes/regime_calib_2026-09-05.txt`): **49.09% +/- 1.01** (pooled
+paired SE), margin -0.73 +/- 1.03 -- the pass was noise, the mechanism is
+neutral.  It stays in the string (reverting is itself a change that
+would need its own 52% read), but the lesson is on the record: a single
+800-game read at 52-53% carries a false-pass rate near 8% at true zero,
+and the honest reading of such a pass is "worth another 800 games", not
+"adopted".  A two-stage rule (a 49.5-52% read with a margin lead earns
+one pre-registered second block, pooled rate >= 52%) is proposed to the
+owner, not applied.
+
 *How much is the hidden hand worth?*  A measurement-only world sampler
 (`Agent.omni`, the spec field after `sym_bel`; never deployable) gives
 the search the opponent's TRUE hand in every world, the deck order still

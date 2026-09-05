@@ -26,4 +26,22 @@ Pre-stated readings (bands ~3 paired SE apart at 1600 games, SE ~0.8%):
              one extension in ~14 gates, zero changed adoptions).  PROPOSED
              only; the owner's 52% rule stands until they decide.
 Runs after Gate Y in the same 4-core slot.
-Result: pending
+Result (2026-09-05 11:32 UTC; ran AFTER Gate Y, so both sides carry the NEW
+champion (the gen-7 net) -- the mechanism under test is the same; 36.9 s/chunk):
+  W/L/D 782/811/7  score 49.09% +/- 2.45 (95% CI); paired margin -0.73 +/- 1.03 pts/game; points/game 115.40 vs 116.13; chunks 100 per-pair: 800 pairs, win score 49.09% +/- 1.01 (pooled paired SE); margin/pair -0.73 +/- 1.11 pts/game; pairs at exactly 0.5: 535 
+  (535 of 800 coupled pairs split exactly 1-1: under common random numbers
+  two thirds of the deals never diverge in outcome between the samplers.)
+Reading (pre-stated band <= 50.5%): the Gate L pass did not replicate --
+49.09% +/- 1.01 (pooled paired SE) over 1600 games is 2.9 SE below the 52%
+bar and within 1 SE of parity, margin -0.73 +/- 1.03.  The chain's one
+adoption that cleared 52% on strength was a winner's-curse read; the
+calibrated sampler is a neutral mechanism (fidelity up, strength flat),
+which is what its own suite step and the panel-2 critique had said.
+No adoption decision hangs on this read (declared): bel_samp 1 stays in
+the string -- reverting it would itself be a string change needing a
+>= 52% read, and 50.9% for the reverse direction is not that.
+Reported to the owner with the two-stage rule as a PROPOSAL (stage 1 =
+800 games; a 49.5-52% read with margin >= +2 SE earns one pre-registered
+second block; the POOLED 1600-game rate must be >= 52%; false-pass at
+true 0 unchanged at 0.079; archive replay: one extension in ~14 gates,
+zero changed adoptions).  The owner's 52% rule stands until they decide.
