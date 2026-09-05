@@ -1,7 +1,11 @@
 #include "match.h"
+#include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
 #include <pthread.h>
+
+static FILE *g_pairlog = NULL;
+void match_set_pairlog(FILE *f) { g_pairlog = f; }
 
 typedef struct {
     const Agent *a, *b;
@@ -63,17 +67,24 @@ static void *worker(void *arg)
         }
         int s0, s1;
         double pair = 0.0, ws = 0.0;
+        double pl0 = j->plies;
         play_one(j->a, j->b, j->rounds, decks, &rng, &s0, &s1, &j->plies);
+        double plA = j->plies - pl0;
+        int a0 = s0, a1 = s1;
         j->points_a += s0; j->points_b += s1;
         pair += s0 - s1;
         if (s0 > s1) { j->wins++; ws += 1.0; } else if (s0 < s1) j->losses++; else { j->draws++; ws += 0.5; }
+        pl0 = j->plies;
         play_one(j->b, j->a, j->rounds, decks, &rng, &s0, &s1, &j->plies);
+        double plB = j->plies - pl0;
         j->points_a += s1; j->points_b += s0;
         pair += s1 - s0;
         if (s1 > s0) { j->wins++; ws += 1.0; } else if (s1 < s0) j->losses++; else { j->draws++; ws += 0.5; }
         j->sum += pair;
         j->sumsq += pair * pair;
         ws *= 0.5;
+        if (g_pairlog)   /* pair  A-first: a b  B-first: b a  plies plies  winscore margin */
+            fprintf(g_pairlog, "%d %d %d %d %d %.0f %.0f %.2f %+.0f\n", g, a0, a1, s0, s1, plA, plB, ws, pair);
         j->wsum += ws;
         j->wsumsq += ws * ws;
         j->done++;

@@ -1,0 +1,38 @@
+Common-random-numbers runner (round-3 panel rank 1), declared and validated
+2026-09-05 04:30 UTC
+=========================================================================
+Runner/estimator change, no strength claim.  Every draw a rollout decision
+makes (belief worlds, playout frames, playout seeds) now comes from a
+stream keyed by the information set and the caller's seed (Rng.salt, set
+by rng_seed), never from the match stream (src/rollout.c rollout_move
+entry; src/lc.h Rng).  Each agent's marginal world distribution is
+unchanged (uniform over salts), so E[win score] is today's estimand; only
+the coupling across a paired A/B game changes: two agents that differ in
+one mechanism see identical worlds at every shared information set, so a
+pair diverges only where the mechanism changes a move.  Decisions are
+reproducible as f(state, seed).  tools/arena -P FILE writes one line per
+pair (pair, A-first scores, B-first scores, plies, win score, margin);
+scratchpad gate_agg.py pools them into the paired SE.
+
+Validation (pre-registered, all passed):
+  (1) Null chunk, standing vs standing, seed 6500, -n 8 -r 3 -t 4:
+      W/L/D 8/8/0, margin +0.00; all 8 pairs at exactly 0.50 with identical
+      ply counts and mirrored scores (e.g. pair 0: 138-66 / 138-66, 137
+      plies both) -- the runner is deterministic under CRN.
+  (3) Salt check, fs1_p70 under seeds 11/12/13: W7 play / Y8 play / G10
+      play -- different seeds give different decisions; seed 11 twice gives
+      W7 both times.
+  (4) Identity anchor for future runner rebuilds: 42-probe suite, 20
+      seeds, standing string under the CRN runner: 326 better / 144 worse
+      (the pre-CRN runner read 323 / 170 on the same string; the suite
+      tallies are seed-dependent by design and the anchor is this new
+      number).
+  (2) Divergence readout per mechanism class: NOT run (would need a
+      move-level game log; recorded as not measured, no claim made).
+Expected variance reduction is small (3-10% for search mechanisms with a
+10-50% per-decision change rate, ~0 for net swaps); what is claimed is
+unbiased coupling, reproducibility, and the exact-0.5 null tripwire.
+From here every gate file records crn=1 and pools per-pair lines.  Gate Y
+(declared before this runner existed) runs on the pre-CRN binary, crn=0.
+Archived gates stay valid as recorded and are not byte-replayable under
+CRN (the 102e5be precedent).  No gate is re-read under CRN.

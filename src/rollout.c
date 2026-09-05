@@ -284,6 +284,19 @@ int agent_policy_probs(const struct Agent *a, const State *st, Rng *rng,
 Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                   float *out_value, SearchStats *stats)
 {
+    /* Common random numbers: every draw this decision makes (worlds, frames,
+     * playout seeds) comes from a stream keyed by the information set and
+     * the caller's seed (Rng.salt), never from the match stream.  The
+     * decision is then a fixed function of (state, seed): two agents that
+     * differ only in a mechanism see identical worlds at every shared
+     * information set, so a paired A/B game diverges only where the
+     * mechanism changes a move, and a standing-vs-standing pair reads
+     * exactly 0.5 (the runner's nondeterminism tripwire).  The marginal
+     * world distribution of each agent is unchanged. */
+    Rng crn;
+    rng_seed(&crn, infoset_hash(st, st->turn) ^ (rng->salt * 0x9E3779B97F4A7C15ULL) ^ 0x5851F42D4C957F2DULL);
+    rng = &crn;
+
     Move mv[MAX_MOVES];
     float prob[MAX_MOVES];
     float value = 0.0f;

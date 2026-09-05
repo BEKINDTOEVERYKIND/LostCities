@@ -107,7 +107,7 @@ typedef struct {
 #define MATCH_ROUNDS 3
 
 /* ---- rng: xoshiro256** ---------------------------------------------- */
-typedef struct { uint64_t s[4]; } Rng;
+typedef struct { uint64_t s[4]; uint64_t salt; } Rng;   /* salt: the seed, for information-set-keyed sub-streams */
 
 static inline uint64_t rotl64(uint64_t x, int k) { return (x << k) | (x >> (64 - k)); }
 
@@ -123,6 +123,7 @@ static inline uint64_t rng_next(Rng *r)
 
 static inline void rng_seed(Rng *r, uint64_t seed)
 {
+    r->salt = seed;
     /* splitmix64 expansion */
     for (int i = 0; i < 4; i++) {
         seed += 0x9E3779B97F4A7C15ULL;

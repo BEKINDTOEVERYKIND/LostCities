@@ -19,6 +19,7 @@ int main(int argc, char **argv)
     int pairs = 500, nthread = 4, rounds = 1;
     uint64_t seed = 20260727;
     int quiet = 0;
+    const char *pairlog = NULL;
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-a") && i + 1 < argc) spec0 = argv[++i];
@@ -28,8 +29,9 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "-s") && i + 1 < argc) seed = strtoull(argv[++i], NULL, 10);
         else if (!strcmp(argv[i], "-r") && i + 1 < argc) rounds = atoi(argv[++i]);
         else if (!strcmp(argv[i], "-q")) quiet = 1;
+        else if (!strcmp(argv[i], "-P") && i + 1 < argc) pairlog = argv[++i];
         else {
-            fprintf(stderr, "usage: %s -a SPEC -b SPEC [-n pairs] [-t threads] [-s seed] [-r rounds] [-q]\n"
+            fprintf(stderr, "usage: %s -a SPEC -b SPEC [-n pairs] [-t threads] [-s seed] [-r rounds] [-q] [-P pairlog]\n"
                             "  SPEC = random | heur | net:PATH[:samples] | mcts:PATH[:dets[:sims[:rw[:nw]]]]\n",
                     argv[0]);
             return 1;
@@ -40,6 +42,8 @@ int main(int argc, char **argv)
     spec_parse(spec0, &a);
     spec_parse(spec1, &b);
     MatchResult r;
+    FILE *plf = NULL;
+    if (pairlog) { plf = fopen(pairlog, "w"); match_set_pairlog(plf); }
     struct timespec t0, t1;
     clock_gettime(CLOCK_MONOTONIC, &t0);
     match_run_r(&a, &b, pairs, nthread, seed, rounds, &r);
@@ -58,5 +62,6 @@ int main(int argc, char **argv)
                r.wins, r.losses, r.draws, 100 * r.winrate, 100 * r.winrate_se, 100 * r.winrate_se_paired);
         printf("  points/game %.1f vs %.1f   plies/game %.1f\n", r.points_a, r.points_b, r.plies);
     }
+    if (plf) fclose(plf);
     return 0;
 }

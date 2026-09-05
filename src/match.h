@@ -3,6 +3,7 @@
 #define MATCH_H
 
 #include "agent.h"
+#include <stdio.h>
 
 typedef struct {
     int pairs, games;
@@ -17,6 +18,9 @@ typedef struct {
 /* rounds = 1 gives single-deal games; rounds = MATCH_ROUNDS gives the full
  * competitive format, cumulative totals, alternating first player, margins
  * and winrate reported per match. */
+/* optional per-pair log (arena -P): one line per pair, see match.c worker */
+void match_set_pairlog(FILE *f);
+
 void match_run_r(const Agent *a, const Agent *b, int pairs, int nthread,
                  uint64_t seed, int rounds, MatchResult *out);
 void match_run(const Agent *a, const Agent *b, int pairs, int nthread,
