@@ -100,6 +100,7 @@ static int playout(const Net *net, State *s, int p, int prune, Rng *srng,
 static void sample_world(const struct Agent *a, const State *st, int p,
                          Rng *rng, State *out)
 {
+    if (a->omni) { determinize_omni(st, p, rng, out); return; }   /* measurement only */
     if (a->no_belief) { determinize_b(st, p, rng, NULL, out); return; }
     if (a->bel_samp > 0) {
         determinize_bm(st, p, rng, a->net_b ? a->net_b : a->net, a->bx, a->bel_samp, a->sym_bel, out);

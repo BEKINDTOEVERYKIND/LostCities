@@ -64,6 +64,28 @@ void determinize(const State *st, int p, Rng *rng, State *out)
     out->deck_left = (uint8_t)d;
 }
 
+void determinize_omni(const State *st, int p, Rng *rng, State *out)
+{
+    *out = *st;
+    const int o = p ^ 1;
+    uint8_t unseen[NCARD];
+    int n = 0;
+    lc_unseen(st, p, unseen, &n);
+    /* the deck is exactly the unseen pool minus the opponent's real hand */
+    int d = 0;
+    for (int i = 0; i < n; i++)
+        if (!((st->hand[o] >> unseen[i]) & 1ULL)) unseen[d++] = unseen[i];
+    for (int i = d - 1; i > 0; i--) {
+        uint32_t j = rng_below(rng, (uint32_t)i + 1);
+        uint8_t t = unseen[i]; unseen[i] = unseen[j]; unseen[j] = t;
+    }
+    out->hand[o] = st->hand[o];
+    out->deck_pos = 0;
+    memset(out->deck, 0, sizeof(out->deck));
+    for (int i = 0; i < d; i++) out->deck[i] = unseen[i];
+    out->deck_left = (uint8_t)d;
+}
+
 /* Sample the opponent's unknown cards from the belief posterior using
  * Gumbel-top-k on the logits: an exact draw from the Plackett-Luce
  * distribution the logits induce, so likelier hands appear in more worlds. */

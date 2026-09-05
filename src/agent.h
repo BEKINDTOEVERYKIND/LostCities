@@ -214,6 +214,14 @@ typedef struct Agent {
                            forward).  0 = raw logits.  >= 120 (LC_SYM_EXACT)
                            enumerates the 120 suit relabelings: exactly
                            suit-invariant, copies still sampled then pooled. */
+    int omni;           /* AG_ROLLOUT (spec field 28, after sym_bel):
+                           MEASUREMENT ONLY.  1 = every world carries the
+                           opponent's TRUE hand (the deck order is still
+                           sampled from the remaining unseen cards).  This
+                           is cheating and can never be deployed; it exists
+                           to bound what any hand-inference improvement
+                           could deliver at the current search (see
+                           data/probes/omni_bound_2026-09-05.txt).  0 = off. */
     int bel_samp;       /* AG_ROLLOUT (spec field 26): belief world sampler.
                            0 = Gumbel-top-k on the belief logits (the
                            original path, a Plackett-Luce draw whose
@@ -309,6 +317,9 @@ void determinize(const State *st, int p, Rng *rng, State *out);
 void determinize_b(const State *st, int p, Rng *rng, const Net *net, State *out);
 struct BelX;
 void determinize_bx(const State *st, int p, Rng *rng, const struct BelX *bx, State *out);
+/* omniscient-hand world (Agent.omni): the opponent's real hand, the deck
+ * a uniform shuffle of the remaining unseen cards.  Measurement only. */
+void determinize_omni(const State *st, int p, Rng *rng, State *out);
 /* belief world with the sampler selected by mode (Agent.bel_samp): 0 = the
  * Gumbel-top-k draws above (bit-identical), 1 = conditional-Bernoulli on
  * the shifted marginals, 2 = the same with calibrated weights.  Uses bx

@@ -1,0 +1,29 @@
+Omniscient-hand bound (Bound U), declared 2026-09-05 01:22 UTC before running
+============================================================================
+Question: how much could ANY improvement in opponent-hand inference (belief
+head, sampler, likelihood corrections, particle filters) deliver at the
+current search?  Upper bound by construction: an agent whose every world
+carries the opponent's TRUE hand (deck order still sampled from the
+remaining unseen cards) is the limit of perfect inference.
+
+Mechanism: Agent.omni (spec field after sym_bel; src/agent.c
+determinize_omni, src/rollout.c sample_world).  MEASUREMENT ONLY -- it
+reads the engine's private state and can never be deployed.
+
+A (omniscient) = rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120:1
+B (standing)   = rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120
+Runner: bin/arena -n 8 -r 3 -t 4, 50 chunks, seeds 6200-6249 (800 games,
+400 paired deals).  Readout: win score with the paired SE, paired margin.
+
+Pre-registered reading (no adoption is possible):
+  <= 52%  : hand inference is at its ceiling for this search; the belief/
+            sampler/likelihood direction is closed at 96 worlds.
+  52-55%  : small headroom; only mechanisms with a measured belief-skill
+            gain in the deployment distribution (data/probes/belief_*) merit
+            a gate, and none should be expected to clear 52% alone.
+  >= 55%  : real headroom; inference work (opponent-action likelihood
+            correction, history encoding for the belief head) is funded
+            ahead of net/search items in the round-3 plan.
+Both seats see the same deals; the omniscient side also affects the
+opponent's inference only through its own (unchanged) play style.
+Result: pending
