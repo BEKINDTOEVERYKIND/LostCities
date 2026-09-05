@@ -1136,6 +1136,17 @@ search-estimator question, not a labeler flag.  The corrections
 direction is parked at this yield; the candidates stay on disk
 (`data/c21_cand.bin`, `data/c21f_cand.bin`, gen-8's `c23_*_cand.bin`).
 
+*Then it was read directly, and it moved.*  Gate Y (round-3 panel rank
+2, `data/probes/gen8_main_gate_2026-09-05.txt`) played the gen-7 net
+as the MAIN net at the tournament string, the read the 54% raw trigger
+had always forbidden: **53.12% +/- 3.46 over 800 games** (chunk-cluster
+SE 1.2%), paired margin +1.80 +/- 1.55.  Adopted: `data/best.bin` is
+now that net (the former champion is kept as `data/best_pre_c21.bin`);
+the string itself did not change.  A net whose raw edge is +2 points
+carried +3 at the search level -- the raw-to-search ratio the record
+had inferred from three earlier nets does not hold for this one, and
+raw strength orders search-level effect in neither direction.
+
 *How much is the hidden hand worth?*  A measurement-only world sampler
 (`Agent.omni`, the spec field after `sym_bel`; never deployable) gives
 the search the opponent's TRUE hand in every world, the deck order still
