@@ -237,7 +237,7 @@ static void labeler_init(Agent *lab, const Job *j)
      * policy top, priors and beliefs are exactly symmetrized and worlds
      * come from the calibrated sampler, as in the match spec */
     lab->sel_k = j->selk;
-    if (j->sym) { lab->sym_k = 120; lab->sym_bel = 120; lab->bel_samp = 1; }
+    if (j->sym) { lab->sym_k = 120; lab->sym_bel = 120; lab->bel_samp = 1; lab->sym_play = 1; }
     /* gen-8: win-aware labels -- in the last round candidates compare on
      * win probability (the engine's win_q path), the match objective */
     lab->win_q = j->winq;

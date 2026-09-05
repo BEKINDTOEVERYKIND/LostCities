@@ -488,7 +488,7 @@ search on exhaustion -- an unbounded per-solve version could pin a thread
 for hours on one rare wide-hand endgame.
 
 Recommended settings: **maximum strength**
-`rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120`
+`rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120:0:0:1`
 (search from ply 14, candidates = the policy's top five moves at or
 above the 2% floor and nothing else -- `eval_cand` 0, on the reviewer's
 directive of 2026-09-04, after the review games showed the old
@@ -519,20 +519,28 @@ conditional-Bernoulli draw on those beliefs (`bel_samp`, field 26 = 1:
 the sampler's inclusion probabilities match the head's marginals, late
 worlds no longer collapse onto duplicate hands; adopted at 52.56% over
 800 games once the suite's noise bias was understood -- see Gate L);
-plain `rollout:NET:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120`
+the three trailing fields are `omni` 0 (a measurement-only cheat, never
+on), `net_p` 0 (no separate playout net) and `sym_play` 1: every world
+is played out under its own random suit relabeling drawn from the
+world's seed, so the playout policy -- the last unsymmetrized component
+of the estimator -- is suit-invariant in expectation at zero cost
+(Gate W, 49.62% +/- 3.46 over 800 games, margin -1.65 +/- 1.51: wins at
+parity, adopted under the standing symmetry rule, not as a strength
+claim; `data/probes/leaf_estimator_2026-09-05.txt`);
+plain `rollout:NET:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120:0:0:1`
 when only one network file is on hand;
 **review games** are played at full strength, cost no object:
-`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120`
+`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120:0:0:1`
 (the same rules at 512 worlds);
 **gate 0.85 for real-time play**; raw policy for bulk generation.
 Analysis (the advisory display agent of `analyze -a`) uses
-`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:0:0:0:0:1:3:4:0:0:0:0:0:0:0:0:0:2:0:120:1:120`
+`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:0:0:0:0:1:3:4:0:0:0:0:0:0:0:0:0:2:0:120:1:120:0:0:1`
 -- searched at every ply for display, no selection gate, and the same
 candidate set as the play agent: the policy's top five moves at or
 above the 2% floor, nothing added.
 Showcase/review games are PLAYED at full strength, cost no object
 (reviewer doctrine): the recommended spec with dets raised to 512 --
-`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120`
+`rollouth:data/best.bin:data/belief_best.bin:512:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120:0:0:1`
 -- so a reviewed blunder is a real policy/search failure, never the
 96-world sampling noise the wall-clock tournament spec accepts.
 
@@ -1141,6 +1149,20 @@ better leaf policy, not that leaves do not matter.  Raw strength does
 not order leaf quality; the role wants a policy whose greedy
 continuation predicts the round margin, and that is a training target
 the corrections loop never had.
+
+*The objective at the leaves, measured.*  `win_q` 2 scores every world
+as a smooth match-win probability (a soft step in the final round,
+points elsewhere except in blowouts) instead of points; unlike the
+lexicographic `win_q` 1, which only re-ordered candidates that had
+already cleared the margin gate and so differed from the standing rule
+on 1% of decisions, it flips 16-24% of final-round picks.  Gate X:
+**49.56% +/- 3.46, margin -1.90** over 800 games -- those flips win no
+more matches.  The pattern across the round is consistent: at fixed
+worlds, the estimator's ranking of the policy's top five is as good as
+its noise allows, and what it knows (Bound U), how it scores (Gate X),
+and which net plays its leaves (Gate V, unless the net is much weaker:
+V-ctl) all move it by less than the gate can see.  The one open leaf
+arm is a playout policy trained for the leaf role itself.
 
 *Distillation on the agent's own play distribution* was built and
 killed at its pre-test (50% of its qualifiers flip on a fresh batch
