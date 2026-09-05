@@ -60,3 +60,13 @@ Pilot S (declared here, runs after Replicate R): 104 games, seeds
   >= 50% funds an 800-game gate on seeds 6900-6949; anything else closes
   the exactness direction at deck <= 5 at any budget.  Wall-clock per
   chunk recorded (the solver adds ~15M nodes per late decision).
+Pilot S result (2026-09-05 12:17 UTC; both sides on the NEW champion; 223 s/chunk
+against 37 for the standing string -- the solver costs 5.7x wall-clock):
+  W/L/D 106/101/1  score 51.20% +/- 6.79 (95% CI); paired margin +0.77 +/- 1.16 pts/game; points/game 115.17 vs 114.42; chunks 13 per-pair: 104 pairs, win score 51.20% +/- 1.62 (pooled paired SE); margin/pair +0.77 +/- 1.24 pts/game; pairs at exactly 0.5: 92 
+  92 of 104 coupled pairs never diverged in outcome: candidates-only exact
+  pricing at deck <= 5 changes the played move on so few decisions that
+  the match result moves on one pair in nine.  Margin +0.77 +/- 1.16 is
+  under the +3 funding line; the exactness direction at deck <= 5 is
+  CLOSED at any budget, now with the record corrected: the earlier arms
+  lost to their own stall wars and incomplete solves, and a solver that
+  completes and cannot stall is worth about +1 point at 5.7x the cost.

@@ -619,8 +619,11 @@ its self-play ran 194 plies per game against 141, one round from ply 42
 to the 300-ply cap, and its points per game fell to 93.  Restricting the
 exact pricing to the policy's top five candidates (`solve_vote` 2)
 completes 71-90% of deck 4-5 decisions at 40-100M nodes with no stall
-wars; a 104-game pilot of that form is declared in
-`data/probes/solve_fallthrough_2026-09-05.txt`.)
+wars.  Its 104-game pilot (`data/probes/solve_fallthrough_2026-09-05.txt`)
+read 51.2% +/- 1.6, margin +0.8 +/- 1.2, with 92 of 104 coupled pairs
+never diverging -- an exact endgame that completes and cannot stall is
+worth about a point at 5.7x the wall-clock, and the direction is closed
+at deck <= 5 at any budget.)
 The adopted fast spec stands.  Verdict for the flagged-stall class:
 decision-time exactness is the wrong lever at this depth; what remains
 of the stall flaw lives at deck 6-8, outside affordable solver reach,
