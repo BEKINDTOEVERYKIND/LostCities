@@ -1,0 +1,7 @@
+pool tripwire for rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120:0:0:1
+big1     games  200  W/L/D 130/70/0  win  65.0% (SE 3.4)  margin +25.9
+s2       games  200  W/L/D 125/74/1  win  62.7% (SE 3.4)  margin +24.4
+sym1     games  200  W/L/D 119/80/1  win  59.8% (SE 3.5)  margin +13.8
+oldbest  games  200  W/L/D 140/58/2  win  70.5% (SE 3.2)  margin +45.7
+m0       games  104  W/L/D 101/3/0  win  97.1% (SE 1.6)  margin +236.6
+heur     games  104  W/L/D 104/0/0  win 100.0% (SE 0.0)  margin +343.3

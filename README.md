@@ -526,7 +526,10 @@ world's seed, so the playout policy -- the last unsymmetrized component
 of the estimator -- is suit-invariant in expectation at zero cost
 (Gate W, 49.62% +/- 3.46 over 800 games, margin -1.65 +/- 1.51: wins at
 parity, adopted under the standing symmetry rule, not as a strength
-claim; `data/probes/leaf_estimator_2026-09-05.txt`);
+claim; `data/probes/leaf_estimator_2026-09-05.txt`; pool tripwire
+after adoption: big1 65.0%, s2 62.7%, sym1 59.8%, oldbest 70.5%, raw
+policy 97.1%, heuristic 100% -- every opponent within 2 SE of the
+`data/probes/pool_baseline_2026-09.txt` read, no hold);
 plain `rollout:NET:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120:0:0:1`
 when only one network file is on hand;
 **review games** are played at full strength, cost no object:
