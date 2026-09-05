@@ -1,0 +1,54 @@
+Gate Y -- a corrections net as the MAIN net at the tournament string
+(declared 2026-09-05 04:25 UTC before running; round-3 panel rank 2)
+=====================================================================
+Why: c21, c21f, c23_v5 and c23_v6 have never been played as the main net
+at the tournament string; the "raw-to-search ratio" that kept them out
+was inferred from c9 / x-head / c18, and Gate V / V-ctl showed raw
+strength does not order search-level effect in either direction.  One
+800-game read closes the corrections direction with a measurement.
+
+RULE WAIVER (labeled): the 54% raw trigger was panel 2's own screening
+heuristic, not an owner rule; it is waived for this ONE read.  The
+owner's 52% adoption bar is untouched.
+
+Pre-test (i): raw pins, 20,000 games each vs policy:data/best.bin,
+seeds 6510-6513 (SE 0.35%):
+  c21_cand (v5)    51.9%  margin +3.12
+  c23_v5_cand (v5) 51.7%  margin +3.01
+  c23_v6_cand (v6) 52.0%  margin +3.41
+  c21f_cand (v6)   51.5%  margin +2.99
+  (the 1000-game reads of 52.6-52.9% were winner's-curse inflated by
+  ~0.8 points; the true raw edge of this labeler's nets is ~+2)
+  Ties within 0.5% resolve toward a v5 file: pinned net = data/c21_cand.bin.
+Pre-test (ii): root-channel population on 400 stored search-play states
+(scratchpad/search80.bst, nply >= 14, deck 1-14, >= 2 candidates; tool
+scratchpad/rootchan.c):
+  A = candidate's sym-120 top differs from c20's; B = the standing
+  96-world search does not play the candidate's top anyway:
+  c21_cand    A 5.8%  B 87.0%  AxB 5.00%   (1 of 23 outside c20's top-5)
+  c23_v5_cand A 4.5%  B 88.9%  AxB 4.00%
+  c23_v6_cand A 5.0%  B 85.0%  AxB 4.25%
+  c21f_cand   A 5.5%  B 81.8%  AxB 4.50%
+  Kill line 3%: passed.  Reading: the swap can change ~5% of searched
+  decisions through the root channel (candidate 0 / priors); the search
+  already plays the candidate's top on the other 95%.
+fs1 probes: never trained on -- the corpora are c20 self-play at seeds
+20260906-20260908 (mine) and the anchor corpus; every probe deal comes
+from the review seeds (909200, 910001-910006) or reviewer-supplied games.
+
+Gate Y:
+  A = rollouth:data/c21_cand.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120:0:0:1
+  B = rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120:0:0:1
+  bin/arena -n 8 -r 3 -t 4, 50 chunks, seeds 6520-6569 (800 games), crn=0
+  (the common-random-numbers runner of rank 1 is not yet built; a net
+  swap gains nothing from it).  Readouts: win score (binomial CI and
+  chunk-cluster SE), paired margin, s/chunk.
+  >= 52%   adopt: best.bin -> c21_cand (best_pre_c21.bin kept), exact
+           string reported, pool tripwire, showcase regenerated.
+  49.5-52  neutral: the corrections direction is CLOSED at the gate level
+           for the gen-7/8 labeler (three raw reads + one search read); no
+           further corrections net is gated without a new label estimator.
+  < 49.5   negative, same closure.
+  Secondary: a margin gain with flat wins is the points-not-wins
+  signature and is not an adoption argument.
+Result: pending
