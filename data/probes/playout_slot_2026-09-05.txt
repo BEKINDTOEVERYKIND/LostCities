@@ -1,0 +1,39 @@
+Playout-net slot (Gate V), declared 2026-09-05 02:00 UTC before running
+=======================================================================
+Premise (round-3 panel, four lenses independently): the tournament search
+is bias-limited (resolution family neutral; Bound U: perfect hand
+knowledge worth only ~3.5 points), and its bias lives in the leaves --
+greedy playouts of the champion policy for both seats from ply 14 to the
+round end.  Raw-policy improvements never moved a gate because a stronger
+ROOT policy changes candidate 0 and the priors, which the sel_k gate then
+protects, while the leaf policy only changed along with it.  The v6
+turn-arithmetic fine-tune (data/c21f_cand.bin) cut the endgame held-out
+correction CE by 0.070 (17x the seed spread) and reads 52.6% raw vs c20:
+a better ENDGAME greedy player, exactly the role the leaves play.
+
+Mechanism: Agent.net_p (spec field 29, after omni; src/spec.c, src/rollout.c
+playout calls).  The root keeps c20 for priors, candidates and the
+displayed value; every playout of every world runs the named net.  Field
+absent/"0" is bit-identical (checked: chunk 6200 of Bound U replays with
+identical W/L/D and margin under the rebuilt binary).
+
+Gate V:  A = rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120:0:data/c21f_cand.bin
+         B = rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120
+  runner bin/arena -n 8 -r 3 -t 4, 50 chunks, seeds 6300-6349 (800 games).
+  Readouts: win score (95% CI +/-3.46 and the chunk-cluster SE), paired
+  margin, s/chunk both sides.
+  >= 52%   adopt: the A string becomes the tournament string (reported
+           verbatim); the review string is the same with 512 worlds;
+           pool tripwire re-run; showcase regenerated.
+  49.5-52  neutral: recorded; run the control below to learn whether
+           the leaves matter at all before spending more on this slot.
+  < 49.5   negative: recorded, slot stays as a documented knob.
+Control (V-ctl, run only if V is neutral or negative): playout net =
+  data/old_best.bin (a net the standing agent beats 73.5% head to head).
+  Seeds 6350-6399.  If even a much weaker leaf policy reads >= 49.5%, the
+  leaves do not carry the decision and the whole "better playout policy"
+  family is closed; if it reads well below, the leaf policy matters and
+  the v6 arm simply was not better in the role -- a playout specialist
+  trained on the role (panel proposal) is then the next arm.
+Suite: tripwire only (20 seeds, consistent if within 13 of standing).
+Result: pending
