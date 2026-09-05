@@ -607,6 +607,17 @@ pathology (it recovers the ~6-point match loss the vote suffered) and
 still flips the solver-covered stall probes, but converts none of that
 into match wins -- by deck<=5 the games it changes are almost all
 already decided, and each endgame decision costs minutes of solving.
+(Correction, 2026-09-05: a completion counter added to the solve block
+shows that arm finished 58% of its deck-4 and 32% of its deck-5
+decisions -- the rest fell through to the normal search -- and, worse,
+that pricing every legal move lets the exact solver find the
+pile-recycling stall that is optimal in a perfect-information world:
+its self-play ran 194 plies per game against 141, one round from ply 42
+to the 300-ply cap, and its points per game fell to 93.  Restricting the
+exact pricing to the policy's top five candidates (`solve_vote` 2)
+completes 71-90% of deck 4-5 decisions at 40-100M nodes with no stall
+wars; a 104-game pilot of that form is declared in
+`data/probes/solve_fallthrough_2026-09-05.txt`.)
 The adopted fast spec stands.  Verdict for the flagged-stall class:
 decision-time exactness is the wrong lever at this depth; what remains
 of the stall flaw lives at deck 6-8, outside affordable solver reach,

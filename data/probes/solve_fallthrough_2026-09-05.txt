@@ -26,4 +26,37 @@ corrected; the direction reopens only on a candidates-only completion
 6800-6812; margin >= +3 AND wins >= 50% funds a gate on a later block).
 The flip rate against the standing pick is NOT measured here (no
 side-by-side replay in the runner); recorded as not measured.
-Result: pending
+Result (2026-09-05 06:40 UTC; 10 self-play games per configuration, one core):
+  completion by deck (decisions, completed, mean moves priced, mean nodes):
+  all60   deck 3: 38 -> 89%  (23.4 moves, 10.0M)   deck 4: 38 -> 58% (29.5, 34.4M)
+          deck 5: 38 -> 32%  (25.2 moves, 44.9M)
+  cand40  deck 3: 38 -> 100% (3.9 moves, 3.1M)     deck 4: 40 -> 85% (3.8, 9.9M)
+          deck 5: 42 -> 71%  (3.5 moves, 18.1M)
+  cand100 deck 3: 38 -> 100%                       deck 4: 40 -> 90% (17.2M)
+          deck 5: 42 -> 81%  (32.2M)
+  Reading 1 (record correction): the recorded 60M all-moves arm (49.2%)
+  completed 58% of its deck-4 and 32% of its deck-5 decisions, so it
+  measured exactness mostly at deck <= 4 with two thirds of deck 5 falling
+  through to the normal search; "exact at deck <= 5" overstated it.
+  Reading 2 (new, larger): the all-moves arm plays STALL WARS.  Its
+  self-play averaged 193.6 plies per game against 141.6 for the
+  candidates-only arms, with 570 deck-2 solve decisions in 10 games
+  (44 for candidates-only): one round ran from ply 42 to the 300-ply cap
+  with both sides refusing to draw.  Pricing every legal move lets the
+  exact solver find the pile-recycling stall that is optimal in a
+  perfect-information world, and the cap then ends the round arbitrarily
+  (points per game 93.4 vs 106 normal).  The recorded solver arms lost
+  points to their own stall wars, not only to decided endgames; the
+  candidate set (the policy's top five) almost never contains the stall.
+  Reading 3: candidates-only completion at deck 4-5 is 71-90% -> the
+  pre-stated pilot condition is met.
+Pilot S (declared here, runs after Replicate R): 104 games, seeds
+6800-6812 (13 chunks x 8 pairs, scratchpad build4 arena = CRN runner with per-pair logs, crn=1).
+  A = rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:5:0:1:2:40:0:0:0:2:0:120:1:120:0:0:1
+      (standing + solve_deck 5, solve_vote 2 = candidates-only exact
+      pricing, solve_budget 40M; fall-through to the normal search on
+      exhaustion)
+  B = standing.  Readout: paired margin and wins; margin >= +3 AND wins
+  >= 50% funds an 800-game gate on seeds 6900-6949; anything else closes
+  the exactness direction at deck <= 5 at any budget.  Wall-clock per
+  chunk recorded (the solver adds ~15M nodes per late decision).
