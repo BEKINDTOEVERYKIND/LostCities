@@ -43,4 +43,17 @@ Gate V result (2026-09-05 02:31 UTC, runner c55d5ed, 39.1 s/chunk mean over 50 c
   Per the declared rule the control (V-ctl: data/old_best.bin in the
   leaves, seeds 6350-6399) runs next to learn whether the leaves carry the
   decision at all.
-V-ctl result: pending
+V-ctl result (2026-09-05 03:03 UTC, 39.9 s/chunk):
+  W/L/D 352/444/4  score 44.25% +/- 3.44 (95% CI); paired margin -9.90 +/- 1.53 pts/game; points/game 109.62 vs 119.51; chunks 50
+  The leaves carry the decision: a net the standing agent beats 73.5% head
+  to head costs 5.75 points of win rate and 9.9 points of margin when it
+  plays ONLY the continuations (root unchanged).  Gate V's neutral read
+  therefore means the turn-aware fine-tune was not a better leaf policy,
+  not that the leaf policy does not matter.  The raw-strength ordering of
+  nets is not the leaf-quality ordering (+2.6 raw points moved nothing;
+  -23.5 raw points cost 5.75): the leaf role wants a policy whose greedy
+  continuation predicts the round margin under strong play, which is a
+  different target from argmax strength at the root.  The family stays
+  open with ONE live arm: a playout specialist trained on that target
+  (panel-3 proposal), gated only after an offline estimator-error read
+  against a high-world reference shows it beats c20 in the role.

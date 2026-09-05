@@ -1129,6 +1129,19 @@ locates the remaining error in the estimator's leaves (the playout
 policy and the objective it scores), not in what it knows or how many
 worlds it averages.
 
+*The leaves, measured directly.*  A playout-only net slot (`Agent.net_p`,
+the spec field after `omni`) lets the search's continuations run a
+different net from its root.  With the turn-aware fine-tune in the
+leaves and c20 at the root, Gate V reads **50.56% +/- 3.46, margin
++0.17** (800 games, `data/probes/playout_slot_2026-09-05.txt`): nothing.
+The pre-registered control -- a net the standing agent beats 73.5% head
+to head, in the leaves only -- reads **44.25%, margin -9.90**: the leaf
+policy carries the decision, so Gate V says the fine-tune was not a
+better leaf policy, not that leaves do not matter.  Raw strength does
+not order leaf quality; the role wants a policy whose greedy
+continuation predicts the round margin, and that is a training target
+the corrections loop never had.
+
 *Distillation on the agent's own play distribution* was built and
 killed at its pre-test (50% of its qualifiers flip on a fresh batch
 against a 35% rule; `data/probes/distill_2026-09-04.txt`).
