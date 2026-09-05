@@ -69,4 +69,7 @@ Gate W result (2026-09-05 03:38 UTC, 37.7 s/chunk, identity check passed):
   suite tripwire (20 seeds, within 13 of standing) and to the owner's
   veto given the bottom-of-band read; the final string is composed after
   Gate X (a joint confirmation is run if both adopt).
+  Suite tripwire (20 seeds, 42 probes, same binary): standing 323 better /
+  170 worse; sym_play 319 / 149 -- within 13 on the better column, 21
+  fewer worse.  Consistent; tripwire passed.
 Gate X result: pending
