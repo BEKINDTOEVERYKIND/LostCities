@@ -36,4 +36,11 @@ Control (V-ctl, run only if V is neutral or negative): playout net =
   the v6 arm simply was not better in the role -- a playout specialist
   trained on the role (panel proposal) is then the next arm.
 Suite: tripwire only (20 seeds, consistent if within 13 of standing).
-Result: pending
+Gate V result (2026-09-05 02:31 UTC, runner c55d5ed, 39.1 s/chunk mean over 50 chunks):
+  W/L/D 402/393/5  score 50.56% +/- 3.46 (95% CI); paired margin +0.17 +/- 1.57 pts/game; points/game 114.97 vs 114.79; chunks 50
+  chunk-cluster SE 1.40%.  NEUTRAL (49.5-52 band): the turn-aware net in
+  the leaves changes nothing measurable -- wins at parity, margin +0.2.
+  Per the declared rule the control (V-ctl: data/old_best.bin in the
+  leaves, seeds 6350-6399) runs next to learn whether the leaves carry the
+  decision at all.
+V-ctl result: pending
