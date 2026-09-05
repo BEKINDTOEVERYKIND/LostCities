@@ -56,5 +56,17 @@ Gate X -- smooth match objective in every round (win_q 2).
 Both gates run after V-ctl (seeds 6350-6399) finishes; identity of the
 standing side under the new binary is checked by replaying Bound U chunk
 6200 (must reproduce W/L/D 6/10/0, margin +5.94).
-Gate W result: pending
+Gate W result (2026-09-05 03:38 UTC, 37.7 s/chunk, identity check passed):
+  W/L/D 394/400/6  score 49.62% +/- 3.46 (95% CI); paired margin -1.65 +/- 1.51 pts/game; points/game 112.97 vs 114.62; chunks 50
+  chunk-cluster SE 1.41%.  Wins at parity (49.62%, inside the declared
+  49.5-52 band by 0.12), points 1.65 +/- 1.51 lower (z = -1.1, not
+  significant).  Strength reading: no measurable change either way -- the
+  panel's mechanism critic had measured the removable frame bias at 3-5x
+  below the proposal's claim, and this is what "3-5x below" looks like at
+  800 games.  Disposition by the declared rule: the symmetry rule applies
+  (the playout policy was the last unsymmetrized component), so sym_play 1
+  is adopted AS A SYMMETRY CHANGE, not a strength claim, subject to the
+  suite tripwire (20 seeds, within 13 of standing) and to the owner's
+  veto given the bottom-of-band read; the final string is composed after
+  Gate X (a joint confirmation is run if both adopt).
 Gate X result: pending
