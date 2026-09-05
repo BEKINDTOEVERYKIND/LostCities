@@ -1,0 +1,43 @@
+Leaf-role estimator error (round-3 panel rank 3, Stage 1), declared 2026-09-05
+04:28 UTC before running, result 05:33 UTC
+============================================================================
+Question: does the play-time estimator (greedy c20 playouts, 96 paired
+worlds, sym_play 1) mis-rank the policy's top-5 relative to references
+that share nothing with that leaf policy's habits?  If it does not, no
+better leaf policy can move the gate and the leaf family closes at zero
+gate cost (the pre-registered kill rule); if it does, on-disk nets in the
+net_p slot are scored on the same states (Stage 2) and a leaf specialist
+becomes fundable.
+
+Instrument: tools/estcmp.c (CRN build).  30 stored search-play states
+(scratchpad/search80.bst, deck 6-14, nply >= 14, >= 2 tournament
+candidates), 99 (state, non-top candidate) rows.  Per row: dQ_est = the
+tournament search's own Q(c) - Q(0) with its paired SE; dQ_refA = the same
+gap over 64 belief worlds each continued to the round end by the STANDING
+SEARCH AGENT playing both seats (worlds paired across candidates); dQ_refB
+= the search with SAMPLED playouts at 1024 worlds.  Readouts: RMS(est -
+ref) against the sampling-noise RMS (excess variance = the estimator's
+own error beyond noise), slope E[dQ_ref | dQ_est], sign agreement; 400
+state-level bootstraps.
+
+Result (data/probes/leaf_estcmp_stage1_2026-09-05.tsv):
+  refA: RMS(est-ref) 2.76 vs noise RMS 2.77 -> excess variance -0.07
+        [-2.75, 4.60] (excess RMS 0.00); mean bias +0.09; slope 0.82
+        [0.61, 0.99]; sign agreement 72%.
+  refB: RMS 2.04 vs noise 1.95 -> excess variance 0.35 [-1.70, 2.79]
+        (excess RMS 0.59); mean bias +0.30; slope 0.74 [0.59, 0.85]; sign
+        agreement 79%.
+  refA vs refB sign agreement 75% (disagreement 25%, under the 40% line).
+  By deck: 6-8 excess RMS 0.5 / 1.7, 9-11 0.0 / 0.0, 12-14 1.2 / 0.0
+  (refA / refB; all inside the bootstrap noise).
+Reading: the estimator's candidate gaps carry NO measurable error beyond
+their own sampling noise against either reference; the only systematic
+feature is attenuation (slope 0.74-0.82: the greedy-leaf gaps are ~20%
+larger than the references' -- a scale, not a ranking error, and the
+sel_k gate is scale-free).  Pre-registered disposition: the leaf family
+is CLOSED at zero gate cost -- no playout policy can be expected to move
+the 800-game gate, which is what Gate V (50.56%) and Gate W (49.62%)
+already read and what V-ctl (44.25%) bounds from below: the leaves matter
+enormously when they are bad and not at all once they are c20-good.
+Stage 2 (on-disk nets in the slot) and the leaf specialist are not run.
+The instrument stays (bin/estcmp) for any future leaf proposal.

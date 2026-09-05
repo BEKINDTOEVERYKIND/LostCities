@@ -1164,6 +1164,18 @@ and which net plays its leaves (Gate V, unless the net is much weaker:
 V-ctl) all move it by less than the gate can see.  The one open leaf
 arm is a playout policy trained for the leaf role itself.
 
+*And the leaves' error, measured.*  `tools/estcmp` scores the search's
+own candidate gaps on 30 stored late-round states against two references
+that share nothing with the greedy leaf policy's habits -- 64 paired
+worlds each continued by the full standing search agent playing both
+seats, and the search with sampled playouts at 1024 worlds.  The gaps
+carry no error beyond their own sampling noise on either reference
+(excess variance -0.07 [-2.75, 4.60] and 0.35 [-1.70, 2.79] points^2;
+`data/probes/leaf_estcmp_2026-09-05.txt`); the only systematic feature
+is a ~20% overstatement of the gap size, which the scale-free selection
+gate does not see.  By the pre-registered rule the leaf family is closed
+at zero gate cost: a better playout policy has nothing left to correct.
+
 *Distillation on the agent's own play distribution* was built and
 killed at its pre-test (50% of its qualifiers flip on a fresh batch
 against a 35% rule; `data/probes/distill_2026-09-04.txt`).
