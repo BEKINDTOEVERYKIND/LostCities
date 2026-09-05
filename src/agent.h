@@ -57,7 +57,17 @@ typedef struct Agent {
                            fraction a noisy binomial, and the win-trained
                            policy already carries the clutch behaviour.
                            Default off; the win fraction is still computed
-                           and reported (SearchStats.qw) either way. */
+                           and reported (SearchStats.qw) either way. 
+                           2 = smooth match objective in EVERY round (see
+                           rollout.c win_value): each world's margin m is
+                           scored as 100*Phi((cum_diff + m) / s_left), s_left^2 =
+                           rounds_after * ROUND_SD^2 + FINAL_SD^2, so rounds
+                           1-2 reduce to points except in blowouts and the
+                           final round becomes a soft step; selection, the
+                           sel_k gate and the override run unchanged on that
+                           statistic (win_q 1's lexicographic final-round pick
+                           only ever acted as a tiebreak among margin
+                           qualifiers).  Reported q stays in points. */
     int prune_dom;      /* AG_ROLLOUT: drop discards dominated by a dead-card
                            discard (lc_discard_dominated) from candidates and
                            playout argmax -- frees candidate slots and stops
@@ -230,6 +240,18 @@ typedef struct Agent {
                            and only the estimator's leaves move.  Path, or
                            "0"/absent = the main net (bit-identical to before
                            the field existed). */
+    int sym_play;       /* AG_ROLLOUT (spec field 30, after net_p): 1 = every
+                           world is played out under its own random suit
+                           relabeling (wager copies too), drawn from the
+                           world's seed so the world stream itself is
+                           unchanged.  The playout policy is the one
+                           unsymmetrized component of the estimator; one
+                           frame per world makes the estimator exactly
+                           suit-invariant in expectation at zero forward
+                           cost (a permute per world).  Every candidate
+                           shares the world AND the frame, so the pairing is
+                           exact; the round margin is frame-invariant.
+                           0 = identity frame (bit-identical). */
     int bel_samp;       /* AG_ROLLOUT (spec field 26): belief world sampler.
                            0 = Gumbel-top-k on the belief logits (the
                            original path, a Plackett-Luce draw whose

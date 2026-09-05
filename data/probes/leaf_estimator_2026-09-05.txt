@@ -1,0 +1,60 @@
+Leaf-estimator gates W and X, declared 2026-09-05 02:40 UTC before running
+==========================================================================
+Where the round-3 evidence points: Bound U (perfect hand knowledge worth
++3.5 points), the closed resolution family (more worlds / deeper selection
+neutral) and Gate V (a stronger endgame net in the leaves: 50.56%) all say
+the tournament search is limited by what its estimator SCORES, not by what
+it knows or how many worlds it averages.  Two estimator changes at the
+leaves, both zero-cost, both pre-tested single-threaded by the round-3
+panel on stored decisions:
+
+Gate W -- per-world relabeled playouts (sym_play, spec field 30).
+  The playout policy is the one unsymmetrized component: candidates are
+  formed from the exact 120-relabeling average (sym_k), worlds from the
+  symmetrized belief (sym_bel), but every playout runs the raw net in the
+  identity suit frame, so its suit habits enter every world's margin as a
+  bias that is constant across worlds and invisible to the paired SE.
+  With sym_play 1 each world is played out under its own random relabeling
+  drawn from the world's seed (the world stream is unchanged; every
+  candidate shares the world and the frame; the round margin is
+  frame-invariant), so the estimator is exactly suit-invariant in
+  expectation.  Panel pre-test (117 stored round-2 decisions, 96 fixed
+  worlds): the pick differs on 31% of decisions; pooling two frames cuts
+  the paired variance by 17% (about 64% of the paired variance is frame
+  noise), override rate 0.35 -> 0.27; on the 41 reviewer probes x 3 seeds
+  better/worse 44/27 -> 55/23.  Panel 1 had dropped the idea at critique
+  ("MSE unchanged at fixed worlds") without a gate; the symmetry rule
+  ("everything should be symmetrized") applies to it.
+  A = rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120:0:0:1
+  B = rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:0:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120
+  seeds 6400-6449 (50 chunks x 8 pairs = 800 games), runner $SP/build3/bin/arena
+  (source of commit <this>), -n 8 -r 3 -t 4.
+  >= 52%  adopt on strength; 49.5-52% adopt under the symmetry rule (as
+  Gate K's exact-vs-sampled read was), stated as such; < 49.5% reject.
+  Suite tripwire 20 seeds (consistent if within 13 of standing).
+
+Gate X -- smooth match objective in every round (win_q 2).
+  win_q 1 (the measured "no better than margin" result, 50.4% pooled over
+  2,000 pairs) never acted: it only re-orders the FINAL-round pick among
+  candidates that already beat the policy top on margin by 1 SE, and the
+  panel's replay of 299 stored round-2 decisions found it differs from
+  the deployed rule on 1.0% of them.  win_q 2 scores every world as
+  100*Phi((cum_diff + m) / s_left), s_left^2 = rounds_after*39^2 + 8^2
+  (39 = one-round margin SD between tournament agents, panel-1
+  calibration; 8 = the final-round softness at the estimator's own
+  resolution), and selection, the sel_k gate and the override run on
+  that statistic unchanged; rounds 1-2 reduce to points except in
+  blowouts, the final round becomes a soft win step.  Panel replay: the
+  consistent objective flips 16-24% of final-round decisions and ~10% of
+  round-1/2 decisions -- a real estimand change, unlike win_q 1.
+  Reported q stays in points.
+  A = rollouth:data/best.bin:data/belief_best.bin:96:5:0.02:0:1:14:0:0:2:1:3:4:0:0:0:1:0:0:0:0:0:2:0:120:1:120
+  B = standing (as above).  seeds 6450-6499, same runner.
+  >= 52% adopt (report the string); 49.5-52% neutral (recorded; the
+  constants 39/8 get ONE variant at most, pre-registered separately);
+  < 49.5% negative.  Suite tripwire as above.
+Both gates run after V-ctl (seeds 6350-6399) finishes; identity of the
+standing side under the new binary is checked by replaying Bound U chunk
+6200 (must reproduce W/L/D 6/10/0, margin +5.94).
+Gate W result: pending
+Gate X result: pending

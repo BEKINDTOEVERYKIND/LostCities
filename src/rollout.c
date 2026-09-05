@@ -53,6 +53,41 @@ static int rank_moves(const Net *net, const State *s, Move *mv, float *score)
  * playouts repeat every knife-edge downstream decision identically across
  * paired worlds, which can manufacture large fake Q gaps with tiny paired
  * errors; sampling breaks that correlation. */
+/* win_q 2: the smooth match objective.  ROUND_SD is the standard deviation
+ * of one round's margin between tournament-strength agents (panel-1
+ * calibration 39-41 with one round left, 54-58 with two = ROUND_SD*sqrt2);
+ * FINAL_SD softens the last-round step to the estimator's own resolution
+ * (a hard step would be sharper than a 96-world paired SE of 2-4 points).
+ * Returns 100*P(match win) plus a 1e-4*margin tiebreak so decided rounds
+ * still resolve by points. */
+#define WINQ_ROUND_SD 39.0
+#define WINQ_FINAL_SD 8.0
+static double win_value(const State *st, int p, int m)
+{
+    int after = MATCH_ROUNDS - 1 - st->round;
+    if (after < 0) after = 0;
+    double s2 = (double)after * WINQ_ROUND_SD * WINQ_ROUND_SD + WINQ_FINAL_SD * WINQ_FINAL_SD;
+    double x = ((double)st->cum[p] - (double)st->cum[p ^ 1] + (double)m) / sqrt(s2);
+    return 100.0 * 0.5 * (1.0 + erf(x / sqrt(2.0))) + 1e-4 * (double)m;
+}
+
+/* sym_play: one random suit/wager-copy relabeling per world, drawn from the
+ * world's own seed so the sampled world stream is untouched. */
+static void world_frame(uint64_t wseed, uint8_t map[NCARD])
+{
+    Rng fr;
+    rng_seed(&fr, wseed ^ 0xD1B54A32D192ED03ULL);
+    int sp[NSUIT], wp[NSUIT][WAGERS_PER_SUIT];
+    lc_sym_relabel(&fr, 1, 0, sp, wp);
+    lc_perm_map(sp, wp, map);
+}
+static Move move_in_frame(Move m, const uint8_t map[NCARD])
+{
+    uint16_t pk = lc_permute_pack(MOVE_PACK(m), map);
+    Move r = { MOVE_CARD(pk), MOVE_DISC(pk), MOVE_DRAW(pk) };
+    return r;
+}
+
 static int playout(const Net *net, State *s, int p, int prune, Rng *srng,
                    double *winpts)
 {
@@ -568,8 +603,8 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         }
     }
 
-    double sum[MAX_CAND], sumw[MAX_CAND];
-    for (int i = 0; i < neval; i++) { sum[i] = 0.0; sumw[i] = 0.0; }
+    double sum[MAX_CAND], sumw[MAX_CAND], sump[MAX_CAND];   /* sump: points, for reporting */
+    for (int i = 0; i < neval; i++) { sum[i] = 0.0; sumw[i] = 0.0; sump[i] = 0.0; }
     const int p = st->turn;
     int reps = a->dets > 0 ? a->dets : 1;
     int lastround = st->round == MATCH_ROUNDS - 1;
@@ -600,17 +635,21 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             State world;
             sample_world(a, st, p, rng, &world);
             uint64_t wseed = 0x9E3779B97F4A7C15ULL * (uint64_t)(d + 1) ^ rng->s[0];
+            uint8_t frame[NCARD];
+            if (a->sym_play) { world_frame(wseed, frame); lc_permute(&world, frame); }
             for (int c = 0; c < neval; c++) {
                 if (!alive[c]) continue;     /* sel_deep=2: dropped after batch 1 */
                 State s = world;             /* same world for every candidate */
-                lc_apply(&s, mv[order[c]]);
+                lc_apply(&s, a->sym_play ? move_in_frame(mv[order[c]], frame) : mv[order[c]]);
                 double w;
                 Rng pr;
                 if (a->playout_sample) rng_seed(&pr, wseed);   /* same seed per world */
                 int m = playout(a->net_p ? a->net_p : a->net, &s, p, a->prune_dom,
                                 a->playout_sample ? &pr : NULL, &w);
-                if (val) val[(size_t)c * vstride + d] = m;
-                sum[c] += m;
+                double x = a->win_q >= 2 ? win_value(st, p, m) : (double)m;
+                if (val) val[(size_t)c * vstride + d] = x;
+                sum[c] += x;
+                sump[c] += m;
                 if (w >= 0.0) sumw[c] += w;
             }
         }
@@ -674,7 +713,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
      * wins with margin as the tiebreak -- a 5% shot at stealing the match
      * outranks a certain narrow loss regardless of expected points.  In
      * earlier rounds margin is all a round-end playout can know. */
-    int usew = lastround && a->win_q;
+    int usew = lastround && a->win_q == 1;   /* win_q 2 scores every world instead */
     /* prior-aware selection (prior_w0/w1): candidates compete on
      * EV + lambda(ply)*log(prior), so the EV edge needed to overrule the
      * policy grows with the prior gap -- log(p_top/p_cand) is ~3.2 nats for
@@ -823,11 +862,14 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                     Rng r1, r2;
                     rng_seed(&r1, wseed);
                     rng_seed(&r2, wseed);
+                    uint8_t cfr[NCARD];
+                    if (a->sym_play) { world_frame(wseed, cfr); lc_permute(&world, cfr); }
                     State sa = world, sb = world;
-                    lc_apply(&sa, mv[order[best]]);
-                    lc_apply(&sb, mv[order[elig]]);
-                    ds += playout(a->net_p ? a->net_p : a->net, &sa, p, a->prune_dom, &r1, NULL)
-                        - playout(a->net_p ? a->net_p : a->net, &sb, p, a->prune_dom, &r2, NULL);
+                    lc_apply(&sa, a->sym_play ? move_in_frame(mv[order[best]], cfr) : mv[order[best]]);
+                    lc_apply(&sb, a->sym_play ? move_in_frame(mv[order[elig]], cfr) : mv[order[elig]]);
+                    int ma = playout(a->net_p ? a->net_p : a->net, &sa, p, a->prune_dom, &r1, NULL);
+                    int mb = playout(a->net_p ? a->net_p : a->net, &sb, p, a->prune_dom, &r2, NULL);
+                    ds += a->win_q >= 2 ? win_value(st, p, ma) - win_value(st, p, mb) : (double)(ma - mb);
                 }
                 if (getenv("LC_OV_DEBUG"))
                     fprintf(stderr, "[ov] confirm best %d vs elig %d: sampled ds %.2f need >=%.2f: %s\n",
@@ -837,13 +879,13 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
             }
         }
     }
-    float bestq = (float)(sum[best] / nrep[best]);
+    float bestq = (float)(sump[best] / nrep[best]);   /* points even under win_q 2 */
     if (stats) {
         stats->n = neval;
         for (int c = 0; c < neval; c++) {
             stats->mv[c] = mv[order[c]];
             stats->visits[c] = nrep[c];
-            stats->q[c] = sum[c] / nrep[c];
+            stats->q[c] = sump[c] / nrep[c];   /* points even under win_q 2 */
             stats->qw[c] = lastround ? sumw[c] / nrep[c] : -1.0;
             stats->prio[c] = prob[order[c]];
             double v = 0.0;
