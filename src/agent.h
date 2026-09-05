@@ -222,6 +222,14 @@ typedef struct Agent {
                            to bound what any hand-inference improvement
                            could deliver at the current search (see
                            data/probes/omni_bound_2026-09-05.txt).  0 = off. */
+    const Net *net_p;   /* AG_ROLLOUT (spec field 29, after omni): a net used
+                           ONLY inside the playouts (the greedy/sampled
+                           continuations of both seats in every world).  The
+                           root keeps a->net for priors, candidates and the
+                           displayed value, so the evaluated set is unchanged
+                           and only the estimator's leaves move.  Path, or
+                           "0"/absent = the main net (bit-identical to before
+                           the field existed). */
     int bel_samp;       /* AG_ROLLOUT (spec field 26): belief world sampler.
                            0 = Gumbel-top-k on the belief logits (the
                            original path, a Plackett-Luce draw whose

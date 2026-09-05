@@ -607,7 +607,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                 double w;
                 Rng pr;
                 if (a->playout_sample) rng_seed(&pr, wseed);   /* same seed per world */
-                int m = playout(a->net, &s, p, a->prune_dom,
+                int m = playout(a->net_p ? a->net_p : a->net, &s, p, a->prune_dom,
                                 a->playout_sample ? &pr : NULL, &w);
                 if (val) val[(size_t)c * vstride + d] = m;
                 sum[c] += m;
@@ -826,8 +826,8 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                     State sa = world, sb = world;
                     lc_apply(&sa, mv[order[best]]);
                     lc_apply(&sb, mv[order[elig]]);
-                    ds += playout(a->net, &sa, p, a->prune_dom, &r1, NULL)
-                        - playout(a->net, &sb, p, a->prune_dom, &r2, NULL);
+                    ds += playout(a->net_p ? a->net_p : a->net, &sa, p, a->prune_dom, &r1, NULL)
+                        - playout(a->net_p ? a->net_p : a->net, &sb, p, a->prune_dom, &r2, NULL);
                 }
                 if (getenv("LC_OV_DEBUG"))
                     fprintf(stderr, "[ov] confirm best %d vs elig %d: sampled ds %.2f need >=%.2f: %s\n",
