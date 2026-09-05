@@ -22,4 +22,11 @@ held-out correction CE is below 1.645 by >= 0.03 (17x the 3-seed spread);
 a train-CE drop with flat held-out CE is memorization and counts as a
 kill.  No gate is pre-registered: a passing R1 enters the Gate-Y pipeline
 (20k raw pin, root-channel count) as another candidate net, nothing more.
-Result: pending
+Result (2026-09-05 05:52 UTC, 8 iterations, --threads 2 beside the pool run):
+  R1 held-out correction CE by iteration: 1.838 1.745 1.714 1.699 1.687
+  1.669 1.669 1.644 1.638; control (c23_v6 line, same split/order): it8 1.645.
+  Difference at it8: 0.007 -- under the 0.03 line by 4x.  Rest-class
+  top-1 drift identical (86.0% vs 86.0%).  KILL: label-limited, not
+  capacity-limited.  Sixty freshly trainable trunk units, given the same
+  labels, learn nothing the dead net could not; the "larger trunk" lever
+  is measured flat at this corpus.  data/c20_rev_r1.bin is not a candidate.
