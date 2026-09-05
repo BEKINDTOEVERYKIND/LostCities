@@ -379,7 +379,10 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
         /* labeling mode: one root solve per world, vote for the PV move
          * (see agent.h solve_vote).  Worlds that exhaust the shared budget
          * don't vote; too few completed worlds falls through to search. */
-        if (a->solve_vote) {
+        static int sdbg = -1;
+        if (sdbg < 0) sdbg = getenv("LC_SOLVE_DEBUG") != NULL;
+        const long sb0 = sbudget;
+        if (a->solve_vote == 1) {
             int votes[MAX_MOVES];
             double vsum[MAX_MOVES];
             for (int i = 0; i < n; i++) { votes[i] = 0; vsum[i] = 0.0; }
@@ -405,6 +408,8 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                 }
                 if (idx >= 0) { votes[idx]++; vsum[idx] += v; done++; }
             }
+            if (sdbg) fprintf(stderr, "[solve] vote deck %d nply %d worlds %d done %d %s nodes %ld\n",
+                              st->deck_left, st->nply, vreps, done, done >= 3 ? "COMPLETED" : "FALLTHROUGH", sb0 - sbudget);
             if (done >= 3) {
                 int vb = 0;
                 for (int i = 1; i < n; i++)
@@ -431,6 +436,26 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
              * finish 3 root solves it cannot finish n x worlds solves) */
         } else {
             int solved = 1;
+            /* solve_vote 2: price only the tournament candidate set (the
+             * policy's top root_width moves at or above the floor) instead
+             * of every legal move -- the same budget then completes far
+             * more decisions */
+            int inset[MAX_MOVES], npriced = 0;
+            for (int i = 0; i < n; i++) inset[i] = 1;
+            if (a->solve_vote == 2) {
+                for (int i = 0; i < n; i++) inset[i] = 0;
+                for (int k = 0; k < a->root_width; k++) {
+                    int b = -1;
+                    for (int i = 0; i < n; i++)
+                        if (!inset[i] && prob[i] >= a->cand_floor && (b < 0 || prob[i] > prob[b])) b = i;
+                    if (b < 0) break;
+                    inset[b] = 1;
+                }
+                int top = 0;
+                for (int i = 1; i < n; i++) if (prob[i] > prob[top]) top = i;
+                inset[top] = 1;
+            }
+            for (int i = 0; i < n; i++) npriced += inset[i];
             /* in the final round the match objective is WINS, not margin: an
              * exact +5 that still loses the match must not beat an exact +12
              * that wins it.  Solved values are noise-free, so the lexicographic
@@ -444,6 +469,7 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                 State world;
                 sample_world(a, st, sp, rng, &world);
                 for (int i = 0; i < n; i++) {
+                    if (!inset[i]) continue;
                     State s = world;
                     lc_apply(&s, mv[i]);
                     int sm = lc_solve_budget(&s, sp, &sbudget);
@@ -453,9 +479,13 @@ Move rollout_move(const struct Agent *a, const State *st, Rng *rng,
                     if (sbudget <= 0) { solved = 0; break; }
                 }
             }
+            if (sdbg) fprintf(stderr, "[solve] avg deck %d nply %d legal %d priced %d worlds %d %s nodes %ld\n",
+                              st->deck_left, st->nply, n, npriced, sreps, solved ? "COMPLETED" : "FALLTHROUGH", sb0 - sbudget);
             if (solved) {
-                int sbest = 0;
-                for (int i = 1; i < n; i++) {
+                int sbest = -1;
+                for (int i = 0; i < n; i++) if (inset[i]) { sbest = i; break; }
+                for (int i = sbest + 1; i < n; i++) {
+                    if (!inset[i]) continue;
                     if (slast) {
                         if (swin[i] > swin[sbest] ||
                             (swin[i] == swin[sbest] && ssum[i] > ssum[sbest])) sbest = i;

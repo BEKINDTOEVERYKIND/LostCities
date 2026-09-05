@@ -96,7 +96,12 @@ typedef struct Agent {
                            a monotone threshold on margin), so the final
                            round needs no special case.  Worlds that blow
                            the budget don't vote; fewer than 3 completed
-                           worlds falls through to the normal search. */
+                           worlds falls through to the normal search. 
+                           2 = per-move exact averaging restricted to the
+                           tournament candidate set (top root_width at or
+                           above cand_floor) instead of every legal move.
+                           LC_SOLVE_DEBUG=1 logs completion / fall-through
+                           per decision on stderr. */
     int playout_sample; /* AG_ROLLOUT: sample the policy in playouts instead
                            of argmaxing it (common per-world seeds keep the
                            candidate comparison paired).  Argmax repeats

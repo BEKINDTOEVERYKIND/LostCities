@@ -1,0 +1,29 @@
+Solve-block completion (round-3 panel rank 5), declared 2026-09-05 05:50 UTC
+before running
+==========================================================================
+Premise: the recorded solver arms (per-move exact averaging at deck <= 5
+with a 60M-node budget: 49.2%; solver vote: 47.1%) may never have
+completed a deck-4/5 decision -- the block prices EVERY legal move (up to
+~54) x 32 worlds under one budget and falls through to the normal search
+silently on exhaustion (src/rollout.c solve block; no counter existed).
+Instrument: LC_SOLVE_DEBUG=1 logs one line per solve decision (deck, ply,
+legal moves, moves priced, worlds, COMPLETED/FALLTHROUGH, nodes used).
+New mode solve_vote 2 prices only the tournament candidate set (top
+root_width at or above cand_floor) -- the same budget then completes far
+more decisions.  Smoke (one pair): a deck-4 decision with 54 legal moves
+completed at 51M nodes; a deck-5 decision with 40 legal moves fell through
+at the 60M cap; candidate-only decisions at deck 5 completed in 18M.
+Diagnostic (single core, seed 20260907, 5 paired self-play matches per
+configuration, string = standing with fields 14-18 replaced):
+  all60  = solve_deck 5, solve_vote 0, solve_budget 60  (the recorded arm)
+  cand40 = solve_deck 5, solve_vote 2, solve_budget 40
+  cand100= solve_deck 5, solve_vote 2, solve_budget 100
+Readouts: completion rate by deck (3, 4, 5) per configuration; nodes used.
+Readings (pre-stated): if all60's deck-4 completion is < 50%, the recorded
+"exact deck <= 5" arms measured deck-3 exactness only and the README is
+corrected; the direction reopens only on a candidates-only completion
+>= 50% at deck 4-5, and then only through a 104-game pilot (seeds
+6800-6812; margin >= +3 AND wins >= 50% funds a gate on a later block).
+The flip rate against the standing pick is NOT measured here (no
+side-by-side replay in the runner); recorded as not measured.
+Result: pending
