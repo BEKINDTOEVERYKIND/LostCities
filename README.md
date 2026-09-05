@@ -1093,6 +1093,27 @@ over 8 iterations) -- the first corrections corpus with measurable
 generalizable signal since c17.  Record:
 `data/probes/gen7_labeler_2026-09-04.txt`.
 
+*What that signal is worth, measured three times.*  The gen-7 net
+reads **52.8% / 52.6% +/- 1.6 raw** vs c20 (v5 and v6 input layouts,
+margins +3.5 / +4.4 points per game); doubling the confirmed corpus
+reads 49.4% / 51.6% with margins +3.8 / +7.0 (more points, fewer
+wins); a gen-8 corpus mined with the win-aware labeler (`mine --winq`)
+reads **52.7% / 52.9%**, margins +4.4 / +4.7.  All three sit on the
+same plateau, about +2.5-3 points of raw win rate, below the 54% raw
+read that earns an 800-game search gate (the record's raw-to-search
+ratio: the x-head's 51.0% raw became 49.25% under search; c18's 53.5%
+raw became 51.9%).  The win-aware flag changed almost nothing because
+the engine's `win_q` only swaps the final-round pick among candidates
+that already cleared the margin-based selection gate, and a round-end
+playout in rounds 1-2 knows nothing but points -- so every correction
+is still graded by expected margin, and the corpus keeps pulling a
+win-trained champion toward point play.  Making the labels win-graded
+before the final round needs a round-boundary value (the match win
+probability given the score state after the round), which is a
+search-estimator question, not a labeler flag.  The corrections
+direction is parked at this yield; the candidates stay on disk
+(`data/c21_cand.bin`, `data/c21f_cand.bin`, gen-8's `c23_*_cand.bin`).
+
 *Distillation on the agent's own play distribution* was built and
 killed at its pre-test (50% of its qualifiers flip on a fresh batch
 against a 35% rule; `data/probes/distill_2026-09-04.txt`).

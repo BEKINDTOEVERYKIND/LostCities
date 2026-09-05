@@ -174,4 +174,28 @@ engine's usew path) instead of margin; rounds 1-2 keep the margin
 objective (cumulative score).  400 games seed 20260908 -> corr23,
 confirm, merge with the anchor only (to isolate the objective), train
 v5 and v6 lines, raw arenas; >= 54% -> Gate Q.
-Gen-8 result: pending
+Gen-8 result (2026-09-05 01:17 UTC):
+  mine: 400 games, 57386 plies, 28883 flagged (50.3%), 1404 corrected (4.9% of flagged), 5574 hedged (gated lead under the points floor, not written)
+  (the class mix and the labeled-lead distribution are within noise of
+  gen-7's: 1,404 vs 1,413 corrections, median lead 5.40 vs 5.28 points)
+  confirm (seed 779): 711 of 1,404 kept (50.6%); fresh lead of the stored move over candidate 0, confirmed set (711): median 5.66, share >= 2: 100%, share >= 4: 74%
+  corr23a = anchor_c20 + corr23c; both lines 16 iterations, --holdout 0.1,
+  checkpoint = held-out correction CE minimum (both it14):
+  v5 line: held-out corr CE 1.838 -> 1.616; raw vs c20 (seed 5795):
+    W/L/D 525/471/4   score 52.7% +- 1.6% (paired SE 1.1%); margin/game +4.38 +- 1.27
+  v6 line: held-out corr CE 1.838 -> 1.602; raw vs c20 (seed 5795):
+    W/L/D 528/470/2   score 52.9% +- 1.6% (paired SE 1.2%); margin/game +4.74 +- 1.34
+  Neither reaches the 54% bar; no Gate Q.  Reading: the win-aware
+  labeler changed almost nothing upstream -- in the engine win_q only
+  swaps the final-round PICK among candidates that already cleared the
+  margin-based sel_k gate (src/rollout.c: "the gate is on margins even
+  in win_q mode"), and rounds 1-2 keep the margin objective because a
+  round-end playout knows nothing else.  So gen-8 is a third
+  independent read of the same labeler: 52.7% / 52.9% raw, margin
+  +4.4 / +4.7 -- the same +2.5-3 point raw win-rate plateau as gen-7
+  (52.8% / 52.6%).  A points-graded labeler cannot deliver a
+  win-graded corpus; making it win-graded in rounds 1-2 needs a
+  round-boundary value (P(match win | score state after the round)),
+  which is a search-estimator change, not a labeler flag.  The
+  corrections direction is parked at this yield; candidates kept:
+  data/c23_v5_cand.bin, data/c23_v6_cand.bin (ignored unless promoted).
