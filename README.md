@@ -1146,6 +1146,9 @@ the string itself did not change.  A net whose raw edge is +2 points
 carried +3 at the search level -- the raw-to-search ratio the record
 had inferred from three earlier nets does not hold for this one, and
 raw strength orders search-level effect in neither direction.
+Pool tripwire on the new champion (`data/probes/pool_c21_2026-09-05.txt`):
+big1 61.8%, s2 63.5%, sym1 62.0%, oldbest 78.0%, raw policy 99.0%,
+heuristic 100% -- every opponent within 2 SE of the baseline, no hold.
 
 *How much is the hidden hand worth?*  A measurement-only world sampler
 (`Agent.omni`, the spec field after `sym_bel`; never deployable) gives
