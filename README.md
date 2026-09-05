@@ -1166,6 +1166,11 @@ and the honest reading of such a pass is "worth another 800 games", not
 "adopted".  A two-stage rule (a 49.5-52% read with a margin lead earns
 one pre-registered second block, pooled rate >= 52%) is proposed to the
 owner, not applied.
+The same check on the new champion (`Replicate Y`,
+`data/probes/replicate_y_2026-09-05.txt`, 1,600 fresh games, new vs
+previous champion): **51.44% +/- 0.97**, margin +1.69 +/- 1.07 -- a real
+but small edge, about half the 53.12% the adopting gate read; pooled over
+all 2,400 games, 52.0%.  The adoption stands, reported as shrunken.
 
 *How much is the hidden hand worth?*  A measurement-only world sampler
 (`Agent.omni`, the spec field after `sym_bel`; never deployable) gives

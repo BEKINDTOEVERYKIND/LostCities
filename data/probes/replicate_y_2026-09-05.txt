@@ -18,4 +18,15 @@ Pre-stated readings:
              proposal to revert data/best.bin to best_pre_c21.bin -- the
              revert is the owner's call, since the adoption followed their
              rule as written.
-Result: pending
+Result (2026-09-05 13:19 UTC, 37.4 s/chunk):
+  W/L/D 819/773/8  score 51.44% +/- 2.45 (95% CI); paired margin +1.69 +/- 1.07 pts/game; points/game 114.60 vs 112.91; chunks 100 per-pair: 800 pairs, win score 51.44% +/- 0.97 (pooled paired SE); margin/pair +1.69 +/- 1.13 pts/game; pairs at exactly 0.5: 552 
+  (552 of 800 coupled pairs split 1-1: on two thirds of the deals the two
+  nets reach the same outcome.)
+Reading (pre-stated band 50.5-52.0): SHRUNKEN.  The edge is real but
+small -- 51.44% +/- 0.97 is 1.5 SE above parity with the margin +1.69 +/-
+1.07 agreeing in sign -- and the 800-game read of 53.12% was the usual
+winner's-curse inflation of a true ~+1.5.  Pooled over all 2,400 games:
+52.0%.  The adoption stands by the owner's rule (Gate Y cleared it as
+written) and is reported as shrunken.  Compare Replicate R: the sampler's
+52.56% pass replicated at 49.09% (nothing there); this net's 53.12%
+replicated at 51.44% (something there, smaller than read).
